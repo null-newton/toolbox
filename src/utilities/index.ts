@@ -14,6 +14,7 @@ import {
   videoEditorIcon,
   boardGameIcon,
   solarRoofIcon,
+  fileTransferIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -29,6 +30,17 @@ import {
 //     import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
 //   ),
 // })
+
+registerUtility({
+  id: 'file-transfer',
+  name: 'File Transfer',
+  description: 'Upload a file and share it with a private link, with an optional password.',
+  icon: fileTransferIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./file-transfer/FileTransfer').then((m) => ({ default: m.FileTransfer }))
+  ),
+})
 
 registerUtility({
   id: 'route-optimizer',

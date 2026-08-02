@@ -1,5 +1,5 @@
 // HashRouter so deep links survive refresh on GitHub Pages (no rewrite rules there).
-import { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { useAuth } from './auth/auth-context'
@@ -13,6 +13,10 @@ import { getUtility } from './utilities/registry'
 import { useT } from './i18n/LanguageContext'
 import { LanguageProvider } from './i18n/LanguageProvider'
 import './utilities' // registers all utilities
+
+const FileTransfer = lazy(() =>
+  import('./utilities/file-transfer/FileTransfer').then((module) => ({ default: module.FileTransfer }))
+)
 
 function UtilityPage() {
   const { user } = useAuth()
@@ -46,6 +50,14 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route
+          path="/transfer/:transferId"
+          element={
+            <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
+              <FileTransfer />
+            </Suspense>
+          }
+        />
         <Route path="/tools/:utilityId" element={<UtilityPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

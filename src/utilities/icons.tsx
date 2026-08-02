@@ -23,6 +23,7 @@ import {
   Film,
   Dices,
   SunMedium,
+  Send,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -38,3 +39,4 @@ export const memeStudioIcon = <Laugh className="size-5" />
 export const videoEditorIcon = <Film className="size-5" />
 export const boardGameIcon = <Dices className="size-5" />
 export const solarRoofIcon = <SunMedium className="size-5" />
+export const fileTransferIcon = <Send className="size-5" />

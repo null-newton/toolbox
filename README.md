@@ -52,6 +52,11 @@ tool that needs new backend functionality: add the function in the
 with its `deploy.sh` (pull + restart). Full workflow and how-to-add-a-function
 are in that repo's README.
 
+The account-free File Transfer utility always uses this self-hosted backend. It
+stores anonymous, expiring transfers on the server's local disk; configure a
+persistent writable `FILE_TRANSFER_DIR` on the fileserver as documented in the
+backend README.
+
 The Stock Tracker has three interchangeable data providers, picked per user in
 the utility. The functions need no secrets — each user brings their own key,
 saved to their account config (RLS-protected) and forwarded to the function per

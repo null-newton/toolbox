@@ -9,6 +9,16 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'file-transfer': {
+    en: {
+      name: 'File Transfer',
+      description: 'Upload a file and share it with a private link, with an optional password.',
+    },
+    nl: {
+      name: 'Bestandsoverdracht',
+      description: 'Upload een bestand en deel het via een privélink, eventueel met een wachtwoord.',
+    },
+  },
   'text-case': {
     en: {
       name: 'Text Case Converter',
