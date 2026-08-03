@@ -9,6 +9,16 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'image-upscaler': {
+    en: {
+      name: 'AI Image Upscaler',
+      description: 'Enlarge photos and illustrations by 2×, 3× or 4× with self-hosted AI.',
+    },
+    nl: {
+      name: 'AI-afbeeldingsvergroter',
+      description: 'Vergroot foto’s en illustraties 2×, 3× of 4× met zelf-gehoste AI.',
+    },
+  },
   'file-transfer': {
     en: {
       name: 'File Transfer',

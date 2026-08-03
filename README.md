@@ -57,6 +57,11 @@ stores anonymous, expiring transfers on the server's local disk; configure a
 persistent writable `FILE_TRANSFER_DIR` on the fileserver as documented in the
 backend README.
 
+The account-free AI Image Upscaler also requires the self-hosted backend. It
+streams images to a temporary anonymous job and runs the official Real-ESRGAN
+NCNN Vulkan engine. Install the binary/models and configure the backend as
+documented in its `IMAGE_UPSCALER.md`; inputs and results expire automatically.
+
 The Stock Tracker has three interchangeable data providers, picked per user in
 the utility. The functions need no secrets — each user brings their own key,
 saved to their account config (RLS-protected) and forwarded to the function per

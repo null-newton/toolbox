@@ -15,6 +15,7 @@ import {
   boardGameIcon,
   solarRoofIcon,
   fileTransferIcon,
+  imageUpscalerIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -30,6 +31,17 @@ import {
 //     import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
 //   ),
 // })
+
+registerUtility({
+  id: 'image-upscaler',
+  name: 'AI Image Upscaler',
+  description: 'Enlarge photos and illustrations by 2×, 3× or 4× with self-hosted AI.',
+  icon: imageUpscalerIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./image-upscaler/ImageUpscaler').then((m) => ({ default: m.ImageUpscaler }))
+  ),
+})
 
 registerUtility({
   id: 'file-transfer',
