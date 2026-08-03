@@ -190,7 +190,7 @@ export function ImageUpscaler() {
   const requestRef = useRef<XMLHttpRequest | null>(null)
   const sourceUrlRef = useRef<string | null>(null)
   const [source, setSource] = useState<SourceImage | null>(null)
-  const [scale, setScale] = useState<2 | 3 | 4>(2)
+  const [scale, setScale] = useState<2 | 4>(2)
   const [model, setModel] = useState<Model>('photo')
   const [format, setFormat] = useState<OutputFormat>('same')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -450,8 +450,8 @@ export function ImageUpscaler() {
           <aside className="glass flex flex-col rounded-3xl p-5 sm:p-6">
             <div>
               <div className="flex items-end justify-between"><div><label className="text-sm font-bold text-white">{t.scale}</label><p className="mt-1 text-xs text-slate-500">{t.scaleHint}</p></div><Maximize2 className="size-4 text-indigo-300" /></div>
-              <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-black/20 p-1.5">
-                {([2, 3, 4] as const).map((value) => (
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-black/20 p-1.5">
+                {([2, 4] as const).map((value) => (
                   <button key={value} type="button" disabled={isWorking} onClick={() => setScale(value)} className={`rounded-xl py-2.5 text-sm font-bold ${scale === value ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>{value}×</button>
                 ))}
               </div>
