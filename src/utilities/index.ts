@@ -16,6 +16,7 @@ import {
   solarRoofIcon,
   fileTransferIcon,
   imageUpscalerIcon,
+  backgroundRemoverIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -31,6 +32,17 @@ import {
 //     import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
 //   ),
 // })
+
+registerUtility({
+  id: 'background-remover',
+  name: 'Background Remover',
+  description: 'Remove image and video backgrounds locally with open-source AI.',
+  icon: backgroundRemoverIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./background-remover/BackgroundRemover').then((m) => ({ default: m.BackgroundRemover }))
+  ),
+})
 
 registerUtility({
   id: 'image-upscaler',
