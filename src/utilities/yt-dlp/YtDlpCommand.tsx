@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
@@ -25,6 +25,15 @@ import { functionsBase } from '../../lib/supabase'
  */
 
 type Mode = 'video' | 'audio'
+
+const CURRENT_RELEASE = '2026.07.04'
+const RELEASE_CACHE_KEY = 'toolbox:yt-dlp:latest-release'
+const RELEASE_CACHE_TTL = 6 * 60 * 60 * 1000
+
+type ReleaseCache = {
+  tag: string
+  checkedAt: number
+}
 
 type Options = {
   mode: Mode
@@ -78,14 +87,17 @@ const VIDEO_QUALITIES: { id: string; label: string }[] = [
 
 const AUDIO_FORMATS: { id: string; label: string }[] = [
   { id: 'mp3', label: 'MP3' },
-  { id: 'm4a', label: 'M4A / AAC' },
+  { id: 'm4a', label: 'M4A' },
+  { id: 'aac', label: 'AAC' },
+  { id: 'alac', label: 'ALAC' },
   { id: 'opus', label: 'Opus' },
+  { id: 'vorbis', label: 'Vorbis' },
   { id: 'flac', label: 'FLAC' },
   { id: 'wav', label: 'WAV' },
   { id: 'best', label: 'Best (no convert)' },
 ]
 
-// A small, recognizable subset of the 1800+ sites yt-dlp can extract from.
+// A small, recognizable subset of the thousands of sites yt-dlp supports.
 // The full, authoritative list lives on the yt-dlp supported-sites page.
 const POPULAR_SITES: string[] = [
   'YouTube',
@@ -109,12 +121,21 @@ const BROWSERS: { id: string; label: string }[] = [
   { id: 'edge', label: 'Edge' },
   { id: 'safari', label: 'Safari' },
   { id: 'brave', label: 'Brave' },
+  { id: 'chromium', label: 'Chromium' },
+  { id: 'opera', label: 'Opera' },
+  { id: 'vivaldi', label: 'Vivaldi' },
+  { id: 'whale', label: 'Whale' },
 ]
 
 const STR = {
   en: {
     loading: 'Loading your settings…',
     title: 'Video Downloader',
+    builtFor: 'Built for',
+    updateAvailable: 'Compatibility update available',
+    updateNoticeBefore: 'This page targets yt-dlp ',
+    updateNoticeBetween: ', but the latest stable release is ',
+    updateNoticeAfter: '. Most commands should still work, but the page may need updating.',
     introBefore: 'Pick your options, then hit download — the server runs ',
     introAfter:
       ' for you and sends the file straight to your device. Prefer to run it yourself? Copy the ready-to-run command instead.',
@@ -168,20 +189,26 @@ const STR = {
     copied: 'Copied!',
     enterUrlHint: 'Enter a URL above to drop it into the command.',
     firstTime: 'First time?',
-    installBefore: 'Install yt-dlp first — e.g. ',
-    installMacos: ' (macOS), ',
-    installAnyOs: ' (any OS), or grab a binary from the ',
+    installBefore: 'Install or update yt-dlp — e.g. ',
+    installMacos: ' (macOS / Linux), ',
+    installAnyOs: ' (Python 3.11+ recommended), or grab an official binary from the ',
     releasesPage: 'releases page',
-    installAfter: '. Audio conversion and embedding also need ',
-    installFfmpeg: ' installed. Only download content you have the right to.',
+    installAfter: '. Full YouTube support also needs a JavaScript runtime such as ',
+    installFfmpegBefore: '; conversion, merging and embedding need ',
+    installFfmpeg: '. Only download content you have the right to.',
     supportedSites: 'Supported sites',
     supportedSitesIntro:
-      'Works with YouTube and over 1,800 other sites — a few popular ones:',
+      'Works with YouTube and thousands of other sites — a few popular ones:',
     fullListLink: 'See the full list of supported sites →',
   },
   nl: {
     loading: 'Je instellingen laden…',
     title: 'Video-downloader',
+    builtFor: 'Gebouwd voor',
+    updateAvailable: 'Compatibiliteitsupdate beschikbaar',
+    updateNoticeBefore: 'Deze pagina is gemaakt voor yt-dlp ',
+    updateNoticeBetween: ', maar de laatste stabiele versie is ',
+    updateNoticeAfter: '. De meeste commando’s werken nog, maar de pagina moet mogelijk worden bijgewerkt.',
     introBefore: 'Kies je opties en klik op downloaden — de server draait ',
     introAfter:
       ' voor jou en stuurt het bestand meteen naar je apparaat. Liever zelf uitvoeren? Kopieer dan het kant-en-klare commando.',
@@ -235,15 +262,16 @@ const STR = {
     copied: 'Gekopieerd!',
     enterUrlHint: 'Voer hierboven een URL in om die in het commando te plaatsen.',
     firstTime: 'Eerste keer?',
-    installBefore: 'Installeer eerst yt-dlp — bv. ',
-    installMacos: ' (macOS), ',
-    installAnyOs: ' (elk OS), of pak een binary van de ',
+    installBefore: 'Installeer of update yt-dlp — bv. ',
+    installMacos: ' (macOS / Linux), ',
+    installAnyOs: ' (Python 3.11+ aanbevolen), of pak een officiële binary van de ',
     releasesPage: 'releases-pagina',
-    installAfter: '. Audioconversie en insluiten vereisen ook ',
-    installFfmpeg: '. Download alleen content waarop je recht hebt.',
+    installAfter: '. Volledige YouTube-ondersteuning vereist ook een JavaScript-runtime zoals ',
+    installFfmpegBefore: '; voor conversie, samenvoegen en insluiten is ',
+    installFfmpeg: ' nodig. Download alleen content waarop je recht hebt.',
     supportedSites: 'Ondersteunde sites',
     supportedSitesIntro:
-      'Werkt met YouTube en meer dan 1.800 andere sites — enkele populaire:',
+      'Werkt met YouTube en duizenden andere sites — enkele populaire:',
     fullListLink: 'Bekijk de volledige lijst met ondersteunde sites →',
   },
 }
@@ -280,38 +308,34 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`
 }
 
-/** Build the `-f` format selector for the chosen video quality. */
-function videoFormat(quality: string, forceMp4: boolean): string {
-  if (quality === 'best') {
-    return forceMp4
-      ? 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
-      : 'bestvideo+bestaudio/best'
-  }
-  const h = `[height<=${quality}]`
-  return forceMp4
-    ? `bestvideo${h}[ext=mp4]+bestaudio[ext=m4a]/best${h}[ext=mp4]/best${h}`
-    : `bestvideo${h}+bestaudio/best${h}`
+function isNewerRelease(candidate: string, current: string): boolean {
+  const releasePattern = /^\d{4}\.\d{2}\.\d{2}$/
+  return releasePattern.test(candidate) && candidate.localeCompare(current) > 0
 }
 
-// yt-dlp's default YouTube client reports some DRM-locked videos as "not
-// available"; trying several clients recovers a downloadable fallback. The arg
-// is namespaced to youtube, so it's a harmless no-op for other sites.
-const YOUTUBE_CLIENTS = 'youtube:player_client=default,web,web_safari,android,ios'
+/** Build the `-f` format selector for the chosen video quality. */
+function videoFormat(quality: string): string {
+  if (quality === 'best') {
+    return 'bv*+ba/b'
+  }
+  const h = `[height<=${quality}]`
+  return `bv*${h}+ba/b${h}`
+}
 
 function buildCommand(o: Options, url: string): string {
   const args: string[] = ['yt-dlp']
-  args.push(`--extractor-args ${shellQuote(YOUTUBE_CLIENTS)}`)
 
   if (o.mode === 'audio') {
     args.push('-x') // --extract-audio
     if (o.audioFormat !== 'best') args.push(`--audio-format ${o.audioFormat}`)
     args.push('--audio-quality 0') // best within the chosen format
   } else {
-    args.push(`-f ${shellQuote(videoFormat(o.videoQuality, o.forceMp4))}`)
-    if (o.forceMp4) args.push('--merge-output-format mp4')
+    args.push(`-f ${shellQuote(videoFormat(o.videoQuality))}`)
+    // The upstream preset also prefers H.264/AAC and remuxes compatible files.
+    if (o.forceMp4) args.push('-t mp4')
   }
 
-  if (o.downloadSubs || o.autoSubs) {
+  if (o.downloadSubs || o.autoSubs || o.embedSubs) {
     if (o.downloadSubs) args.push('--write-subs')
     if (o.autoSubs) args.push('--write-auto-subs')
     args.push(`--sub-langs ${shellQuote(o.subLangs || 'en')}`)
@@ -321,7 +345,7 @@ function buildCommand(o: Options, url: string): string {
   if (o.embedThumbnail) args.push('--embed-thumbnail')
   if (o.embedMetadata) args.push('--embed-metadata')
   if (o.embedChapters) args.push('--embed-chapters')
-  if (o.sponsorblock) args.push('--sponsorblock-remove all')
+  if (o.sponsorblock) args.push('--sponsorblock-remove sponsor')
 
   // yt-dlp follows playlists by default when given a playlist/channel URL.
   args.push(o.playlist === 'full' ? '--yes-playlist' : '--no-playlist')
@@ -435,7 +459,46 @@ export function YtDlpCommand() {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [stage, setStage] = useState<string | null>(null)
   const [dlError, setDlError] = useState<string | null>(null)
+  const [latestRelease, setLatestRelease] = useState<string | null>(null)
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function checkLatestRelease() {
+      try {
+        const cached = JSON.parse(localStorage.getItem(RELEASE_CACHE_KEY) || 'null') as ReleaseCache | null
+        if (
+          cached &&
+          typeof cached.tag === 'string' &&
+          Date.now() - cached.checkedAt < RELEASE_CACHE_TTL
+        ) {
+          setLatestRelease(cached.tag)
+          return
+        }
+
+        const response = await fetch('https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest', {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+
+        const release = (await response.json()) as { tag_name?: unknown }
+        if (typeof release.tag_name !== 'string') return
+
+        const nextCache: ReleaseCache = { tag: release.tag_name, checkedAt: Date.now() }
+        localStorage.setItem(RELEASE_CACHE_KEY, JSON.stringify(nextCache))
+        setLatestRelease(release.tag_name)
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          // The version check is optional; downloading and command generation still work offline.
+        }
+      }
+    }
+
+    void checkLatestRelease()
+    return () => controller.abort()
+  }, [])
 
   if (loading) {
     return <p className="animate-pulse text-slate-400">{t.loading}</p>
@@ -443,6 +506,9 @@ export function YtDlpCommand() {
 
   const o = config
   const command = buildCommand(o, url)
+  const updateAvailable = latestRelease
+    ? isNewerRelease(latestRelease, CURRENT_RELEASE)
+    : false
   const busy =
     phase === 'starting' || phase === 'downloading' || phase === 'processing' || phase === 'saving'
 
@@ -576,8 +642,18 @@ export function YtDlpCommand() {
 
   return (
     <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+          <a
+            href={`https://github.com/yt-dlp/yt-dlp/releases/tag/${CURRENT_RELEASE}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-xs text-indigo-300 transition-colors hover:text-indigo-200"
+          >
+            {t.builtFor} · {CURRENT_RELEASE}
+          </a>
+        </div>
         <SaveStatus saving={saving} />
       </div>
       <p className="mt-2 text-slate-400">
@@ -592,6 +668,29 @@ export function YtDlpCommand() {
         </a>
         {t.introAfter}
       </p>
+
+      {updateAvailable && latestRelease && (
+        <div
+          role="status"
+          className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
+        >
+          <p className="font-medium">{t.updateAvailable}</p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-200/80">
+            {t.updateNoticeBefore}
+            {CURRENT_RELEASE}
+            {t.updateNoticeBetween}
+            <a
+              href={`https://github.com/yt-dlp/yt-dlp/releases/tag/${latestRelease}`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-amber-300/40 underline-offset-2 hover:text-white"
+            >
+              {latestRelease}
+            </a>
+            {t.updateNoticeAfter}
+          </p>
+        </div>
+      )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_minmax(300px,420px)]">
         <div className="min-w-0 space-y-6">
@@ -839,7 +938,7 @@ export function YtDlpCommand() {
               </code>
               {t.installMacos}
               <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white">
-                pipx install yt-dlp
+                python3 -m pip install -U &quot;yt-dlp[default]&quot;
               </code>
               {t.installAnyOs}
               <a
@@ -851,6 +950,10 @@ export function YtDlpCommand() {
                 {t.releasesPage}
               </a>
               {t.installAfter}
+              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white">
+                Deno 2.3+
+              </code>
+              {t.installFfmpegBefore}
               <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white">
                 ffmpeg
               </code>
