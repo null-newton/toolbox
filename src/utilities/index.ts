@@ -17,11 +17,23 @@ import {
   fileTransferIcon,
   imageUpscalerIcon,
   backgroundRemoverIcon,
+  weatherIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
 // Components are lazy-imported so each utility builds into its own chunk
 // and only loads when the user opens it.
+registerUtility({
+  id: 'weather',
+  name: 'Weather',
+  description: 'Current conditions, forecasts, saved cities, and historical median highs and lows.',
+  icon: weatherIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./weather/Weather').then((m) => ({ default: m.Weather }))
+  ),
+})
+
 // registerUtility({
 //   id: 'text-case',
 //   name: 'Text Case Converter',

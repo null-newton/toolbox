@@ -36,7 +36,8 @@ npx supabase functions deploy morningstar    # Stock Tracker (paid provider)
 #### Self-hosted backend (currently in use)
 
 These functions also run as a self-hosted backend — a zero-dependency Node
-server that ports all five, running on the fileserver machine and exposed via
+server that ports the edge functions and additional server-side utilities,
+running on the fileserver machine and exposed via
 its Cloudflare Tunnel at **`https://api.zacsvae.com/functions/v1`**. The frontend
 routes to it through the `VITE_FUNCTIONS_URL` repo Variable (falls back to the
 Supabase edge functions when unset). Auth and config storage stay on Supabase
@@ -61,6 +62,15 @@ The account-free AI Image Upscaler also requires the self-hosted backend. It
 streams images to a temporary anonymous job and runs the official Real-ESRGAN
 NCNN Vulkan engine. Install the binary/models and configure the backend as
 documented in its `IMAGE_UPSCALER.md`; inputs and results expire automatically.
+
+The Weather utility also uses the self-hosted backend. Open-Meteo provides place
+search plus current/hourly/10-day forecasts without a user API key. Its
+"Typical day" view uses NOAA GHCN-Daily station observations: the backend finds
+a suitable nearby station, reads its quality-controlled daily maximum/minimum
+record, and returns medians, an 80% range, records, and year-by-year values.
+Saved cities, last location, units, and the selected calendar day are stored in
+the existing Supabase `utility_configs` table with per-user RLS; weather data is
+not copied into Supabase.
 
 The Stock Tracker has three interchangeable data providers, picked per user in
 the utility. The functions need no secrets — each user brings their own key,

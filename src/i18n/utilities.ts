@@ -9,6 +9,16 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  weather: {
+    en: {
+      name: 'Weather',
+      description: 'Current conditions, forecasts, saved cities, and historical median highs and lows.',
+    },
+    nl: {
+      name: 'Weer',
+      description: 'Huidig weer, verwachtingen, bewaarde steden en historische mediane maxima en minima.',
+    },
+  },
   'image-upscaler': {
     en: {
       name: 'AI Image Upscaler',
