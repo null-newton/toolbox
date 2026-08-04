@@ -43,8 +43,13 @@ interface Props {
   initialCenter: LatLon
   initialZoom: number
   faces: Face[]
+  /** Finite ground polygon used by the 3D scene. */
+  workingArea: LatLon[]
+  /** User-defined installable polygons, keyed to their roof face. */
+  zones: { id: string; points: LatLon[]; active: boolean }[]
   /** The polygon currently being traced (not yet closed). */
   draft: LatLon[]
+  draftKind?: 'site' | 'roof' | 'zone' | 'ridge'
   /** Packed panel outlines (4 corners each), across all faces. */
   panels: LatLon[][]
   /** Shading obstacles to render. */
@@ -74,7 +79,10 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     initialCenter,
     initialZoom,
     faces,
+    workingArea,
+    zones,
     draft,
+    draftKind = 'roof',
     panels,
     obstacles,
     placing,
@@ -99,8 +107,30 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
   }))
 
   // Latest geometry/handlers for the draw loop and pointer logic.
-  const stateRef = useRef({ faces, draft, panels, obstacles, placing, onMapClick, onVertexMove })
-  stateRef.current = { faces, draft, panels, obstacles, placing, onMapClick, onVertexMove }
+  const stateRef = useRef({
+    faces,
+    workingArea,
+    zones,
+    draft,
+    draftKind,
+    panels,
+    obstacles,
+    placing,
+    onMapClick,
+    onVertexMove,
+  })
+  stateRef.current = {
+    faces,
+    workingArea,
+    zones,
+    draft,
+    draftKind,
+    panels,
+    obstacles,
+    placing,
+    onMapClick,
+    onVertexMove,
+  }
 
   const scheduleDraw = useCallback(() => {
     if (rafRef.current) return
@@ -187,7 +217,31 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       }
     }
 
-    const { faces: fs, draft: df, panels: pn, obstacles: ob } = stateRef.current
+    const {
+      faces: fs,
+      workingArea: wa,
+      zones: zs,
+      draft: df,
+      draftKind: dk,
+      panels: pn,
+      obstacles: ob,
+    } = stateRef.current
+
+    // Finite 3D working area. Everything outside it remains map context only.
+    if (wa.length >= 3) {
+      const pts = wa.map(toScreen)
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y)
+      ctx.closePath()
+      ctx.fillStyle = 'rgba(16,185,129,0.09)'
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(52,211,153,0.95)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([8, 5])
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
 
     // Roof faces.
     for (const face of fs) {
@@ -204,6 +258,23 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       ctx.stroke()
       for (const p of pts) dot(ctx, p.x, p.y, face.active ? '#c7d2fe' : '#7dd3fc')
       if (face.points.length >= 3) drawArrow(ctx, pts, face.azimuth, face.active)
+    }
+
+    // Explicit panel-placement zones sit above their parent roof faces.
+    for (const zone of zs) {
+      if (zone.points.length < 3) continue
+      const pts = zone.points.map(toScreen)
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y)
+      ctx.closePath()
+      ctx.fillStyle = zone.active ? 'rgba(16,185,129,0.28)' : 'rgba(16,185,129,0.18)'
+      ctx.fill()
+      ctx.strokeStyle = zone.active ? '#6ee7b7' : '#34d399'
+      ctx.lineWidth = zone.active ? 2.5 : 2
+      ctx.setLineDash([6, 3])
+      ctx.stroke()
+      ctx.setLineDash([])
     }
 
     // Packed panels.
@@ -243,16 +314,17 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       ctx.moveTo(pts[0].x, pts[0].y)
       for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y)
       ctx.lineWidth = 2
-      ctx.strokeStyle = '#fbbf24'
+      const draftColor = dk === 'site' || dk === 'zone' ? '#34d399' : dk === 'ridge' ? '#a5b4fc' : '#fbbf24'
+      ctx.strokeStyle = draftColor
       ctx.setLineDash([6, 4])
       ctx.stroke()
       ctx.setLineDash([])
       if (pts.length >= 3) {
         ctx.lineTo(pts[0].x, pts[0].y)
-        ctx.fillStyle = 'rgba(251,191,36,0.18)'
+        ctx.fillStyle = dk === 'site' || dk === 'zone' ? 'rgba(16,185,129,0.18)' : 'rgba(251,191,36,0.18)'
         ctx.fill()
       }
-      for (const p of pts) dot(ctx, p.x, p.y, '#fde68a')
+      for (const p of pts) dot(ctx, p.x, p.y, dk === 'site' || dk === 'zone' ? '#a7f3d0' : '#fde68a')
     }
 
     // North indicator + attribution.
@@ -276,7 +348,7 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     ctx.fillText('Imagery © Esri', 6, h - 6)
   }, [getTile])
 
-  useEffect(scheduleDraw, [view, faces, draft, panels, obstacles, scheduleDraw])
+  useEffect(scheduleDraw, [view, faces, workingArea, zones, draft, draftKind, panels, obstacles, scheduleDraw])
 
   useEffect(() => {
     const el = wrapRef.current

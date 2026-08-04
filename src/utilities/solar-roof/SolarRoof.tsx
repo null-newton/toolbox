@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Compass,
+  Box,
   LocateFixed,
   MapPin,
   Mountain,
@@ -16,6 +17,7 @@ import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { SlippyMap, type Face as MapFace, type SlippyMapHandle } from './SlippyMap'
+import { RoofModel3D } from './RoofModel3D'
 import {
   annualClearSkyPOA,
   bearing,
@@ -45,6 +47,8 @@ import {
 interface RoofFace {
   id: string
   points: LatLon[]
+  /** Optional user-defined part of this face where modules may be installed. */
+  panelZone?: LatLon[]
   tilt: number
   azimuth: number
   pvgis?: PvgisResult
@@ -52,6 +56,8 @@ interface RoofFace {
 
 type Config = {
   site: LatLon
+  /** Finite site polygon used as the 3D scene's ground plane. */
+  workingArea?: LatLon[]
   faces: RoofFace[]
   obstacles: Obstacle[]
   clearness: number
@@ -59,13 +65,14 @@ type Config = {
   costPerKWp: number
   priceKWh: number
   co2PerKWh: number
+  buildingHeight: number
 }
 
 const DEFAULT_CENTER: LatLon = { lat: 50.8503, lon: 4.3517 } // Brussels
 const PR = 0.82 // system performance ratio, matches estimateYield default
 const SYSTEM_LIFE = 25 // years, for lifetime savings
 
-type Mode = 'idle' | 'draw' | 'obstacle' | 'ridge'
+type Mode = 'idle' | 'site' | 'draw' | 'zone' | 'obstacle' | 'ridge'
 
 // --- i18n --------------------------------------------------------------------
 
@@ -73,7 +80,7 @@ const STR = {
   en: {
     title: 'Solar Roof Planner',
     intro:
-      'Find the best surface on a roof for solar panels. Search an address, trace each roof face, mark anything that shades it, set its slope and direction, and see the yearly sun, power and payback for each — and how many panels fit.',
+      'Find the best surface on a roof for solar panels. Search an address, bound the 3D working area, trace each roof face, then mark exactly where panels may be installed.',
     searchPlaceholder: 'Enter an address, e.g. Grote Markt, Brussels',
     search: 'Search',
     searching: 'Searching…',
@@ -82,13 +89,29 @@ const STR = {
     searchError: 'Search failed. Try again in a moment.',
     geoError: 'Could not get your location.',
     step1: 'Search an address to centre the map on the building. Then trace a roof face.',
+    selectArea: 'Select working area',
+    redrawArea: 'Redraw area',
+    finishArea: 'Finish working area',
+    areaHint:
+      'Click around the property to set the finite ground plane for the 3D model. Include the building and nearby shading objects.',
+    areaReady: '3D working area set',
     idleHint: 'Tip: drag a corner to reshape a face. Zoom with the wheel, buttons or pinch.',
     drawHint:
       'Click the corners of one roof face; close it when you have at least three points. Add a separate face for each slope of the roof.',
     obstacleHint:
       'Click to drop a tree or building that shades the roof. Set its height and size below. Click “Done” when finished.',
     ridgeHint: 'Click the two ends of this face’s ridge (its top edge) to set the direction it faces.',
+    zoneHint:
+      'Trace the usable panel area inside the selected roof face. Keep clear of chimneys, windows, ridges and roof edges.',
+    zoneOutside: 'Panel-zone points must stay inside the selected roof face.',
+    faceOutside: 'Roof-face points must stay inside the working area.',
     addFace: 'Trace a roof face',
+    drawZone: 'Draw panel zone',
+    replaceZone: 'Redraw panel zone',
+    clearZone: 'Use full roof face',
+    finishZone: 'Finish panel zone',
+    panelZone: 'Panel placement zone',
+    wholeFace: 'Whole face is available',
     addObstacle: 'Add shading obstacle',
     finishFace: 'Finish face',
     undoPoint: 'Undo point',
@@ -122,6 +145,7 @@ const STR = {
     noObstacles: 'None. Add trees or buildings that cast shade on the roof.',
     obstacle: (i: number) => `Obstacle ${i}`,
     height: 'Height',
+    buildingHeight: 'Wall / eave height',
     width: 'Size',
     assumptions: 'Assumptions',
     clearness: 'Average clearness (cloud cover)',
@@ -156,12 +180,15 @@ const STR = {
     kg: 'kg',
     perYearShort: '/yr',
     loading: 'Loading your saved plan…',
+    model3d: '3D building model',
+    model3dHint: 'Drag to orbit · scroll or pinch to zoom. Roof slope and direction update live.',
+    resetView: 'Reset view',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   },
   nl: {
     title: 'Zonnedak Planner',
     intro:
-      'Vind het beste dakvlak voor zonnepanelen. Zoek een adres, teken elk dakvlak, markeer wat er schaduw op werpt, stel helling en richting in, en bekijk per vlak de jaarlijkse zon, opbrengst en terugverdientijd — en hoeveel panelen passen.',
+      'Vind het beste dakvlak voor zonnepanelen. Zoek een adres, begrens het 3D-werkgebied, teken elk dakvlak en markeer daarna exact waar panelen mogen komen.',
     searchPlaceholder: 'Geef een adres in, bv. Grote Markt, Brussel',
     search: 'Zoeken',
     searching: 'Zoeken…',
@@ -170,13 +197,29 @@ const STR = {
     searchError: 'Zoeken mislukt. Probeer het zo dadelijk opnieuw.',
     geoError: 'Kon je locatie niet ophalen.',
     step1: 'Zoek een adres om de kaart op het gebouw te centreren. Teken dan een dakvlak.',
+    selectArea: 'Werkgebied selecteren',
+    redrawArea: 'Gebied hertekenen',
+    finishArea: 'Werkgebied afwerken',
+    areaHint:
+      'Klik rond het perceel om het eindige grondvlak voor het 3D-model in te stellen. Neem het gebouw en nabije schaduwobjecten mee.',
+    areaReady: '3D-werkgebied ingesteld',
     idleHint: 'Tip: sleep een hoek om een vlak aan te passen. Zoom met het wiel, de knoppen of knijpen.',
     drawHint:
       'Klik de hoeken van één dakvlak aan; sluit het af bij minstens drie punten. Voeg een apart vlak toe voor elke helling.',
     obstacleHint:
       'Klik om een boom of gebouw te plaatsen dat schaduw geeft. Stel hieronder hoogte en grootte in. Klik “Klaar” als je klaar bent.',
     ridgeHint: 'Klik de twee uiteinden van de nok (bovenrand) van dit vlak om de richting in te stellen.',
+    zoneHint:
+      'Teken het bruikbare paneelgebied binnen het gekozen dakvlak. Blijf weg van schoorstenen, ramen, nokken en dakranden.',
+    zoneOutside: 'Punten van het paneelgebied moeten binnen het gekozen dakvlak blijven.',
+    faceOutside: 'Punten van het dakvlak moeten binnen het werkgebied blijven.',
     addFace: 'Dakvlak tekenen',
+    drawZone: 'Paneelgebied tekenen',
+    replaceZone: 'Paneelgebied hertekenen',
+    clearZone: 'Volledig dakvlak gebruiken',
+    finishZone: 'Paneelgebied afwerken',
+    panelZone: 'Plaatsingsgebied panelen',
+    wholeFace: 'Volledig vlak is beschikbaar',
     addObstacle: 'Schaduwobstakel toevoegen',
     finishFace: 'Vlak afwerken',
     undoPoint: 'Punt terug',
@@ -210,6 +253,7 @@ const STR = {
     noObstacles: 'Geen. Voeg bomen of gebouwen toe die schaduw op het dak werpen.',
     obstacle: (i: number) => `Obstakel ${i}`,
     height: 'Hoogte',
+    buildingHeight: 'Muur- / dakrandhoogte',
     width: 'Grootte',
     assumptions: 'Aannames',
     clearness: 'Gemiddelde helderheid (bewolking)',
@@ -245,6 +289,9 @@ const STR = {
     kg: 'kg',
     perYearShort: '/jr',
     loading: 'Je opgeslagen plan laden…',
+    model3d: '3D-gebouwmodel',
+    model3dHint: 'Sleep om te draaien · scroll of knijp om te zoomen. Helling en richting passen live aan.',
+    resetView: 'Weergave herstellen',
     months: ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
   },
 }
@@ -289,6 +336,67 @@ function heatColor(v: number): string {
   const b = stops[Math.min(stops.length - 1, i + 1)]
   const c = a.map((ch, k) => Math.round(ch + (b[k] - ch) * f))
   return `rgb(${c[0]},${c[1]},${c[2]})`
+}
+
+/** True when a map point lies inside (or directly on) a polygon. */
+function pointInPolygon(point: LatLon, polygon: LatLon[]): boolean {
+  if (polygon.length < 3) return false
+  const x = point.lon
+  const y = point.lat
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[j]
+    const b = polygon[i]
+    const cross = (x - a.lon) * (b.lat - a.lat) - (y - a.lat) * (b.lon - a.lon)
+    const onSegment =
+      Math.abs(cross) < 1e-12 &&
+      x >= Math.min(a.lon, b.lon) - 1e-12 &&
+      x <= Math.max(a.lon, b.lon) + 1e-12 &&
+      y >= Math.min(a.lat, b.lat) - 1e-12 &&
+      y <= Math.max(a.lat, b.lat) + 1e-12
+    if (onSegment) return true
+    if (b.lat > y !== a.lat > y && x < ((a.lon - b.lon) * (y - b.lat)) / (a.lat - b.lat) + b.lon) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+/** Samples every edge as well as every vertex, which also handles concave boundaries. */
+function polygonInsidePolygon(inner: LatLon[], outer: LatLon[]): boolean {
+  return inner.every((point, index) => {
+    const next = inner[(index + 1) % inner.length]
+    for (let step = 0; step <= 8; step++) {
+      const f = step / 8
+      if (
+        !pointInPolygon(
+          { lat: point.lat + (next.lat - point.lat) * f, lon: point.lon + (next.lon - point.lon) * f },
+          outer
+        )
+      ) {
+        return false
+      }
+    }
+    return true
+  })
+}
+
+/** Backwards-compatible finite site for plans saved before working areas existed. */
+function inferredWorkingArea(faces: RoofFace[]): LatLon[] | undefined {
+  const points = faces.flatMap((face) => face.points)
+  if (!points.length) return undefined
+  const minLat = Math.min(...points.map((p) => p.lat))
+  const maxLat = Math.max(...points.map((p) => p.lat))
+  const minLon = Math.min(...points.map((p) => p.lon))
+  const maxLon = Math.max(...points.map((p) => p.lon))
+  const latPad = Math.max((maxLat - minLat) * 0.35, 0.00003)
+  const lonPad = Math.max((maxLon - minLon) * 0.35, 0.00004)
+  return [
+    { lat: minLat - latPad, lon: minLon - lonPad },
+    { lat: minLat - latPad, lon: maxLon + lonPad },
+    { lat: maxLat + latPad, lon: maxLon + lonPad },
+    { lat: maxLat + latPad, lon: minLon - lonPad },
+  ]
 }
 
 // --- Compass dial ------------------------------------------------------------
@@ -362,6 +470,7 @@ export function SolarRoof() {
     costPerKWp: 1600,
     priceKWh: 0.35,
     co2PerKWh: 0.2,
+    buildingHeight: 6,
   })
   const mapRef = useRef<SlippyMapHandle>(null)
 
@@ -372,6 +481,9 @@ export function SolarRoof() {
   const [mode, setMode] = useState<Mode>('idle')
   const [draft, setDraft] = useState<LatLon[]>([])
   const [ridge, setRidge] = useState<{ faceId: string; pts: LatLon[] } | null>(null)
+  const [zoneFaceId, setZoneFaceId] = useState<string | null>(null)
+  const [zoneError, setZoneError] = useState(false)
+  const [faceError, setFaceError] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showPanels, setShowPanels] = useState(true)
   const [refineState, setRefineState] = useState<{ kind: 'idle' | 'working' | 'error' | 'done' }>({
@@ -379,6 +491,7 @@ export function SolarRoof() {
   })
 
   const nf = (v: number, digits = 0) => v.toLocaleString(locale, { maximumFractionDigits: digits })
+  const workingArea = config.workingArea?.length ? config.workingArea : inferredWorkingArea(config.faces)
 
   // Centre the map on the saved/loaded site once config is ready.
   const centeredRef = useRef(false)
@@ -416,8 +529,23 @@ export function SolarRoof() {
 
   // --- Drawing / mode dispatch ---
   function onMapClick(p: LatLon) {
-    if (mode === 'draw') setDraft((d) => [...d, p])
-    else if (mode === 'obstacle')
+    if (mode === 'site') setDraft((d) => [...d, p])
+    else if (mode === 'draw') {
+      if (!workingArea || !pointInPolygon(p, workingArea)) {
+        setFaceError(true)
+        return
+      }
+      setFaceError(false)
+      setDraft((d) => [...d, p])
+    } else if (mode === 'zone' && zoneFaceId) {
+      const face = config.faces.find((f) => f.id === zoneFaceId)
+      if (!face || !pointInPolygon(p, face.points)) {
+        setZoneError(true)
+        return
+      }
+      setZoneError(false)
+      setDraft((d) => [...d, p])
+    } else if (mode === 'obstacle' && (!workingArea || pointInPolygon(p, workingArea)))
       setConfig((c) => ({
         ...c,
         obstacles: [...c.obstacles, { id: newId('obs'), point: p, height: 8, width: 6 }],
@@ -445,11 +573,51 @@ export function SolarRoof() {
   }
 
   function finishFace() {
-    if (draft.length < 3) return
+    if (draft.length < 3 || !workingArea) return
+    if (!polygonInsidePolygon(draft, workingArea)) {
+      setFaceError(true)
+      return
+    }
     const face: RoofFace = { id: newId('face'), points: draft, tilt: 35, azimuth: 180 }
     setConfig((c) => ({ ...c, faces: [...c.faces, face] }))
     setSelectedId(face.id)
     setDraft([])
+    setMode('idle')
+  }
+
+  function finishWorkingArea() {
+    if (draft.length < 3) return
+    setConfig({ workingArea: draft, site: polygonCentroid(draft) })
+    setDraft([])
+    setMode('idle')
+  }
+
+  function startZone(faceId: string) {
+    setSelectedId(faceId)
+    setZoneFaceId(faceId)
+    setZoneError(false)
+    setDraft([])
+    setMode('zone')
+  }
+
+  function finishZone() {
+    if (!zoneFaceId || draft.length < 3) return
+    const face = config.faces.find((f) => f.id === zoneFaceId)
+    if (!face || !polygonInsidePolygon(draft, face.points)) {
+      setZoneError(true)
+      return
+    }
+    updateFace(zoneFaceId, { panelZone: draft })
+    setDraft([])
+    setZoneFaceId(null)
+    setZoneError(false)
+    setMode('idle')
+  }
+
+  function cancelZone() {
+    setDraft([])
+    setZoneFaceId(null)
+    setZoneError(false)
     setMode('idle')
   }
 
@@ -465,16 +633,26 @@ export function SolarRoof() {
 
   const onVertexMove = useCallback(
     (faceId: string, index: number, p: LatLon) => {
+      if (workingArea && !pointInPolygon(p, workingArea)) {
+        setFaceError(true)
+        return
+      }
+      setFaceError(false)
       setConfig((c) => ({
         ...c,
         faces: c.faces.map((f) =>
           f.id === faceId
-            ? { ...f, pvgis: undefined, points: f.points.map((pt, i) => (i === index ? p : pt)) }
+            ? {
+                ...f,
+                pvgis: undefined,
+                panelZone: undefined,
+                points: f.points.map((pt, i) => (i === index ? p : pt)),
+              }
             : f
         ),
       }))
     },
-    [setConfig]
+    [setConfig, workingArea]
   )
 
   function deleteFace(id: string) {
@@ -553,7 +731,8 @@ export function SolarRoof() {
       const poaClear = annualClearSkyPOA({ ...params, horizon })
       const poaClearNoShade = horizon.length ? annualClearSkyPOA(params) : poaClear
       const shadeFactor = poaClearNoShade > 0 ? poaClear / poaClearNoShade : 1
-      const pack = packPanels(f.points, f.azimuth, f.tilt)
+      const panelPolygon = f.panelZone?.length && f.panelZone.length >= 3 ? f.panelZone : f.points
+      const pack = packPanels(panelPolygon, f.azimuth, f.tilt)
       const y = estimateYield({
         footprintM2,
         tilt: f.tilt,
@@ -581,6 +760,7 @@ export function SolarRoof() {
         face: f,
         footprintM2,
         slopedM2: y.slopedM2,
+        panelZoneM2: polygonAreaM2(panelPolygon) / Math.max(0.2, Math.cos((f.tilt * Math.PI) / 180)),
         poaReal,
         panels: y.panels,
         kWp: y.kWp,
@@ -620,10 +800,25 @@ export function SolarRoof() {
     azimuth: f.azimuth,
     active: f.id === selectedId,
   }))
+  const mapZones = config.faces
+    .filter((f) => f.panelZone && f.panelZone.length >= 3)
+    .map((f) => ({ id: f.id, points: f.panelZone!, active: f.id === selectedId }))
   const mapPanels = showPanels ? computed.flatMap((c) => c.quads) : []
 
   const hint =
-    mode === 'draw' ? t.drawHint : mode === 'obstacle' ? t.obstacleHint : mode === 'ridge' ? t.ridgeHint : config.faces.length ? t.idleHint : t.step1
+    mode === 'site'
+      ? t.areaHint
+      : mode === 'draw'
+        ? t.drawHint
+        : mode === 'zone'
+          ? t.zoneHint
+          : mode === 'obstacle'
+            ? t.obstacleHint
+            : mode === 'ridge'
+              ? t.ridgeHint
+              : workingArea
+                ? t.idleHint
+                : t.areaHint
 
   if (loading) return <p className="animate-pulse text-slate-400">{t.loading}</p>
 
@@ -670,30 +865,87 @@ export function SolarRoof() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {mode === 'idle' && (
             <>
+              {!workingArea ? (
+                <button
+                  onClick={() => {
+                    setMode('site')
+                    setDraft([])
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:brightness-110"
+                >
+                  <Pentagon className="size-4" /> {t.selectArea}
+                </button>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                    <Box className="size-3.5" /> {t.areaReady}
+                  </span>
+                  {config.faces.length === 0 && config.obstacles.length === 0 && (
+                    <button
+                      onClick={() => {
+                        setMode('site')
+                        setDraft([])
+                      }}
+                      className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                    >
+                      {t.redrawArea}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setMode('draw')
+                      setFaceError(false)
+                      setDraft([])
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all duration-200 hover:brightness-110"
+                  >
+                    <Pentagon className="size-4" /> {t.addFace}
+                  </button>
+                  <button
+                    onClick={() => setMode('obstacle')}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition-colors hover:bg-white/10"
+                  >
+                    <Mountain className="size-4" /> {t.addObstacle}
+                  </button>
+                  <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={showPanels}
+                      onChange={(e) => setShowPanels(e.target.checked)}
+                      className="size-4 accent-indigo-500"
+                    />
+                    {t.showPanels}
+                  </label>
+                </>
+              )}
+            </>
+          )}
+          {mode === 'site' && (
+            <>
+              <span className="text-sm text-emerald-300">{t.drawingPoints(draft.length)}</span>
+              <button
+                onClick={finishWorkingArea}
+                disabled={draft.length < 3}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="size-4" /> {t.finishArea}
+              </button>
+              <button
+                onClick={() => setDraft((d) => d.slice(0, -1))}
+                disabled={!draft.length}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
+              >
+                <Undo2 className="size-4" /> {t.undoPoint}
+              </button>
               <button
                 onClick={() => {
-                  setMode('draw')
+                  setMode('idle')
                   setDraft([])
                 }}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all duration-200 hover:brightness-110"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"
               >
-                <Pentagon className="size-4" /> {t.addFace}
+                {t.cancel}
               </button>
-              <button
-                onClick={() => setMode('obstacle')}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition-colors hover:bg-white/10"
-              >
-                <Mountain className="size-4" /> {t.addObstacle}
-              </button>
-              <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={showPanels}
-                  onChange={(e) => setShowPanels(e.target.checked)}
-                  className="size-4 accent-indigo-500"
-                />
-                {t.showPanels}
-              </label>
             </>
           )}
           {mode === 'draw' && (
@@ -737,6 +989,28 @@ export function SolarRoof() {
               </button>
             </>
           )}
+          {mode === 'zone' && (
+            <>
+              <span className="text-sm text-emerald-300">{t.drawingPoints(draft.length)}</span>
+              <button
+                onClick={finishZone}
+                disabled={draft.length < 3}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="size-4" /> {t.finishZone}
+              </button>
+              <button
+                onClick={() => setDraft((d) => d.slice(0, -1))}
+                disabled={!draft.length}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
+              >
+                <Undo2 className="size-4" /> {t.undoPoint}
+              </button>
+              <button onClick={cancelZone} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">
+                {t.cancel}
+              </button>
+            </>
+          )}
           {mode === 'ridge' && (
             <>
               <span className="flex items-center gap-2 text-sm text-amber-300">
@@ -760,7 +1034,10 @@ export function SolarRoof() {
           initialCenter={config.site}
           initialZoom={12}
           faces={mapFaces}
+          workingArea={workingArea ?? []}
+          zones={mapZones}
           draft={mode === 'ridge' && ridge ? ridge.pts : draft}
+          draftKind={mode === 'site' ? 'site' : mode === 'zone' ? 'zone' : mode === 'ridge' ? 'ridge' : 'roof'}
           panels={mapPanels}
           obstacles={config.obstacles}
           placing={mode !== 'idle'}
@@ -768,10 +1045,55 @@ export function SolarRoof() {
           onVertexMove={onVertexMove}
         />
         <p className="mt-2 text-xs text-slate-500">{hint}</p>
+        {faceError && <p className="mt-1 text-xs text-red-300">{t.faceOutside}</p>}
+        {zoneError && <p className="mt-1 text-xs text-red-300">{t.zoneOutside}</p>}
       </div>
 
+      {workingArea && (
+        <div className="glass mt-7 overflow-hidden rounded-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/8 px-5 py-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-slate-300">
+                <Box className="size-4 text-indigo-300" /> {t.model3d}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">{t.model3dHint}</p>
+            </div>
+            <label className="w-full max-w-xs">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>{t.buildingHeight}</span>
+                <span className="text-slate-200">{config.buildingHeight ?? 6} m</span>
+              </div>
+              <input
+                type="range"
+                min={2}
+                max={20}
+                step={0.5}
+                value={config.buildingHeight ?? 6}
+                onChange={(e) => setConfig({ buildingHeight: +e.target.value })}
+                className="mt-1 w-full accent-indigo-500"
+              />
+            </label>
+          </div>
+          <RoofModel3D
+            workingArea={workingArea}
+            faces={computed.map((c) => ({
+              id: c.face.id,
+              points: c.face.points,
+              panelZone: c.face.panelZone,
+              tilt: c.face.tilt,
+              azimuth: c.face.azimuth,
+              panels: showPanels ? c.quads : [],
+              active: c.face.id === selectedId,
+            }))}
+            obstacles={config.obstacles}
+            wallHeight={config.buildingHeight ?? 6}
+            resetLabel={t.resetView}
+          />
+        </div>
+      )}
+
       {/* Faces + results */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      {workingArea && <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           {/* Faces */}
           <div>
@@ -875,6 +1197,31 @@ export function SolarRoof() {
                         <Stat label={t.perYear} value={`${nf(c.poaReal)} ${t.kwh}`} />
                         <Stat label={t.panels} value={nf(c.panels)} sub={`${nf(c.kWp, 1)} ${t.kwp}`} />
                         <Stat label={t.production} value={`${nf(c.annualKWh)} ${t.kwh}`} sub={t.perYearShort} highlight />
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startZone(f.id)
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25"
+                        >
+                          <Pentagon className="size-3.5" /> {f.panelZone ? t.replaceZone : t.drawZone}
+                        </button>
+                        {f.panelZone && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateFace(f.id, { panelZone: undefined })
+                            }}
+                            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                          >
+                            {t.clearZone}
+                          </button>
+                        )}
+                        <span className="ml-auto text-xs text-slate-500">
+                          {f.panelZone ? `${t.panelZone}: ${nf(c.panelZoneM2)} m²` : t.wholeFace}
+                        </span>
                       </div>
                     </div>
                   )
@@ -1007,7 +1354,7 @@ export function SolarRoof() {
             <p className="mt-3 text-[11px] text-slate-500">{t.heatmapHint}</p>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
