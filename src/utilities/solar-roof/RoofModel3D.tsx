@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Hand, LoaderCircle, Minus, Orbit, Plus, RotateCcw, Sparkles } from 'lucide-react'
+import { Box, Hand, LoaderCircle, Minus, MousePointer2, Move, Orbit, Plus, RotateCcw, Sparkles } from 'lucide-react'
 import type { LatLon, Obstacle } from './solar'
 import {
   composeSatelliteTexture,
@@ -13,11 +13,16 @@ interface ModelFace {
   panelZone?: LatLon[]
   tilt: number
   azimuth: number
+  height?: number
+  panelEnabled: boolean
   panels: LatLon[][]
   active: boolean
 }
 
 interface ViewerLabels {
+  select: string
+  rectangle: string
+  move: string
   orbit: string
   pan: string
   top: string
@@ -28,6 +33,8 @@ interface ViewerLabels {
   mapReady: string
   mapFallback: string
   controlsHint: string
+  surfaceFit: string
+  surfaceNotFit: string
 }
 
 interface Props {
@@ -37,6 +44,10 @@ interface Props {
   wallHeight: number
   resetLabel: string
   labels: ViewerLabels
+  onCreateShape: (points: LatLon[]) => void
+  onMoveShape: (id: string, points: LatLon[]) => void
+  onToggleSurface: (id: string) => void
+  onSelectSurface: (id: string) => void
 }
 
 interface Vec3 {
@@ -67,7 +78,7 @@ interface Camera {
   panY: number
 }
 
-type Tool = 'orbit' | 'pan'
+type Tool = 'select' | 'rectangle' | 'move' | 'orbit' | 'pan'
 type TexturePhase = 'loading' | 'upscaling' | 'ready' | 'fallback'
 
 const RAD = Math.PI / 180
@@ -76,14 +87,36 @@ const PERSPECTIVE: Camera = { yaw: -0.68, pitch: 0.72, dolly: 1, panX: 0, panY: 
 const TOP: Camera = { yaw: 0, pitch: 1.48, dolly: 1, panX: 0, panY: 0 }
 
 /** Perspective 3D viewer for the finite site selected on the satellite map. */
-export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLabel, labels }: Props) {
+export function RoofModel3D({
+  workingArea,
+  faces,
+  obstacles,
+  wallHeight,
+  resetLabel,
+  labels,
+  onCreateShape,
+  onMoveShape,
+  onToggleSurface,
+  onSelectSurface,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const sizeRef = useRef({ w: 900, h: 520 })
   const [camera, setCamera] = useState<Camera>(PERSPECTIVE)
-  const [tool, setTool] = useState<Tool>('orbit')
+  const [tool, setTool] = useState<Tool>('rectangle')
   const [texture, setTexture] = useState<ComposedTexture | null>(null)
   const [texturePhase, setTexturePhase] = useState<TexturePhase>('loading')
+  const [shapePreview, setShapePreview] = useState<LatLon[] | null>(null)
+  const shapePreviewRef = useRef<LatLon[] | null>(null)
+  const [movePreview, setMovePreview] = useState<{ id: string; points: LatLon[] } | null>(null)
+  const movePreviewRef = useRef<{ id: string; points: LatLon[] } | null>(null)
+  const hitSurfaces = useRef<{ id: string; points: { x: number; y: number }[]; depth: number }[]>([])
+  const groundInteraction = useRef<{
+    toGround: (x: number, y: number) => { x: number; y: number } | null
+    toLatLon: (point: { x: number; y: number }) => LatLon
+    toLocal: (point: LatLon) => { x: number; y: number }
+    contains: (point: { x: number; y: number }) => boolean
+  } | null>(null)
   const areaKey = useMemo(
     () => workingArea.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join('|'),
     [workingArea]
@@ -147,22 +180,26 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       x: (p.lon - origin.lon) * mLon,
       y: (p.lat - origin.lat) * M_PER_DEG_LAT,
     })
+    const displayFaces = faces.map((face) =>
+      movePreview?.id === face.id ? { ...face, points: movePreview.points } : face
+    )
     const ground = workingArea.map((p) => ({ ...toXY(p), z: 0 }))
     const roofMappers = new Map<string, (point: LatLon, lift?: number) => Vec3>()
-    for (const face of faces) {
+    for (const face of displayFaces) {
       const xy = face.points.map(toXY)
+      const faceHeight = face.height ?? wallHeight
       const downX = Math.sin(face.azimuth * RAD)
       const downY = Math.cos(face.azimuth * RAD)
       const maxDown = Math.max(...xy.map((p) => p.x * downX + p.y * downY))
       roofMappers.set(face.id, (point, lift = 0) => {
         const p = toXY(point)
         const down = p.x * downX + p.y * downY
-        return { ...p, z: wallHeight + (maxDown - down) * Math.tan(face.tilt * RAD) + lift }
+        return { ...p, z: faceHeight + (maxDown - down) * Math.tan(face.tilt * RAD) + lift }
       })
     }
 
     const world: Vec3[] = [...ground]
-    for (const face of faces) world.push(...face.points.map((p) => roofMappers.get(face.id)!(p)))
+    for (const face of displayFaces) world.push(...face.points.map((p) => roofMappers.get(face.id)!(p)))
     for (const obstacle of obstacles) {
       const point = toXY(obstacle.point)
       world.push({ ...point, z: obstacle.height })
@@ -197,6 +234,33 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
         sy: h / 2 + camera.panY + r.vertical * perspective,
         depth: r.depth,
       }
+    }
+    const toLatLon = (point: { x: number; y: number }): LatLon => ({
+      lat: origin.lat + point.y / M_PER_DEG_LAT,
+      lon: origin.lon + point.x / mLon,
+    })
+    const groundXY = ground.map((point) => ({ x: point.x, y: point.y }))
+    groundInteraction.current = {
+      toGround: (screenX, screenY) => {
+        const screenSide = (screenX - w / 2 - camera.panX) / focal
+        const screenVertical = (screenY - h / 2 - camera.panY) / focal
+        const sinPitch = Math.sin(camera.pitch)
+        const cosPitch = Math.cos(camera.pitch)
+        const denominator = screenVertical * cosPitch + sinPitch
+        if (Math.abs(denominator) < 1e-5) return null
+        const away =
+          (screenVertical * (distance + targetZ * sinPitch) - targetZ * cosPitch) / denominator
+        const cameraDepth = distance - away * cosPitch + targetZ * sinPitch
+        if (cameraDepth <= 0) return null
+        const side = screenSide * cameraDepth
+        return {
+          x: side * Math.cos(camera.yaw) + away * Math.sin(camera.yaw),
+          y: -side * Math.sin(camera.yaw) + away * Math.cos(camera.yaw),
+        }
+      },
+      toLatLon,
+      toLocal: toXY,
+      contains: (point) => pointInPolygon2D(point, groundXY),
     }
     const path = (points: Vec3[]) => {
       const projected = points.map(project)
@@ -240,7 +304,8 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
     ctx.setLineDash([])
 
     const surfaces: Surface[] = []
-    for (const face of faces) {
+    hitSurfaces.current = []
+    for (const face of displayFaces) {
       const lift = roofMappers.get(face.id)!
       const roof = face.points.map((p) => lift(p))
       for (let i = 0; i < roof.length; i++) {
@@ -254,9 +319,21 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       }
       surfaces.push({
         points: roof,
-        fill: face.active ? 'rgba(99,102,241,0.92)' : 'rgba(51,65,85,0.96)',
-        stroke: face.active ? '#c7d2fe' : '#94a3b8',
+        fill: face.panelEnabled
+          ? face.active
+            ? 'rgba(16,185,129,0.96)'
+            : 'rgba(5,150,105,0.92)'
+          : face.active
+            ? 'rgba(99,102,241,0.92)'
+            : 'rgba(51,65,85,0.96)',
+        stroke: face.active ? '#e0e7ff' : face.panelEnabled ? '#6ee7b7' : '#94a3b8',
         width: face.active ? 2.5 : 1.5,
+      })
+      const roofScreen = roof.map(project)
+      hitSurfaces.current.push({
+        id: face.id,
+        points: roofScreen.map((point) => ({ x: point.sx, y: point.sy })),
+        depth: roofScreen.reduce((sum, point) => sum + point.depth, 0) / roofScreen.length,
       })
       if (face.panelZone?.length) {
         surfaces.push({
@@ -275,6 +352,26 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
           width: 0.8,
         })
       }
+    }
+    if (shapePreview?.length === 4) {
+      const previewRoof = shapePreview.map((point) => ({ ...toXY(point), z: wallHeight }))
+      for (let index = 0; index < previewRoof.length; index++) {
+        const a = previewRoof[index]
+        const b = previewRoof[(index + 1) % previewRoof.length]
+        surfaces.push({
+          points: [a, b, { ...b, z: 0 }, { ...a, z: 0 }],
+          fill: 'rgba(56,189,248,0.18)',
+          stroke: 'rgba(125,211,252,0.72)',
+          dash: [5, 3],
+        })
+      }
+      surfaces.push({
+        points: previewRoof,
+        fill: 'rgba(56,189,248,0.32)',
+        stroke: '#7dd3fc',
+        width: 2,
+        dash: [5, 3],
+      })
     }
     for (const obstacle of obstacles) addObstacleSurfaces(surfaces, toXY(obstacle.point), obstacle)
     surfaces.sort((a, b) => averageDepth(a, project) - averageDepth(b, project))
@@ -305,7 +402,7 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
     ctx.font = '600 10px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('N', 31, 42)
-  }, [camera, faces, obstacles, texture, wallHeight, workingArea])
+  }, [camera, faces, movePreview, obstacles, shapePreview, texture, wallHeight, workingArea])
 
   useEffect(draw, [draw])
   useEffect(() => {
@@ -324,20 +421,53 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef<{ distance: number; midX: number; midY: number } | null>(null)
   const forcedPan = useRef(false)
+  const editorDrag = useRef<
+    | { kind: 'rectangle'; start: { x: number; y: number } }
+    | { kind: 'select'; x: number; y: number; moved: number }
+    | { kind: 'move'; id: string; start: { x: number; y: number }; original: LatLon[] }
+    | null
+  >(null)
   const local = (event: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
   }
   const pointerDown = (event: React.PointerEvent) => {
     ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-    pointers.current.set(event.pointerId, local(event))
+    const point = local(event)
+    pointers.current.set(event.pointerId, point)
     forcedPan.current = event.button === 1 || event.button === 2 || event.shiftKey || event.altKey
     if (pointers.current.size === 2) {
+      editorDrag.current = null
+      setShapePreview(null)
+      shapePreviewRef.current = null
+      setMovePreview(null)
+      movePreviewRef.current = null
       const [a, b] = [...pointers.current.values()]
       gesture.current = {
         distance: Math.hypot(a.x - b.x, a.y - b.y),
         midX: (a.x + b.x) / 2,
         midY: (a.y + b.y) / 2,
+      }
+      return
+    }
+    if (forcedPan.current) return
+    const interaction = groundInteraction.current
+    if (tool === 'rectangle' && interaction) {
+      const groundPoint = interaction.toGround(point.x, point.y)
+      if (groundPoint && interaction.contains(groundPoint)) {
+        editorDrag.current = { kind: 'rectangle', start: groundPoint }
+        setShapePreview(null)
+        shapePreviewRef.current = null
+      }
+    } else if (tool === 'select') {
+      editorDrag.current = { kind: 'select', ...point, moved: 0 }
+    } else if (tool === 'move' && interaction) {
+      const hit = hitSurfaceAt(point.x, point.y, hitSurfaces.current)
+      const groundPoint = interaction.toGround(point.x, point.y)
+      const face = hit ? faces.find((candidate) => candidate.id === hit) : undefined
+      if (hit && groundPoint && face) {
+        onSelectSurface(hit)
+        editorDrag.current = { kind: 'move', id: hit, start: groundPoint, original: face.points }
       }
     }
   }
@@ -361,13 +491,43 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       }))
       return
     }
+    const editing = editorDrag.current
+    const interaction = groundInteraction.current
+    if (editing?.kind === 'select') {
+      editing.moved += Math.abs(next.x - previous.x) + Math.abs(next.y - previous.y)
+      return
+    }
+    if (editing?.kind === 'rectangle' && interaction) {
+      const end = interaction.toGround(next.x, next.y)
+      if (!end) return
+      const rectangle = rectangleOnGround(editing.start, end)
+      const preview = rectangle.every(interaction.contains) ? rectangle.map(interaction.toLatLon) : null
+      shapePreviewRef.current = preview
+      setShapePreview(preview)
+      return
+    }
+    if (editing?.kind === 'move' && interaction) {
+      const end = interaction.toGround(next.x, next.y)
+      if (!end) return
+      const delta = { x: end.x - editing.start.x, y: end.y - editing.start.y }
+      const moved = editing.original.map((point) => {
+        const localPoint = interaction.toLocal(point)
+        return interaction.toLatLon({ x: localPoint.x + delta.x, y: localPoint.y + delta.y })
+      })
+      if (moved.map(interaction.toLocal).every(interaction.contains)) {
+        const preview = { id: editing.id, points: moved }
+        movePreviewRef.current = preview
+        setMovePreview(preview)
+      }
+      return
+    }
     if (tool === 'pan' || forcedPan.current) {
       setCamera((value) => ({
         ...value,
         panX: value.panX + next.x - previous.x,
         panY: value.panY + next.y - previous.y,
       }))
-    } else {
+    } else if (tool === 'orbit') {
       setCamera((value) => ({
         ...value,
         yaw: value.yaw + (next.x - previous.x) * 0.007,
@@ -376,9 +536,41 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
     }
   }
   const pointerUp = (event: React.PointerEvent) => {
+    const point = local(event)
+    const editing = editorDrag.current
+    if (editing?.kind === 'select' && editing.moved < 6) {
+      const hit = hitSurfaceAt(point.x, point.y, hitSurfaces.current)
+      if (hit) onToggleSurface(hit)
+    } else if (editing?.kind === 'rectangle' && shapePreviewRef.current && groundInteraction.current) {
+      const preview = shapePreviewRef.current
+      const localPoints = preview.map(groundInteraction.current.toLocal)
+      const width = Math.abs(localPoints[1].x - localPoints[0].x)
+      const height = Math.abs(localPoints[3].y - localPoints[0].y)
+      if (width >= 0.5 && height >= 0.5) {
+        onCreateShape(preview)
+        setTool('select')
+      }
+    } else if (editing?.kind === 'move' && movePreviewRef.current?.id === editing.id) {
+      onMoveShape(editing.id, movePreviewRef.current.points)
+    }
+    editorDrag.current = null
+    setShapePreview(null)
+    shapePreviewRef.current = null
+    setMovePreview(null)
+    movePreviewRef.current = null
     pointers.current.delete(event.pointerId)
     if (pointers.current.size < 2) gesture.current = null
     if (pointers.current.size === 0) forcedPan.current = false
+  }
+  const pointerCancel = (event: React.PointerEvent) => {
+    pointers.current.delete(event.pointerId)
+    editorDrag.current = null
+    gesture.current = null
+    forcedPan.current = false
+    shapePreviewRef.current = null
+    movePreviewRef.current = null
+    setShapePreview(null)
+    setMovePreview(null)
   }
   const dolly = (factor: number) =>
     setCamera((value) => ({ ...value, dolly: clamp(value.dolly * factor, 0.42, 2.2) }))
@@ -397,19 +589,33 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
     <div ref={wrapRef} className="relative h-[430px] w-full overflow-hidden bg-slate-950 sm:h-[520px]">
       <canvas
         ref={canvasRef}
-        className={`size-full touch-none select-none ${tool === 'pan' ? 'cursor-move' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`size-full touch-none select-none ${
+          tool === 'rectangle'
+            ? 'cursor-crosshair'
+            : tool === 'select'
+              ? 'cursor-pointer'
+              : tool === 'move' || tool === 'pan'
+                ? 'cursor-move'
+                : 'cursor-grab active:cursor-grabbing'
+        }`}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
-        onPointerCancel={pointerUp}
+        onPointerCancel={pointerCancel}
         onContextMenu={(event) => event.preventDefault()}
-        onDoubleClick={fit}
+        onDoubleClick={() => (tool === 'orbit' || tool === 'pan') && fit()}
         onWheel={(event) => {
           event.preventDefault()
           dolly(Math.exp(-event.deltaY * 0.0012))
         }}
         onKeyDown={(event) => {
-          if (event.key === 'r') setCamera(PERSPECTIVE)
+          if (event.key === 'Escape') {
+            editorDrag.current = null
+            setShapePreview(null)
+            shapePreviewRef.current = null
+            setMovePreview(null)
+            movePreviewRef.current = null
+          } else if (event.key === 'r') setCamera(PERSPECTIVE)
           else if (event.key === '1') setCamera(TOP)
           else if (event.key === '2') setCamera(PERSPECTIVE)
           else if (event.key === '+' || event.key === '=') dolly(1.12)
@@ -426,14 +632,24 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
         aria-label="Perspective 3D model of the selected satellite area, building and panels"
       />
 
-      <div className="absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-white/12 bg-slate-950/82 p-1 shadow-xl backdrop-blur">
+      <div className="absolute top-3 right-14 left-14 flex items-center gap-1 overflow-x-auto rounded-xl border border-white/12 bg-slate-950/82 p-1 shadow-xl backdrop-blur">
+        <ToolButton active={tool === 'select'} label={labels.select} onClick={() => setTool('select')}>
+          <MousePointer2 className="size-3.5" />
+        </ToolButton>
+        <ToolButton active={tool === 'rectangle'} label={labels.rectangle} onClick={() => setTool('rectangle')}>
+          <Box className="size-3.5" />
+        </ToolButton>
+        <ToolButton active={tool === 'move'} label={labels.move} onClick={() => setTool('move')}>
+          <Move className="size-3.5" />
+        </ToolButton>
+        <span className="mx-1 h-5 w-px shrink-0 bg-white/10" />
         <ToolButton active={tool === 'orbit'} label={labels.orbit} onClick={() => setTool('orbit')}>
           <Orbit className="size-3.5" />
         </ToolButton>
         <ToolButton active={tool === 'pan'} label={labels.pan} onClick={() => setTool('pan')}>
           <Hand className="size-3.5" />
         </ToolButton>
-        <span className="mx-1 h-5 w-px bg-white/10" />
+        <span className="mx-1 h-5 w-px shrink-0 bg-white/10" />
         <ToolButton label={labels.top} onClick={() => setCamera(TOP)} />
         <ToolButton label={labels.perspective} onClick={() => setCamera(PERSPECTIVE)} />
         <ToolButton label={labels.fit} onClick={fit} />
@@ -449,6 +665,11 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
         <button onClick={() => setCamera(PERSPECTIVE)} className="grid size-8 place-items-center rounded-lg text-slate-200 hover:bg-white/10" aria-label={resetLabel}>
           <RotateCcw className="size-3.5" />
         </button>
+      </div>
+
+      <div className="absolute bottom-12 left-3 flex items-center gap-3 rounded-lg bg-slate-950/72 px-2.5 py-1.5 text-[10px] text-slate-300 backdrop-blur">
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-500" />{labels.surfaceFit}</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-slate-500" />{labels.surfaceNotFit}</span>
       </div>
 
       <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-6rem)] items-center gap-2 rounded-lg border border-white/10 bg-slate-950/78 px-2.5 py-1.5 text-[11px] text-slate-300 backdrop-blur">
@@ -481,7 +702,7 @@ function ToolButton({
   return (
     <button
       onClick={onClick}
-      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium ${
+      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium ${
         active ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
       }`}
     >
@@ -590,4 +811,38 @@ function averageDepth(surface: Surface, project: (point: Vec3) => Projected) {
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value))
+}
+
+function rectangleOnGround(start: { x: number; y: number }, end: { x: number; y: number }) {
+  return [
+    { x: start.x, y: start.y },
+    { x: end.x, y: start.y },
+    { x: end.x, y: end.y },
+    { x: start.x, y: end.y },
+  ]
+}
+
+function hitSurfaceAt(
+  x: number,
+  y: number,
+  surfaces: { id: string; points: { x: number; y: number }[]; depth: number }[]
+) {
+  return [...surfaces]
+    .sort((a, b) => b.depth - a.depth)
+    .find((surface) => pointInPolygon2D({ x, y }, surface.points))?.id
+}
+
+function pointInPolygon2D(point: { x: number; y: number }, polygon: { x: number; y: number }[]) {
+  let inside = false
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+    const a = polygon[index]
+    const b = polygon[previous]
+    if (
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    ) {
+      inside = !inside
+    }
+  }
+  return inside
 }
