@@ -93,7 +93,7 @@ const STR = {
     redrawArea: 'Redraw area',
     finishArea: 'Finish working area',
     areaHint:
-      'Click around the property to set the finite ground plane for the 3D model. Include the building and nearby shading objects.',
+      'Drag a rectangle around the property. Release to create the 3D ground plane.',
     areaReady: '3D working area set',
     idleHint: 'Tip: drag a corner to reshape a face. Zoom with the wheel, buttons or pinch.',
     drawHint:
@@ -181,8 +181,20 @@ const STR = {
     perYearShort: '/yr',
     loading: 'Loading your saved plan…',
     model3d: '3D building model',
-    model3dHint: 'Drag to orbit · scroll or pinch to zoom. Roof slope and direction update live.',
+    model3dHint: 'Perspective viewer with the selected satellite area projected onto the ground plane.',
     resetView: 'Reset view',
+    view3d: '3D viewer',
+    mapEditor: 'Map editor',
+    orbit: 'Orbit',
+    pan: 'Pan',
+    topView: 'Top',
+    perspectiveView: 'Perspective',
+    fitView: 'Fit',
+    loadingMap: 'Loading maximum-detail satellite crop…',
+    upscalingMap: 'Enhancing satellite texture with AI at 4×…',
+    mapReady: '4× AI-enhanced satellite texture',
+    mapFallback: 'Maximum-detail satellite texture',
+    controlsHint: 'Left drag: orbit · Right/Shift drag: pan · Wheel: zoom',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   },
   nl: {
@@ -201,7 +213,7 @@ const STR = {
     redrawArea: 'Gebied hertekenen',
     finishArea: 'Werkgebied afwerken',
     areaHint:
-      'Klik rond het perceel om het eindige grondvlak voor het 3D-model in te stellen. Neem het gebouw en nabije schaduwobjecten mee.',
+      'Sleep een rechthoek rond het perceel. Laat los om het 3D-grondvlak te maken.',
     areaReady: '3D-werkgebied ingesteld',
     idleHint: 'Tip: sleep een hoek om een vlak aan te passen. Zoom met het wiel, de knoppen of knijpen.',
     drawHint:
@@ -290,8 +302,20 @@ const STR = {
     perYearShort: '/jr',
     loading: 'Je opgeslagen plan laden…',
     model3d: '3D-gebouwmodel',
-    model3dHint: 'Sleep om te draaien · scroll of knijp om te zoomen. Helling en richting passen live aan.',
+    model3dHint: 'Perspectiefweergave met het gekozen satellietgebied geprojecteerd op het grondvlak.',
     resetView: 'Weergave herstellen',
+    view3d: '3D-weergave',
+    mapEditor: 'Kaarteditor',
+    orbit: 'Draaien',
+    pan: 'Verschuiven',
+    topView: 'Bovenaanzicht',
+    perspectiveView: 'Perspectief',
+    fitView: 'Passend',
+    loadingMap: 'Satellietbeeld in maximale resolutie laden…',
+    upscalingMap: 'Satelliettextuur met AI 4× verbeteren…',
+    mapReady: '4× AI-verbeterde satelliettextuur',
+    mapFallback: 'Satelliettextuur in maximale resolutie',
+    controlsHint: 'Links slepen: draaien · Rechts/Shift slepen: verschuiven · Wiel: zoomen',
     months: ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
   },
 }
@@ -486,12 +510,19 @@ export function SolarRoof() {
   const [faceError, setFaceError] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showPanels, setShowPanels] = useState(true)
+  const [workspaceView, setWorkspaceView] = useState<'map' | '3d'>('map')
   const [refineState, setRefineState] = useState<{ kind: 'idle' | 'working' | 'error' | 'done' }>({
     kind: 'idle',
   })
 
   const nf = (v: number, digits = 0) => v.toLocaleString(locale, { maximumFractionDigits: digits })
   const workingArea = config.workingArea?.length ? config.workingArea : inferredWorkingArea(config.faces)
+  const viewerInitialized = useRef(false)
+  useEffect(() => {
+    if (loading || !workingArea || viewerInitialized.current) return
+    viewerInitialized.current = true
+    setWorkspaceView('3d')
+  }, [loading, workingArea])
 
   // Centre the map on the saved/loaded site once config is ready.
   const centeredRef = useRef(false)
@@ -529,8 +560,7 @@ export function SolarRoof() {
 
   // --- Drawing / mode dispatch ---
   function onMapClick(p: LatLon) {
-    if (mode === 'site') setDraft((d) => [...d, p])
-    else if (mode === 'draw') {
+    if (mode === 'draw') {
       if (!workingArea || !pointInPolygon(p, workingArea)) {
         setFaceError(true)
         return
@@ -585,11 +615,12 @@ export function SolarRoof() {
     setMode('idle')
   }
 
-  function finishWorkingArea() {
-    if (draft.length < 3) return
-    setConfig({ workingArea: draft, site: polygonCentroid(draft) })
+  function finishWorkingArea(points: LatLon[] = draft) {
+    if (points.length < 3) return
+    setConfig({ workingArea: points, site: polygonCentroid(points) })
     setDraft([])
     setMode('idle')
+    setWorkspaceView('3d')
   }
 
   function startZone(faceId: string) {
@@ -877,6 +908,24 @@ export function SolarRoof() {
                 </button>
               ) : (
                 <>
+                  <div className="flex rounded-xl border border-white/10 bg-white/4 p-1">
+                    <button
+                      onClick={() => setWorkspaceView('3d')}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                        workspaceView === '3d' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {t.view3d}
+                    </button>
+                    <button
+                      onClick={() => setWorkspaceView('map')}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                        workspaceView === 'map' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {t.mapEditor}
+                    </button>
+                  </div>
                   <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300">
                     <Box className="size-3.5" /> {t.areaReady}
                   </span>
@@ -922,21 +971,9 @@ export function SolarRoof() {
           )}
           {mode === 'site' && (
             <>
-              <span className="text-sm text-emerald-300">{t.drawingPoints(draft.length)}</span>
-              <button
-                onClick={finishWorkingArea}
-                disabled={draft.length < 3}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus className="size-4" /> {t.finishArea}
-              </button>
-              <button
-                onClick={() => setDraft((d) => d.slice(0, -1))}
-                disabled={!draft.length}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
-              >
-                <Undo2 className="size-4" /> {t.undoPoint}
-              </button>
+              <span className="flex items-center gap-2 text-sm text-emerald-300">
+                <Pentagon className="size-4" /> {t.areaHint}
+              </span>
               <button
                 onClick={() => {
                   setMode('idle')
@@ -1029,28 +1066,8 @@ export function SolarRoof() {
           )}
         </div>
 
-        <SlippyMap
-          ref={mapRef}
-          initialCenter={config.site}
-          initialZoom={12}
-          faces={mapFaces}
-          workingArea={workingArea ?? []}
-          zones={mapZones}
-          draft={mode === 'ridge' && ridge ? ridge.pts : draft}
-          draftKind={mode === 'site' ? 'site' : mode === 'zone' ? 'zone' : mode === 'ridge' ? 'ridge' : 'roof'}
-          panels={mapPanels}
-          obstacles={config.obstacles}
-          placing={mode !== 'idle'}
-          onMapClick={onMapClick}
-          onVertexMove={onVertexMove}
-        />
-        <p className="mt-2 text-xs text-slate-500">{hint}</p>
-        {faceError && <p className="mt-1 text-xs text-red-300">{t.faceOutside}</p>}
-        {zoneError && <p className="mt-1 text-xs text-red-300">{t.zoneOutside}</p>}
-      </div>
-
-      {workingArea && (
-        <div className="glass mt-7 overflow-hidden rounded-2xl">
+        {workingArea && (
+          <div className={`glass overflow-hidden rounded-2xl ${workspaceView === '3d' && mode === 'idle' ? '' : 'hidden'}`}>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/8 px-5 py-4">
             <div>
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.15em] text-slate-300">
@@ -1088,9 +1105,44 @@ export function SolarRoof() {
             obstacles={config.obstacles}
             wallHeight={config.buildingHeight ?? 6}
             resetLabel={t.resetView}
+            labels={{
+              orbit: t.orbit,
+              pan: t.pan,
+              top: t.topView,
+              perspective: t.perspectiveView,
+              fit: t.fitView,
+              loadingMap: t.loadingMap,
+              upscalingMap: t.upscalingMap,
+              mapReady: t.mapReady,
+              mapFallback: t.mapFallback,
+              controlsHint: t.controlsHint,
+            }}
           />
+          </div>
+        )}
+        <div className={workingArea && workspaceView === '3d' && mode === 'idle' ? 'hidden' : ''}>
+            <SlippyMap
+              ref={mapRef}
+              initialCenter={config.site}
+              initialZoom={workingArea ? 19 : 12}
+              faces={mapFaces}
+              workingArea={workingArea ?? []}
+              zones={mapZones}
+              draft={mode === 'ridge' && ridge ? ridge.pts : draft}
+              draftKind={mode === 'site' ? 'site' : mode === 'zone' ? 'zone' : mode === 'ridge' ? 'ridge' : 'roof'}
+              panels={mapPanels}
+              obstacles={config.obstacles}
+              placing={mode !== 'idle'}
+              onMapClick={onMapClick}
+              onAreaDraftChange={setDraft}
+              onAreaSelect={finishWorkingArea}
+              onVertexMove={onVertexMove}
+            />
+            <p className="mt-2 text-xs text-slate-500">{hint}</p>
+            {faceError && <p className="mt-1 text-xs text-red-300">{t.faceOutside}</p>}
+            {zoneError && <p className="mt-1 text-xs text-red-300">{t.zoneOutside}</p>}
         </div>
-      )}
+      </div>
 
       {/* Faces + results */}
       {workingArea && <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">

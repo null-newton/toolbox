@@ -54,9 +54,13 @@ interface Props {
   panels: LatLon[][]
   /** Shading obstacles to render. */
   obstacles: { point: LatLon; width: number }[]
-  /** When true, a tap adds a point; when false, corners are draggable. */
+  /** When true, a tap adds a point; site selection instead uses a rectangle drag. */
   placing: boolean
   onMapClick: (p: LatLon) => void
+  /** Live rectangle preview while selecting the finite 3D working area. */
+  onAreaDraftChange?: (points: LatLon[]) => void
+  /** Final rectangle emitted when the area-selection drag is released. */
+  onAreaSelect?: (points: LatLon[]) => void
   onVertexMove: (faceId: string, index: number, p: LatLon) => void
   heightClass?: string
 }
@@ -87,6 +91,8 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     obstacles,
     placing,
     onMapClick,
+    onAreaDraftChange,
+    onAreaSelect,
     onVertexMove,
     heightClass = 'h-[65vh]',
   },
@@ -117,6 +123,8 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     obstacles,
     placing,
     onMapClick,
+    onAreaDraftChange,
+    onAreaSelect,
     onVertexMove,
   })
   stateRef.current = {
@@ -129,6 +137,8 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     obstacles,
     placing,
     onMapClick,
+    onAreaDraftChange,
+    onAreaSelect,
     onVertexMove,
   }
 
@@ -313,6 +323,7 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       ctx.beginPath()
       ctx.moveTo(pts[0].x, pts[0].y)
       for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y)
+      if (pts.length >= 3) ctx.closePath()
       ctx.lineWidth = 2
       const draftColor = dk === 'site' || dk === 'zone' ? '#34d399' : dk === 'ridge' ? '#a5b4fc' : '#fbbf24'
       ctx.strokeStyle = draftColor
@@ -320,7 +331,6 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       ctx.stroke()
       ctx.setLineDash([])
       if (pts.length >= 3) {
-        ctx.lineTo(pts[0].x, pts[0].y)
         ctx.fillStyle = dk === 'site' || dk === 'zone' ? 'rgba(16,185,129,0.18)' : 'rgba(251,191,36,0.18)'
         ctx.fill()
       }
@@ -367,6 +377,7 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
   const pan = useRef<{ x: number; y: number; moved: number } | null>(null)
   const pinch = useRef<{ dist: number; zoom: number } | null>(null)
   const vdrag = useRef<{ faceId: string; index: number } | null>(null)
+  const areaDrag = useRef<{ pointerId: number; x: number; y: number; start: LatLon } | null>(null)
 
   const localXY = (e: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -395,6 +406,13 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     const { x, y } = localXY(e)
     pointers.current.set(e.pointerId, { x, y })
+    if (stateRef.current.placing && stateRef.current.draftKind === 'site') {
+      if (areaDrag.current) return
+      areaDrag.current = { pointerId: e.pointerId, x, y, start: screenToLatLon(x, y) }
+      stateRef.current.onAreaDraftChange?.([])
+      pan.current = null
+      return
+    }
     if (pointers.current.size === 2) {
       // Start a pinch; cancel any pan/vertex drag.
       const [a, b] = [...pointers.current.values()]
@@ -418,6 +436,11 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
     const { x, y } = localXY(e)
     const prev = pointers.current.get(e.pointerId)!
     pointers.current.set(e.pointerId, { x, y })
+
+    if (areaDrag.current?.pointerId === e.pointerId) {
+      stateRef.current.onAreaDraftChange?.(rectangleFrom(areaDrag.current.start, screenToLatLon(x, y)))
+      return
+    }
 
     if (pinch.current && pointers.current.size >= 2) {
       const [a, b] = [...pointers.current.values()]
@@ -446,6 +469,21 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
+    const selectingArea = areaDrag.current?.pointerId === e.pointerId ? areaDrag.current : null
+    if (selectingArea) {
+      const { x, y } = localXY(e)
+      const rectangle = rectangleFrom(selectingArea.start, screenToLatLon(x, y))
+      const largeEnough = Math.abs(x - selectingArea.x) >= 8 && Math.abs(y - selectingArea.y) >= 8
+      pointers.current.delete(e.pointerId)
+      areaDrag.current = null
+      if (largeEnough) {
+        stateRef.current.onAreaDraftChange?.(rectangle)
+        stateRef.current.onAreaSelect?.(rectangle)
+      } else {
+        stateRef.current.onAreaDraftChange?.([])
+      }
+      return
+    }
     const p = pan.current
     const wasVertex = vdrag.current
     pointers.current.delete(e.pointerId)
@@ -460,6 +498,18 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       const { x, y } = localXY(e)
       stateRef.current.onMapClick(screenToLatLon(x, y))
     }
+  }
+
+  const onPointerCancel = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId)
+    if (areaDrag.current?.pointerId === e.pointerId) {
+      areaDrag.current = null
+      stateRef.current.onAreaDraftChange?.([])
+      return
+    }
+    pan.current = null
+    pinch.current = null
+    vdrag.current = null
   }
 
   const onWheel = (e: React.WheelEvent) => {
@@ -497,7 +547,7 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onWheel={onWheel}
         className={`size-full touch-none select-none ${placing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
       />
@@ -564,4 +614,13 @@ function drawArrow(
   ctx.lineTo(ex - head * Math.cos(ang + 0.5), ey - head * Math.sin(ang + 0.5))
   ctx.closePath()
   ctx.fill()
+}
+
+function rectangleFrom(start: LatLon, end: LatLon): LatLon[] {
+  return [
+    { lat: start.lat, lon: start.lon },
+    { lat: start.lat, lon: end.lon },
+    { lat: end.lat, lon: end.lon },
+    { lat: end.lat, lon: start.lon },
+  ]
 }

@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Hand, LoaderCircle, Minus, Orbit, Plus, RotateCcw, Sparkles } from 'lucide-react'
 import type { LatLon, Obstacle } from './solar'
+import {
+  composeSatelliteTexture,
+  upscaleSatelliteTexture,
+  type ComposedTexture,
+} from './satelliteTexture'
 
 interface ModelFace {
   id: string
@@ -12,12 +17,26 @@ interface ModelFace {
   active: boolean
 }
 
+interface ViewerLabels {
+  orbit: string
+  pan: string
+  top: string
+  perspective: string
+  fit: string
+  loadingMap: string
+  upscalingMap: string
+  mapReady: string
+  mapFallback: string
+  controlsHint: string
+}
+
 interface Props {
   workingArea: LatLon[]
   faces: ModelFace[]
   obstacles: Obstacle[]
   wallHeight: number
   resetLabel: string
+  labels: ViewerLabels
 }
 
 interface Vec3 {
@@ -40,20 +59,70 @@ interface Surface {
   dash?: number[]
 }
 
+interface Camera {
+  yaw: number
+  pitch: number
+  dolly: number
+  panX: number
+  panY: number
+}
+
+type Tool = 'orbit' | 'pan'
+type TexturePhase = 'loading' | 'upscaling' | 'ready' | 'fallback'
+
 const RAD = Math.PI / 180
 const M_PER_DEG_LAT = 111_320
-const DEFAULT_CAMERA = { yaw: -0.62, pitch: 0.74, zoom: 1 }
+const PERSPECTIVE: Camera = { yaw: -0.68, pitch: 0.72, dolly: 1, panX: 0, panY: 0 }
+const TOP: Camera = { yaw: 0, pitch: 1.48, dolly: 1, panX: 0, panY: 0 }
 
-/**
- * A small dependency-free 3D renderer. It only receives geometry from the
- * selected working polygon, so satellite tiles and the rest of the world never
- * enter the scene. Roof faces are lifted into planes from their tilt/azimuth.
- */
-export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLabel }: Props) {
+/** Perspective 3D viewer for the finite site selected on the satellite map. */
+export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLabel, labels }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const sizeRef = useRef({ w: 900, h: 430 })
-  const [camera, setCamera] = useState(DEFAULT_CAMERA)
+  const sizeRef = useRef({ w: 900, h: 520 })
+  const [camera, setCamera] = useState<Camera>(PERSPECTIVE)
+  const [tool, setTool] = useState<Tool>('orbit')
+  const [texture, setTexture] = useState<ComposedTexture | null>(null)
+  const [texturePhase, setTexturePhase] = useState<TexturePhase>('loading')
+  const areaKey = useMemo(
+    () => workingArea.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join('|'),
+    [workingArea]
+  )
+
+  // Progressive texture pipeline: show the native maximum-zoom crop first,
+  // then replace it in place when the shared Real-ESRGAN 4× job completes.
+  useEffect(() => {
+    const controller = new AbortController()
+    let source: ComposedTexture | null = null
+    composeSatelliteTexture(workingArea, controller.signal)
+      .then(async (composed) => {
+        source = composed
+        setTexture(composed)
+        setTexturePhase('upscaling')
+        const image = await upscaleSatelliteTexture(composed, controller.signal)
+        if (controller.signal.aborted) return
+        setTexture({
+          ...composed,
+          image,
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        })
+        setTexturePhase('ready')
+      })
+      .catch((error: unknown) => {
+        if ((error as Error)?.name === 'AbortError') return
+        if (source) {
+          setTexture(source)
+          setTexturePhase('fallback')
+        } else {
+          setTexturePhase('fallback')
+        }
+      })
+    return () => controller.abort()
+    // Coordinates are represented by areaKey; depending on the array identity
+    // would restart a costly upscale for backwards-compatible inferred areas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaKey])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -79,7 +148,6 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       y: (p.lat - origin.lat) * M_PER_DEG_LAT,
     })
     const ground = workingArea.map((p) => ({ ...toXY(p), z: 0 }))
-
     const roofMappers = new Map<string, (point: LatLon, lift?: number) => Vec3>()
     for (const face of faces) {
       const xy = face.points.map(toXY)
@@ -89,53 +157,47 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       roofMappers.set(face.id, (point, lift = 0) => {
         const p = toXY(point)
         const down = p.x * downX + p.y * downY
-        return {
-          ...p,
-          z: wallHeight + (maxDown - down) * Math.tan(face.tilt * RAD) + lift,
-        }
+        return { ...p, z: wallHeight + (maxDown - down) * Math.tan(face.tilt * RAD) + lift }
       })
     }
 
-    const allWorld: Vec3[] = [...ground]
-    for (const face of faces) {
-      const lift = roofMappers.get(face.id)!
-      allWorld.push(...face.points.map((p) => lift(p)))
-    }
+    const world: Vec3[] = [...ground]
+    for (const face of faces) world.push(...face.points.map((p) => roofMappers.get(face.id)!(p)))
     for (const obstacle of obstacles) {
-      const p = toXY(obstacle.point)
-      allWorld.push({ ...p, z: obstacle.height })
+      const point = toXY(obstacle.point)
+      world.push({ ...point, z: obstacle.height })
     }
-
+    const maxZ = Math.max(wallHeight, ...world.map((p) => p.z))
+    const targetZ = maxZ * 0.3
+    const radius = Math.max(
+      2,
+      ...world.map((p) => Math.hypot(p.x, p.y, (p.z - targetZ) * 0.75))
+    )
+    const distance = (radius * 2.65) / camera.dolly
+    const focal = Math.min(w, h) / (2 * Math.tan(42 * RAD * 0.5))
     const rotate = (p: Vec3) => {
+      const z = p.z - targetZ
       const cosY = Math.cos(camera.yaw)
       const sinY = Math.sin(camera.yaw)
       const side = p.x * cosY - p.y * sinY
       const away = p.x * sinY + p.y * cosY
       return {
-        x: side,
-        y: away * Math.sin(camera.pitch) - p.z * Math.cos(camera.pitch),
-        depth: away * Math.cos(camera.pitch) + p.z * Math.sin(camera.pitch),
+        side,
+        vertical: away * Math.sin(camera.pitch) - z * Math.cos(camera.pitch),
+        depth: away * Math.cos(camera.pitch) + z * Math.sin(camera.pitch),
       }
     }
-    const raw = allWorld.map(rotate)
-    const minX = Math.min(...raw.map((p) => p.x))
-    const maxX = Math.max(...raw.map((p) => p.x))
-    const minY = Math.min(...raw.map((p) => p.y))
-    const maxY = Math.max(...raw.map((p) => p.y))
-    const naturalScale = Math.min((w - 80) / Math.max(1, maxX - minX), (h - 70) / Math.max(1, maxY - minY))
-    const scale = naturalScale * camera.zoom
-    const midX = (minX + maxX) / 2
-    const midY = (minY + maxY) / 2
     const project = (p: Vec3): Projected => {
       const r = rotate(p)
+      const cameraDepth = Math.max(radius * 0.08, distance - r.depth)
+      const perspective = focal / cameraDepth
       return {
         ...p,
-        sx: w / 2 + (r.x - midX) * scale,
-        sy: h / 2 + 8 + (r.y - midY) * scale,
+        sx: w / 2 + camera.panX + r.side * perspective,
+        sy: h / 2 + camera.panY + r.vertical * perspective,
         depth: r.depth,
       }
     }
-
     const path = (points: Vec3[]) => {
       const projected = points.map(project)
       ctx.beginPath()
@@ -145,40 +207,35 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       return projected
     }
 
-    // Deep-space backdrop and a subtle halo beneath the finite site.
     const bg = ctx.createLinearGradient(0, 0, 0, h)
-    bg.addColorStop(0, '#080d19')
+    bg.addColorStop(0, '#060a12')
     bg.addColorStop(1, '#111827')
     ctx.fillStyle = bg
     ctx.fillRect(0, 0, w, h)
-    const halo = ctx.createRadialGradient(w / 2, h * 0.62, 10, w / 2, h * 0.62, w * 0.48)
-    halo.addColorStop(0, 'rgba(99,102,241,0.13)')
+    const halo = ctx.createRadialGradient(w / 2, h * 0.56, 20, w / 2, h * 0.56, w * 0.52)
+    halo.addColorStop(0, 'rgba(56,189,248,0.10)')
     halo.addColorStop(1, 'rgba(15,23,42,0)')
     ctx.fillStyle = halo
     ctx.fillRect(0, 0, w, h)
 
-    // The user-selected ground plane. Grid lines are clipped to this polygon.
+    // Project the satellite image as a perspective-correct subdivided mesh,
+    // clipped to the exact polygon the user selected.
     path(ground)
-    ctx.fillStyle = 'rgba(15,118,110,0.16)'
+    ctx.fillStyle = 'rgba(15,23,42,0.9)'
     ctx.fill()
-    ctx.save()
+    if (texture) {
+      ctx.save()
+      path(ground)
+      ctx.clip()
+      drawTextureMesh(ctx, texture, toXY, project)
+      ctx.restore()
+    }
     path(ground)
-    ctx.clip()
-    const xs = ground.map((p) => p.x)
-    const ys = ground.map((p) => p.y)
-    const minGX = Math.floor(Math.min(...xs) / 2) * 2
-    const maxGX = Math.ceil(Math.max(...xs) / 2) * 2
-    const minGY = Math.floor(Math.min(...ys) / 2) * 2
-    const maxGY = Math.ceil(Math.max(...ys) / 2) * 2
-    ctx.strokeStyle = 'rgba(52,211,153,0.12)'
-    ctx.lineWidth = 1
-    for (let x = minGX; x <= maxGX; x += 2) drawLine(ctx, project({ x, y: minGY, z: 0 }), project({ x, y: maxGY, z: 0 }))
-    for (let y = minGY; y <= maxGY; y += 2) drawLine(ctx, project({ x: minGX, y, z: 0 }), project({ x: maxGX, y, z: 0 }))
-    ctx.restore()
-    path(ground)
+    ctx.fillStyle = texture ? 'rgba(15,23,42,0.10)' : 'rgba(15,118,110,0.15)'
+    ctx.fill()
     ctx.strokeStyle = '#34d399'
     ctx.lineWidth = 2
-    ctx.setLineDash([7, 5])
+    ctx.setLineDash([8, 5])
     ctx.stroke()
     ctx.setLineDash([])
 
@@ -191,20 +248,20 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
         const b = roof[(i + 1) % roof.length]
         surfaces.push({
           points: [a, b, { ...b, z: 0 }, { ...a, z: 0 }],
-          fill: face.active ? 'rgba(67,80,116,0.96)' : 'rgba(38,49,70,0.95)',
-          stroke: 'rgba(148,163,184,0.28)',
+          fill: face.active ? 'rgba(54,70,108,0.96)' : 'rgba(31,41,55,0.96)',
+          stroke: 'rgba(148,163,184,0.32)',
         })
       }
       surfaces.push({
         points: roof,
         fill: face.active ? 'rgba(99,102,241,0.92)' : 'rgba(51,65,85,0.96)',
-        stroke: face.active ? '#a5b4fc' : '#94a3b8',
+        stroke: face.active ? '#c7d2fe' : '#94a3b8',
         width: face.active ? 2.5 : 1.5,
       })
       if (face.panelZone?.length) {
         surfaces.push({
           points: face.panelZone.map((p) => lift(p, 0.06)),
-          fill: 'rgba(16,185,129,0.32)',
+          fill: 'rgba(16,185,129,0.34)',
           stroke: '#6ee7b7',
           width: 2,
           dash: [5, 3],
@@ -213,43 +270,14 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       for (const panel of face.panels) {
         surfaces.push({
           points: panel.map((p) => lift(p, 0.14)),
-          fill: 'rgba(15,48,102,0.98)',
+          fill: 'rgba(9,35,85,0.98)',
           stroke: '#7dd3fc',
           width: 0.8,
         })
       }
     }
-
-    // Nearby shading objects are simple finite prisms; enough to read their
-    // footprint and relative height without pretending to know their exact form.
-    for (const obstacle of obstacles) {
-      const center = toXY(obstacle.point)
-      const radius = obstacle.width / 2
-      const ring = Array.from({ length: 8 }, (_, i) => ({
-        x: center.x + Math.cos((i / 8) * Math.PI * 2) * radius,
-        y: center.y + Math.sin((i / 8) * Math.PI * 2) * radius,
-      }))
-      for (let i = 0; i < ring.length; i++) {
-        const a = ring[i]
-        const b = ring[(i + 1) % ring.length]
-        surfaces.push({
-          points: [{ ...a, z: 0 }, { ...b, z: 0 }, { ...b, z: obstacle.height }, { ...a, z: obstacle.height }],
-          fill: 'rgba(154,83,35,0.88)',
-          stroke: 'rgba(253,186,116,0.45)',
-        })
-      }
-      surfaces.push({
-        points: ring.map((p) => ({ ...p, z: obstacle.height })),
-        fill: 'rgba(249,115,22,0.86)',
-        stroke: '#fdba74',
-      })
-    }
-
-    surfaces.sort(
-      (a, b) =>
-        a.points.reduce((sum, p) => sum + project(p).depth, 0) / a.points.length -
-        b.points.reduce((sum, p) => sum + project(p).depth, 0) / b.points.length
-    )
+    for (const obstacle of obstacles) addObstacleSurfaces(surfaces, toXY(obstacle.point), obstacle)
+    surfaces.sort((a, b) => averageDepth(a, project) - averageDepth(b, project))
     for (const surface of surfaces) {
       path(surface.points)
       ctx.fillStyle = surface.fill
@@ -261,40 +289,41 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
       ctx.setLineDash([])
     }
 
-    // Orientation cue.
+    // Horizon and compass cues make orbit direction legible.
     ctx.fillStyle = 'rgba(15,23,42,0.82)'
     ctx.beginPath()
-    ctx.arc(30, 30, 18, 0, Math.PI * 2)
+    ctx.arc(31, 31, 19, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillStyle = '#f87171'
     ctx.beginPath()
-    ctx.moveTo(30, 14)
-    ctx.lineTo(25, 29)
-    ctx.lineTo(35, 29)
+    ctx.moveTo(31, 14)
+    ctx.lineTo(26, 30)
+    ctx.lineTo(36, 30)
     ctx.closePath()
     ctx.fill()
     ctx.fillStyle = '#e2e8f0'
     ctx.font = '600 10px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('N', 30, 40)
-  }, [camera, faces, obstacles, wallHeight, workingArea])
+    ctx.fillText('N', 31, 42)
+  }, [camera, faces, obstacles, texture, wallHeight, workingArea])
 
   useEffect(draw, [draw])
   useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
+    const element = wrapRef.current
+    if (!element) return
     const resize = () => {
-      sizeRef.current = { w: el.clientWidth, h: el.clientHeight }
+      sizeRef.current = { w: element.clientWidth, h: element.clientHeight }
       draw()
     }
     const observer = new ResizeObserver(resize)
-    observer.observe(el)
+    observer.observe(element)
     resize()
     return () => observer.disconnect()
   }, [draw])
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
-  const pinchRef = useRef<number | null>(null)
+  const gesture = useRef<{ distance: number; midX: number; midY: number } | null>(null)
+  const forcedPan = useRef(false)
   const local = (event: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect()
     return { x: event.clientX - rect.left, y: event.clientY - rect.top }
@@ -302,9 +331,14 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
   const pointerDown = (event: React.PointerEvent) => {
     ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
     pointers.current.set(event.pointerId, local(event))
+    forcedPan.current = event.button === 1 || event.button === 2 || event.shiftKey || event.altKey
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
-      pinchRef.current = Math.hypot(a.x - b.x, a.y - b.y)
+      gesture.current = {
+        distance: Math.hypot(a.x - b.x, a.y - b.y),
+        midX: (a.x + b.x) / 2,
+        midY: (a.y + b.y) / 2,
+      }
     }
   }
   const pointerMove = (event: React.PointerEvent) => {
@@ -312,58 +346,248 @@ export function RoofModel3D({ workingArea, faces, obstacles, wallHeight, resetLa
     if (!previous) return
     const next = local(event)
     pointers.current.set(event.pointerId, next)
-    if (pointers.current.size >= 2 && pinchRef.current) {
+    if (pointers.current.size >= 2 && gesture.current) {
       const [a, b] = [...pointers.current.values()]
       const distance = Math.hypot(a.x - b.x, a.y - b.y)
-      const factor = distance / pinchRef.current
-      pinchRef.current = distance
-      setCamera((c) => ({ ...c, zoom: Math.max(0.55, Math.min(3.5, c.zoom * factor)) }))
+      const midX = (a.x + b.x) / 2
+      const midY = (a.y + b.y) / 2
+      const previousGesture = gesture.current
+      gesture.current = { distance, midX, midY }
+      setCamera((value) => ({
+        ...value,
+        dolly: clamp(value.dolly * (distance / Math.max(1, previousGesture.distance)), 0.42, 2.2),
+        panX: value.panX + midX - previousGesture.midX,
+        panY: value.panY + midY - previousGesture.midY,
+      }))
       return
     }
-    setCamera((c) => ({
-      ...c,
-      yaw: c.yaw + (next.x - previous.x) * 0.008,
-      pitch: Math.max(0.12, Math.min(1.45, c.pitch - (next.y - previous.y) * 0.006)),
-    }))
+    if (tool === 'pan' || forcedPan.current) {
+      setCamera((value) => ({
+        ...value,
+        panX: value.panX + next.x - previous.x,
+        panY: value.panY + next.y - previous.y,
+      }))
+    } else {
+      setCamera((value) => ({
+        ...value,
+        yaw: value.yaw + (next.x - previous.x) * 0.007,
+        pitch: clamp(value.pitch - (next.y - previous.y) * 0.0055, 0.02, 1.48),
+      }))
+    }
   }
   const pointerUp = (event: React.PointerEvent) => {
     pointers.current.delete(event.pointerId)
-    if (pointers.current.size < 2) pinchRef.current = null
+    if (pointers.current.size < 2) gesture.current = null
+    if (pointers.current.size === 0) forcedPan.current = false
   }
+  const dolly = (factor: number) =>
+    setCamera((value) => ({ ...value, dolly: clamp(value.dolly * factor, 0.42, 2.2) }))
+  const fit = () => setCamera((value) => ({ ...value, dolly: 1, panX: 0, panY: 0 }))
+
+  const statusLabel =
+    texturePhase === 'loading'
+      ? labels.loadingMap
+      : texturePhase === 'upscaling'
+        ? labels.upscalingMap
+        : texturePhase === 'ready'
+          ? labels.mapReady
+          : labels.mapFallback
 
   return (
-    <div ref={wrapRef} className="relative h-[360px] w-full sm:h-[430px]">
+    <div ref={wrapRef} className="relative h-[430px] w-full overflow-hidden bg-slate-950 sm:h-[520px]">
       <canvas
         ref={canvasRef}
-        className="size-full touch-none cursor-grab select-none active:cursor-grabbing"
+        className={`size-full touch-none select-none ${tool === 'pan' ? 'cursor-move' : 'cursor-grab active:cursor-grabbing'}`}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
-        onDoubleClick={() => setCamera(DEFAULT_CAMERA)}
+        onContextMenu={(event) => event.preventDefault()}
+        onDoubleClick={fit}
         onWheel={(event) => {
           event.preventDefault()
-          setCamera((c) => ({
-            ...c,
-            zoom: Math.max(0.55, Math.min(3.5, c.zoom * (event.deltaY < 0 ? 1.1 : 0.9))),
-          }))
+          dolly(Math.exp(-event.deltaY * 0.0012))
         }}
+        onKeyDown={(event) => {
+          if (event.key === 'r') setCamera(PERSPECTIVE)
+          else if (event.key === '1') setCamera(TOP)
+          else if (event.key === '2') setCamera(PERSPECTIVE)
+          else if (event.key === '+' || event.key === '=') dolly(1.12)
+          else if (event.key === '-') dolly(0.89)
+          else if (event.key.startsWith('Arrow')) {
+            event.preventDefault()
+            const dx = event.key === 'ArrowLeft' ? -18 : event.key === 'ArrowRight' ? 18 : 0
+            const dy = event.key === 'ArrowUp' ? -18 : event.key === 'ArrowDown' ? 18 : 0
+            setCamera((value) => ({ ...value, panX: value.panX + dx, panY: value.panY + dy }))
+          }
+        }}
+        tabIndex={0}
         role="img"
-        aria-label="Interactive 3D model of the selected building and panel area"
+        aria-label="Perspective 3D model of the selected satellite area, building and panels"
       />
-      <button
-        onClick={() => setCamera(DEFAULT_CAMERA)}
-        className="absolute right-3 bottom-3 flex items-center gap-2 rounded-lg border border-white/15 bg-slate-900/80 px-3 py-2 text-xs text-slate-200 backdrop-blur hover:bg-slate-800"
-      >
-        <RotateCcw className="size-3.5" /> {resetLabel}
-      </button>
+
+      <div className="absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-white/12 bg-slate-950/82 p-1 shadow-xl backdrop-blur">
+        <ToolButton active={tool === 'orbit'} label={labels.orbit} onClick={() => setTool('orbit')}>
+          <Orbit className="size-3.5" />
+        </ToolButton>
+        <ToolButton active={tool === 'pan'} label={labels.pan} onClick={() => setTool('pan')}>
+          <Hand className="size-3.5" />
+        </ToolButton>
+        <span className="mx-1 h-5 w-px bg-white/10" />
+        <ToolButton label={labels.top} onClick={() => setCamera(TOP)} />
+        <ToolButton label={labels.perspective} onClick={() => setCamera(PERSPECTIVE)} />
+        <ToolButton label={labels.fit} onClick={fit} />
+      </div>
+
+      <div className="absolute top-3 right-3 flex flex-col gap-1 rounded-xl border border-white/12 bg-slate-950/82 p-1 backdrop-blur">
+        <button onClick={() => dolly(1.14)} className="grid size-8 place-items-center rounded-lg text-slate-200 hover:bg-white/10" aria-label="Zoom in">
+          <Plus className="size-4" />
+        </button>
+        <button onClick={() => dolly(0.88)} className="grid size-8 place-items-center rounded-lg text-slate-200 hover:bg-white/10" aria-label="Zoom out">
+          <Minus className="size-4" />
+        </button>
+        <button onClick={() => setCamera(PERSPECTIVE)} className="grid size-8 place-items-center rounded-lg text-slate-200 hover:bg-white/10" aria-label={resetLabel}>
+          <RotateCcw className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-6rem)] items-center gap-2 rounded-lg border border-white/10 bg-slate-950/78 px-2.5 py-1.5 text-[11px] text-slate-300 backdrop-blur">
+        {texturePhase === 'loading' || texturePhase === 'upscaling' ? (
+          <LoaderCircle className="size-3.5 animate-spin text-indigo-300" />
+        ) : (
+          <Sparkles className={`size-3.5 ${texturePhase === 'ready' ? 'text-emerald-300' : 'text-amber-300'}`} />
+        )}
+        {statusLabel}
+        <span className="border-l border-white/10 pl-2 text-slate-500">Imagery © Esri</span>
+      </div>
+      <div className="absolute right-3 bottom-3 hidden rounded-lg bg-slate-950/65 px-2.5 py-1.5 text-[10px] text-slate-400 backdrop-blur md:block">
+        {labels.controlsHint}
+      </div>
     </div>
   )
 }
 
-function drawLine(ctx: CanvasRenderingContext2D, a: Projected, b: Projected) {
+function ToolButton({
+  active = false,
+  label,
+  onClick,
+  children,
+}: {
+  active?: boolean
+  label: string
+  onClick: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium ${
+        active ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      {children}
+      {label}
+    </button>
+  )
+}
+
+function drawTextureMesh(
+  ctx: CanvasRenderingContext2D,
+  texture: ComposedTexture,
+  toXY: (point: LatLon) => { x: number; y: number },
+  project: (point: Vec3) => Projected
+) {
+  const columns = 14
+  const rows = 14
+  const { bounds, image } = texture
+  const imageWidth = image.naturalWidth || texture.width
+  const imageHeight = image.naturalHeight || texture.height
+  const at = (column: number, row: number) => {
+    const u = column / columns
+    const v = row / rows
+    const point = toXY({
+      lon: bounds.minLon + (bounds.maxLon - bounds.minLon) * u,
+      lat: bounds.maxLat - (bounds.maxLat - bounds.minLat) * v,
+    })
+    return {
+      src: { x: u * imageWidth, y: v * imageHeight },
+      dst: project({ ...point, z: 0 }),
+    }
+  }
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const a = at(column, row)
+      const b = at(column + 1, row)
+      const c = at(column + 1, row + 1)
+      const d = at(column, row + 1)
+      drawTexturedTriangle(ctx, image, [a.src, b.src, c.src], [a.dst, b.dst, c.dst])
+      drawTexturedTriangle(ctx, image, [a.src, c.src, d.src], [a.dst, c.dst, d.dst])
+    }
+  }
+}
+
+function drawTexturedTriangle(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  source: { x: number; y: number }[],
+  destination: Projected[]
+) {
+  const [s0, s1, s2] = source
+  const [d0, d1, d2] = destination
+  const denominator = s0.x * (s1.y - s2.y) + s1.x * (s2.y - s0.y) + s2.x * (s0.y - s1.y)
+  if (Math.abs(denominator) < 1e-6) return
+  const a = (d0.sx * (s1.y - s2.y) + d1.sx * (s2.y - s0.y) + d2.sx * (s0.y - s1.y)) / denominator
+  const b = (d0.sy * (s1.y - s2.y) + d1.sy * (s2.y - s0.y) + d2.sy * (s0.y - s1.y)) / denominator
+  const c = (d0.sx * (s2.x - s1.x) + d1.sx * (s0.x - s2.x) + d2.sx * (s1.x - s0.x)) / denominator
+  const d = (d0.sy * (s2.x - s1.x) + d1.sy * (s0.x - s2.x) + d2.sy * (s1.x - s0.x)) / denominator
+  const e =
+    (d0.sx * (s1.x * s2.y - s2.x * s1.y) +
+      d1.sx * (s2.x * s0.y - s0.x * s2.y) +
+      d2.sx * (s0.x * s1.y - s1.x * s0.y)) /
+    denominator
+  const f =
+    (d0.sy * (s1.x * s2.y - s2.x * s1.y) +
+      d1.sy * (s2.x * s0.y - s0.x * s2.y) +
+      d2.sy * (s0.x * s1.y - s1.x * s0.y)) /
+    denominator
+  ctx.save()
   ctx.beginPath()
-  ctx.moveTo(a.sx, a.sy)
-  ctx.lineTo(b.sx, b.sy)
-  ctx.stroke()
+  ctx.moveTo(d0.sx, d0.sy)
+  ctx.lineTo(d1.sx, d1.sy)
+  ctx.lineTo(d2.sx, d2.sy)
+  ctx.closePath()
+  ctx.clip()
+  ctx.transform(a, b, c, d, e, f)
+  ctx.drawImage(image, 0, 0)
+  ctx.restore()
+}
+
+function addObstacleSurfaces(surfaces: Surface[], center: { x: number; y: number }, obstacle: Obstacle) {
+  const radius = obstacle.width / 2
+  const ring = Array.from({ length: 8 }, (_, index) => ({
+    x: center.x + Math.cos((index / 8) * Math.PI * 2) * radius,
+    y: center.y + Math.sin((index / 8) * Math.PI * 2) * radius,
+  }))
+  for (let index = 0; index < ring.length; index++) {
+    const a = ring[index]
+    const b = ring[(index + 1) % ring.length]
+    surfaces.push({
+      points: [{ ...a, z: 0 }, { ...b, z: 0 }, { ...b, z: obstacle.height }, { ...a, z: obstacle.height }],
+      fill: 'rgba(154,83,35,0.9)',
+      stroke: 'rgba(253,186,116,0.5)',
+    })
+  }
+  surfaces.push({
+    points: ring.map((point) => ({ ...point, z: obstacle.height })),
+    fill: 'rgba(249,115,22,0.88)',
+    stroke: '#fdba74',
+  })
+}
+
+function averageDepth(surface: Surface, project: (point: Vec3) => Projected) {
+  return surface.points.reduce((sum, point) => sum + project(point).depth, 0) / surface.points.length
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, value))
 }
