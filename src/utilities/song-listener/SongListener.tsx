@@ -54,6 +54,7 @@ interface RecognitionLike {
   interimResults: boolean
   maxAlternatives: number
   lang: string
+  processLocally?: boolean
   onresult: ((event: RecognitionEventLike) => void) | null
   onerror: ((event: RecognitionErrorLike) => void) | null
   onend: (() => void) | null
@@ -62,7 +63,18 @@ interface RecognitionLike {
   abort: () => void
 }
 
-type RecognitionConstructor = new () => RecognitionLike
+type RecognitionAvailability = 'available' | 'downloadable' | 'downloading' | 'unavailable'
+
+type RecognitionOptions = {
+  langs: string[]
+  processLocally: boolean
+  quality?: 'dictation'
+}
+
+type RecognitionConstructor = (new () => RecognitionLike) & {
+  available?: (options: RecognitionOptions) => Promise<RecognitionAvailability>
+  install?: (options: RecognitionOptions) => Promise<boolean>
+}
 
 const STR = {
   en: {
@@ -79,6 +91,12 @@ const STR = {
     unsupported: 'Live transcription is not supported in this browser. Try Chrome or Edge, or use manual search.',
     noMatch: 'No confident match yet. Keep the music playing or search manually.',
     genericError: 'Something went wrong while identifying the song.',
+    preparingLocal: 'Preparing private on-device transcription…',
+    downloadingModel: 'Downloading the speech model for this language…',
+    localReady: 'Using on-device transcription',
+    cloudReady: 'Using browser transcription',
+    networkRetry: 'The browser speech service lost its connection. Retrying…',
+    networkError: 'Your browser’s speech service could not connect. Check the connection, disable strict tracking protection for this page, or try current Chrome or Edge. Manual song search still works below.',
     manual: 'Know the song already?',
     manualHint: 'Search by title and artist to open its synced lyrics.',
     searchPlaceholder: 'Song title or artist…',
@@ -115,6 +133,12 @@ const STR = {
     unsupported: 'Live transcriptie werkt niet in deze browser. Probeer Chrome of Edge, of zoek handmatig.',
     noMatch: 'Nog geen zekere match. Laat de muziek spelen of zoek handmatig.',
     genericError: 'Er ging iets mis bij het herkennen van het nummer.',
+    preparingLocal: 'Privé transcriptie op dit apparaat voorbereiden…',
+    downloadingModel: 'Het spraakmodel voor deze taal downloaden…',
+    localReady: 'Transcriptie op dit apparaat actief',
+    cloudReady: 'Browsertranscriptie actief',
+    networkRetry: 'De spraakdienst van de browser verloor de verbinding. Opnieuw proberen…',
+    networkError: 'De spraakdienst van je browser kon geen verbinding maken. Controleer de verbinding, schakel strikte trackingbeveiliging voor deze pagina uit of probeer een recente Chrome of Edge. Handmatig zoeken hieronder blijft werken.',
     manual: 'Ken je het nummer al?',
     manualHint: 'Zoek op titel en artiest om de gesynchroniseerde tekst te openen.',
     searchPlaceholder: 'Titel of artiest…',
@@ -222,6 +246,8 @@ export function SongListener() {
   const t = useT(STR)
   const [listening, setListening] = useState(false)
   const [lookingUp, setLookingUp] = useState(false)
+  const [preparingRecognition, setPreparingRecognition] = useState(false)
+  const [speechStatus, setSpeechStatus] = useState('')
   const [transcript, setTranscript] = useState('')
   const [interim, setInterim] = useState('')
   const [error, setError] = useState('')
@@ -245,6 +271,9 @@ export function SongListener() {
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const animationRef = useRef<number | null>(null)
+  const restartTimerRef = useRef<number | null>(null)
+  const restartDelayRef = useRef(0)
+  const networkErrorsRef = useRef(0)
   const clockRef = useRef({ position: 0, startedAt: 0 })
   const activeLineRef = useRef<HTMLParagraphElement | null>(null)
 
@@ -285,6 +314,10 @@ export function SongListener() {
   const stopListening = useCallback(() => {
     listeningRef.current = false
     setListening(false)
+    setPreparingRecognition(false)
+    setSpeechStatus('')
+    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
+    restartTimerRef.current = null
     recognitionRef.current?.stop()
     recognitionRef.current = null
     cleanupAudio()
@@ -292,6 +325,7 @@ export function SongListener() {
 
   useEffect(() => () => {
     listeningRef.current = false
+    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
     recognitionRef.current?.abort()
     cleanupAudio()
   }, [cleanupAudio])
@@ -358,8 +392,12 @@ export function SongListener() {
     setTrack(null)
     setTranscript('')
     setInterim('')
+    setSpeechStatus('')
+    setPreparingRecognition(false)
     finalTranscriptRef.current = ''
     lastQueryRef.current = ''
+    networkErrorsRef.current = 0
+    restartDelayRef.current = 0
     if (!Recognition) {
       setError(t.unsupported)
       return
@@ -378,7 +416,49 @@ export function SongListener() {
       recognition.interimResults = true
       recognition.maxAlternatives = 1
       recognition.lang = songLanguage
+
+      // Prefer a local language pack when the browser exposes the new
+      // on-device API. This avoids the remote recognition service that emits
+      // `network` errors in privacy-focused browsers and some managed setups.
+      if (Recognition.available && Recognition.install) {
+        setPreparingRecognition(true)
+        setSpeechStatus(t.preparingLocal)
+        try {
+          const options: RecognitionOptions = {
+            langs: [songLanguage],
+            processLocally: true,
+            quality: 'dictation',
+          }
+          const availability = await Recognition.available(options)
+          if (availability === 'available') {
+            recognition.processLocally = true
+            setSpeechStatus(t.localReady)
+          } else if (availability === 'downloadable' || availability === 'downloading') {
+            setSpeechStatus(t.downloadingModel)
+            if (await Recognition.install(options)) {
+              recognition.processLocally = true
+              setSpeechStatus(t.localReady)
+            } else {
+              setSpeechStatus(t.cloudReady)
+            }
+          } else {
+            setSpeechStatus(t.cloudReady)
+          }
+        } catch {
+          // Experimental on-device APIs can be present but blocked by browser
+          // policy. Remote recognition remains the compatible fallback.
+          setSpeechStatus(t.cloudReady)
+        } finally {
+          setPreparingRecognition(false)
+        }
+      } else {
+        setSpeechStatus(t.cloudReady)
+      }
+
+      if (!listeningRef.current) return
       recognition.onresult = (event) => {
+        networkErrorsRef.current = 0
+        setSpeechStatus(recognition.processLocally ? t.localReady : t.cloudReady)
         let temporary = ''
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const value = event.results[index][0]?.transcript ?? ''
@@ -392,12 +472,37 @@ export function SongListener() {
       }
       recognition.onerror = (event) => {
         if (event.error === 'no-speech' || event.error === 'aborted') return
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') setError(t.permission)
-        else setError(`${t.genericError} (${event.error})`)
+        if (event.error === 'network') {
+          networkErrorsRef.current += 1
+          if (networkErrorsRef.current === 1) {
+            restartDelayRef.current = 1500
+            setSpeechStatus(t.networkRetry)
+          } else {
+            listeningRef.current = false
+            setListening(false)
+            setSpeechStatus('')
+            cleanupAudio()
+            setError(t.networkError)
+          }
+          return
+        }
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          listeningRef.current = false
+          setListening(false)
+          cleanupAudio()
+          setError(t.permission)
+        } else {
+          setError(`${t.genericError} (${event.error})`)
+        }
       }
       recognition.onend = () => {
         if (!listeningRef.current) return
-        try { recognition.start() } catch { /* browser is already restarting */ }
+        const delay = restartDelayRef.current || 250
+        restartDelayRef.current = 0
+        restartTimerRef.current = window.setTimeout(() => {
+          if (!listeningRef.current) return
+          try { recognition.start() } catch { /* browser is already restarting */ }
+        }, delay)
       }
       recognitionRef.current = recognition
       recognition.start()
@@ -407,7 +512,7 @@ export function SongListener() {
       setListening(false)
       setError(t.permission)
     }
-  }, [beginVisualizer, cleanupAudio, lookupFragment, songLanguage, t.genericError, t.permission, t.unsupported])
+  }, [beginVisualizer, cleanupAudio, lookupFragment, songLanguage, t.cloudReady, t.downloadingModel, t.genericError, t.localReady, t.networkError, t.networkRetry, t.permission, t.preparingLocal, t.unsupported])
 
   const searchManually = async (event: FormEvent) => {
     event.preventDefault()
@@ -564,7 +669,7 @@ export function SongListener() {
             <div className={`relative mx-auto grid size-36 place-items-center rounded-full border transition-all duration-500 sm:size-44 ${listening ? 'border-cyan-300/40 bg-cyan-400/10 shadow-[0_0_70px_rgb(34_211_238/0.16)]' : 'border-white/10 bg-white/[0.035]'}`}>
               {listening && <span className="absolute inset-0 animate-ping rounded-full border border-cyan-300/20" />}
               <div className={`grid size-24 place-items-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-400 shadow-xl shadow-indigo-500/30 sm:size-28 ${listening ? 'scale-105' : ''}`}>
-                {lookingUp ? <LoaderCircle className="size-11 animate-spin" /> : <Mic className="size-11" />}
+                {lookingUp || preparingRecognition ? <LoaderCircle className="size-11 animate-spin" /> : <Mic className="size-11" />}
               </div>
             </div>
 
@@ -581,6 +686,7 @@ export function SongListener() {
             <div className="relative mt-4">
               <h2 className="text-xl font-semibold text-white">{listening ? t.listening : t.idle}</h2>
               {!listening && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{t.idleHint}</p>}
+              {listening && speechStatus && <p className="mx-auto mt-2 max-w-md text-xs text-cyan-300/80">{speechStatus}</p>}
             </div>
 
             {(transcript || interim) && (
