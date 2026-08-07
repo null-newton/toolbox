@@ -9,6 +9,16 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'song-listener': {
+    en: {
+      name: 'Live Lyrics',
+      description: 'Listen through your microphone, identify the song from its words, and follow synced lyrics.',
+    },
+    nl: {
+      name: 'Live songtekst',
+      description: 'Luister via je microfoon, herken het nummer aan de woorden en volg de gesynchroniseerde tekst.',
+    },
+  },
   weather: {
     en: {
       name: 'Weather',

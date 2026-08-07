@@ -18,11 +18,23 @@ import {
   imageUpscalerIcon,
   backgroundRemoverIcon,
   weatherIcon,
+  songListenerIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
 // Components are lazy-imported so each utility builds into its own chunk
 // and only loads when the user opens it.
+registerUtility({
+  id: 'song-listener',
+  name: 'Live Lyrics',
+  description: 'Listen through your microphone, identify the song from its words, and follow synced lyrics.',
+  icon: songListenerIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./song-listener/SongListener').then((m) => ({ default: m.SongListener }))
+  ),
+})
+
 registerUtility({
   id: 'weather',
   name: 'Weather',

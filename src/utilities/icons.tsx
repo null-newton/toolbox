@@ -27,6 +27,7 @@ import {
   Maximize2,
   ScanLine,
   CloudSun,
+  MicVocal,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -46,3 +47,4 @@ export const fileTransferIcon = <Send className="size-5" />
 export const imageUpscalerIcon = <Maximize2 className="size-5" />
 export const backgroundRemoverIcon = <ScanLine className="size-5" />
 export const weatherIcon = <CloudSun className="size-5" />
+export const songListenerIcon = <MicVocal className="size-5" />
