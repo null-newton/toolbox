@@ -9,6 +9,16 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'week-planner': {
+    en: {
+      name: 'Weekly Planner',
+      description: 'Schedule a seven-day work week and export the full plan or individual work sheets.',
+    },
+    nl: {
+      name: 'Weekplanning',
+      description: 'Plan een volledige werkweek en exporteer de algemene planning of aparte werkfiches.',
+    },
+  },
   'song-listener': {
     en: {
       name: 'Live Lyrics',

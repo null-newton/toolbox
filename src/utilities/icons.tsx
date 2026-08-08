@@ -28,6 +28,7 @@ import {
   ScanLine,
   CloudSun,
   MicVocal,
+  CalendarRange,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -48,3 +49,4 @@ export const imageUpscalerIcon = <Maximize2 className="size-5" />
 export const backgroundRemoverIcon = <ScanLine className="size-5" />
 export const weatherIcon = <CloudSun className="size-5" />
 export const songListenerIcon = <MicVocal className="size-5" />
+export const weekPlannerIcon = <CalendarRange className="size-5" />
