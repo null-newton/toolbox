@@ -81,6 +81,9 @@ const STR = {
     addTask: 'Taak toevoegen',
     emptyDay: 'Nog niets gepland',
     dragHint: 'Sleep een kaart naar een andere dag',
+    moreTasks: (n: number) => `+${n} ${n === 1 ? 'taak' : 'taken'} — beweeg erover`,
+    addTaskFor: (name: string) => `Taak toevoegen voor ${name}`,
+    noTeamYet: 'Voeg medewerkers toe om de weekmatrix te gebruiken.',
     weekend: 'Weekend',
     done: 'OK',
     edit: 'Bewerken',
@@ -151,6 +154,9 @@ const STR = {
     addTask: 'Add task',
     emptyDay: 'Nothing planned yet',
     dragHint: 'Drag a card to another day',
+    moreTasks: (n: number) => `+${n} more ${n === 1 ? 'task' : 'tasks'} — hover to view`,
+    addTaskFor: (name: string) => `Add task for ${name}`,
+    noTeamYet: 'Add employees to use the weekly matrix.',
     weekend: 'Weekend',
     done: 'OK',
     edit: 'Edit',
@@ -243,6 +249,7 @@ export function WeekPlanner() {
   const [taskMenuOpen, setTaskMenuOpen] = useState(false)
   const [formError, setFormError] = useState('')
   const [toast, setToast] = useState('')
+  const [expandedCell, setExpandedCell] = useState<string | null>(null)
 
   const weekStart = useMemo(() => startOfWeek(anchor, config.weekStartsOn), [anchor, config.weekStartsOn])
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart])
@@ -274,6 +281,9 @@ export function WeekPlanner() {
   const tasksThisWeek = config.assignments.filter((assignment) => weekDates.has(assignment.date))
   const scheduledWorkers = new Set(tasksThisWeek.map((assignment) => assignment.workerId)).size
   const completedTasks = tasksThisWeek.filter((assignment) => assignment.done).length
+  const visibleWorkers = workerFilter === 'all'
+    ? config.workers
+    : config.workers.filter((worker) => worker.id === workerFilter)
   const taskSearch = draft?.task.trim() ?? ''
   const matchingTaskPresets = config.taskPresets
     .filter((preset) => preset.toLocaleLowerCase(locale).includes(taskSearch.toLocaleLowerCase(locale)))
@@ -294,11 +304,11 @@ export function WeekPlanner() {
     window.setTimeout(() => setToast(''), 2600)
   }
 
-  const openCreate = (date: string) => {
+  const openCreate = (date: string, workerId = config.workers[0]?.id ?? '') => {
     setEditingId(null)
     setFormError('')
     setTaskMenuOpen(false)
-    setDraft(emptyDraft(date, config.workers[0]?.id ?? ''))
+    setDraft(emptyDraft(date, workerId))
   }
 
   const openEdit = (assignment: Assignment) => {
@@ -448,6 +458,7 @@ export function WeekPlanner() {
       table { border-collapse: collapse; table-layout: fixed; width: 100%; } th, td { border: 1px solid #374151; padding: 6px 5px; text-align: left; vertical-align: top; }
       th { background: #eef2ff; font-weight: 700; } .sub th { background: #f8fafc; font-size: 8px; }
       .center { text-align: center; } .muted { color: #6b7280; } .task { font-weight: 700; }
+      .cell-line { min-height: 12px; }
       .general .task-col { width: 14%; } .general .price-col { width: 4%; } .general .time-col { width: 5%; }
       .work-table .date-col { width: 16%; } .work-table .time-col { width: 13%; } .work-table .ok-col { width: 9%; }
       .work-table td { height: 34px; } .notes { display: block; font-size: 8px; font-weight: 400; margin-top: 3px; }
@@ -462,15 +473,31 @@ export function WeekPlanner() {
     const all = config.assignments
       .filter((assignment) => weekDates.has(assignment.date))
       .sort(compareAssignments)
+    const groupedTasks = Array.from(
+      all.reduce((groups, assignment) => {
+        const key = assignment.task.trim().replace(/\s+/g, ' ').toLocaleLowerCase(locale)
+        const group = groups.get(key) ?? []
+        group.push(assignment)
+        groups.set(key, group)
+        return groups
+      }, new Map<string, Assignment[]>()).values()
+    )
     const dayHeaders = days.map((day) => `<th colspan="2">${escapeHtml(t.days[day.getDay()])}<br><span class="muted">${day.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}</span></th>`).join('')
     const subHeaders = days.map(() => `<th>${escapeHtml(t.employee)}</th><th class="center">OK</th>`).join('')
-    const rows = all.length
-      ? all.map((assignment) => {
-          const worker = workerMap.get(assignment.workerId)?.name ?? '—'
-          const cells = days.map((day) => assignment.date === toYmd(day)
-            ? `<td>${escapeHtml(worker)}</td><td class="center">${assignment.done ? '✓' : ''}</td>`
-            : '<td></td><td></td>').join('')
-          return `<tr><td class="task">${escapeHtml(assignment.task)}${assignment.notes ? `<span class="notes">${escapeHtml(assignment.notes)}</span>` : ''}</td><td>${escapeHtml(assignment.price)}</td><td>${escapeHtml(displayTime(assignment.time))}</td>${cells}</tr>`
+    const rows = groupedTasks.length
+      ? groupedTasks.map((assignments) => {
+          const first = assignments[0]
+          const prices = [...new Set(assignments.map((assignment) => assignment.price).filter(Boolean))]
+          const times = [...new Set(assignments.map((assignment) => displayTime(assignment.time)).filter((time) => time !== '—'))]
+          const notes = [...new Set(assignments.map((assignment) => assignment.notes.trim()).filter(Boolean))]
+          const cells = days.map((day) => {
+            const dayAssignments = assignments.filter((assignment) => assignment.date === toYmd(day))
+            if (!dayAssignments.length) return '<td></td><td></td>'
+            const workers = dayAssignments.map((assignment) => `<div class="cell-line">${escapeHtml(workerMap.get(assignment.workerId)?.name ?? '—')}</div>`).join('')
+            const checks = dayAssignments.map((assignment) => `<div class="cell-line">${assignment.done ? '✓' : '&nbsp;'}</div>`).join('')
+            return `<td>${workers}</td><td class="center">${checks}</td>`
+          }).join('')
+          return `<tr><td class="task">${escapeHtml(first.task)}${notes.map((note) => `<span class="notes">${escapeHtml(note)}</span>`).join('')}</td><td>${prices.map(escapeHtml).join(' / ')}</td><td>${times.map(escapeHtml).join(' / ')}</td>${cells}</tr>`
         }).join('')
       : `<tr><td colspan="17" class="center muted">${escapeHtml(t.emptyDay)}</td></tr>`
     printDocument(`<section class="general"><div class="sheet-head"><div><div class="brand">${escapeHtml(config.companyName || t.planning)}</div><h1>${escapeHtml(t.generalPdf)}</h1></div><div>${escapeHtml(formatRange())}</div></div><table><thead><tr><th rowspan="2" class="task-col">${escapeHtml(t.task)}</th><th rowspan="2" class="price-col">€</th><th rowspan="2" class="time-col">${escapeHtml(t.time)}</th>${dayHeaders}</tr><tr class="sub">${subHeaders}</tr></thead><tbody>${rows}</tbody></table></section>`, true)
@@ -493,6 +520,38 @@ export function WeekPlanner() {
     }).join('')
     printDocument(sheets, false)
   }
+
+  const renderCellTask = (assignment: Assignment) => (
+    <article
+      key={assignment.id}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', assignment.id)
+        event.dataTransfer.effectAllowed = 'move'
+      }}
+      className={`group/task rounded-lg bg-white/[0.045] p-2 ring-1 ring-inset transition-colors hover:bg-white/[0.07] ${assignment.done ? 'opacity-60 ring-emerald-400/15' : 'ring-white/[0.07]'}`}
+    >
+      <div className="flex items-start gap-1.5">
+        <GripVertical className="mt-0.5 size-3 shrink-0 cursor-grab text-slate-700 group-hover/task:text-slate-500" />
+        <button onClick={() => openEdit(assignment)} className="no-glow min-w-0 flex-1 text-left">
+          <span className={`block break-words text-xs font-bold leading-4 ${assignment.done ? 'line-through text-slate-400' : 'text-slate-200'}`}>{assignment.task}</span>
+          <span className="mt-1 block font-mono text-[9px] text-slate-500">{displayTime(assignment.time)}</span>
+        </button>
+      </div>
+      {(assignment.price || assignment.notes) && (
+        <div className="mt-1.5 pl-[18px]">
+          {assignment.price && <span className="flex items-center gap-1 text-[9px] text-slate-500"><BadgeEuro className="size-2.5" />{assignment.price}</span>}
+          {assignment.notes && <p className="mt-1 line-clamp-2 text-[9px] leading-3 text-slate-600">{assignment.notes}</p>}
+        </div>
+      )}
+      <div className="mt-1.5 flex items-center gap-0.5 border-t border-white/5 pt-1 opacity-60 transition-opacity group-hover/task:opacity-100">
+        <button onClick={() => updateAssignment(assignment.id, { done: !assignment.done })} title={t.done} aria-label={t.done} className={`grid size-6 place-items-center rounded-md ${assignment.done ? 'text-emerald-300' : 'text-slate-600 hover:bg-emerald-500/10 hover:text-emerald-300'}`}><Check className="size-3" /></button>
+        <button onClick={() => openEdit(assignment)} title={t.edit} aria-label={t.edit} className="grid size-6 place-items-center rounded-md text-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300"><Pencil className="size-3" /></button>
+        <button onClick={() => duplicateAssignment(assignment)} title={t.duplicate} aria-label={t.duplicate} className="grid size-6 place-items-center rounded-md text-slate-600 hover:bg-cyan-500/10 hover:text-cyan-300"><Copy className="size-3" /></button>
+        <button onClick={() => deleteAssignment(assignment.id)} title={t.remove} aria-label={t.remove} className="ml-auto grid size-6 place-items-center rounded-md text-slate-700 hover:bg-rose-500/10 hover:text-rose-300"><Trash2 className="size-3" /></button>
+      </div>
+    </article>
+  )
 
   if (loading) return <p className="animate-pulse text-slate-400">Loading…</p>
 
@@ -576,55 +635,76 @@ export function WeekPlanner() {
         <button onClick={copyPreviousWeek} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"><Copy className="size-4" /> {t.copyPrevious}</button>
       </section>
 
-      <section className="overflow-x-auto pb-3">
-        <div className="grid min-w-[1190px] grid-cols-7 gap-3">
-          {days.map((day) => {
-            const date = toYmd(day)
-            const dayAssignments = weekAssignments.filter((assignment) => assignment.date === date)
-            const isToday = date === toYmd(new Date())
-            const isWeekend = day.getDay() === 0 || day.getDay() === 6
-            return (
-              <div key={date} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { const id = event.dataTransfer.getData('text/plain'); if (id) updateAssignment(id, { date }) }} className={`min-h-[420px] rounded-2xl border p-2.5 transition-colors ${isToday ? 'border-indigo-400/50 bg-indigo-500/[0.06]' : isWeekend ? 'border-violet-400/15 bg-violet-500/[0.025]' : 'border-white/8 bg-white/[0.025]'}`}>
-                <div className="mb-3 flex items-start justify-between px-1 pt-1">
-                  <div>
-                    <p className={`text-xs font-bold uppercase tracking-[0.12em] ${isToday ? 'text-indigo-300' : 'text-slate-500'}`}>{t.days[day.getDay()]}</p>
-                    <p className="mt-0.5 text-xl font-bold">{day.getDate()} <span className="text-sm font-medium text-slate-500">{day.toLocaleDateString(locale, { month: 'short' })}</span></p>
+      <section className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+        <div className="min-w-[1240px]">
+          <div className="grid grid-cols-[180px_repeat(7,minmax(145px,1fr))] border-b border-white/8 bg-[#0d111c]/95">
+            <div className="sticky left-0 z-20 flex items-end border-r border-white/8 bg-[#0d111c] px-4 py-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{t.team}</span>
+            </div>
+            {days.map((day) => {
+              const date = toYmd(day)
+              const isToday = date === toYmd(new Date())
+              const isWeekend = day.getDay() === 0 || day.getDay() === 6
+              return (
+                <div key={date} className={`border-r border-white/8 px-3 py-3 last:border-r-0 ${isToday ? 'bg-indigo-500/[0.08]' : isWeekend ? 'bg-violet-500/[0.035]' : ''}`}>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${isToday ? 'text-indigo-300' : 'text-slate-500'}`}>{t.shortDays[day.getDay()]}</p>
+                    {isWeekend && <span className="text-[8px] font-bold uppercase tracking-wider text-violet-400/70">{t.weekend}</span>}
                   </div>
-                  {isWeekend && <span className="rounded-full bg-violet-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-violet-300">{t.weekend}</span>}
+                  <p className="mt-0.5 text-base font-bold">{day.getDate()} <span className="text-[11px] font-medium text-slate-600">{day.toLocaleDateString(locale, { month: 'short' })}</span></p>
                 </div>
-                <div className="space-y-2">
-                  {dayAssignments.map((assignment) => {
-                    const worker = workerMap.get(assignment.workerId)
-                    return (
-                      <article key={assignment.id} draggable onDragStart={(event) => { event.dataTransfer.setData('text/plain', assignment.id); event.dataTransfer.effectAllowed = 'move' }} className={`group relative overflow-hidden rounded-xl bg-white/[0.035] p-3 ring-1 ring-inset transition-all hover:bg-white/[0.055] hover:ring-white/15 ${assignment.done ? 'ring-emerald-400/15 opacity-65' : 'ring-white/[0.07]'}`}>
-                        <span className="absolute inset-y-2 left-0 w-0.5 rounded-r-full" style={{ backgroundColor: worker?.color ?? '#64748b' }} />
-                        <div className="flex items-start gap-1.5">
-                          <GripVertical className="mt-1 size-3.5 shrink-0 cursor-grab text-slate-700 group-hover:text-slate-500" />
-                          <div className="min-w-0 flex-1">
-                            <p className={`min-w-0 break-words text-[13px] font-bold leading-5 ${assignment.done ? 'line-through text-slate-400' : ''}`}>{assignment.task}</p>
-                            <span className="mt-1 inline-block rounded-md bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{displayTime(assignment.time)}</span>
-                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400"><span className="size-1.5 rounded-full" style={{ backgroundColor: worker?.color ?? '#64748b' }} />{worker?.name ?? '—'}</span>
-                              {assignment.price && <span className="flex items-center gap-1 text-[11px] text-slate-500"><BadgeEuro className="size-3" />{assignment.price}</span>}
-                            </div>
-                            {assignment.notes && <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-500">{assignment.notes}</p>}
-                          </div>
-                        </div>
-                        <div className="mt-2.5 flex items-center gap-0.5 border-t border-white/[0.055] pt-1.5 opacity-70 transition-opacity group-hover:opacity-100">
-                          <button onClick={() => updateAssignment(assignment.id, { done: !assignment.done })} title={t.done} aria-label={t.done} className={`grid size-7 place-items-center rounded-md ${assignment.done ? 'text-emerald-300' : 'text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-300'}`}><Check className="size-3.5" /></button>
-                          <button onClick={() => openEdit(assignment)} title={t.edit} aria-label={t.edit} className="grid size-7 place-items-center rounded-md text-slate-500 hover:bg-indigo-500/10 hover:text-indigo-300"><Pencil className="size-3.5" /></button>
-                          <button onClick={() => duplicateAssignment(assignment)} title={t.duplicate} aria-label={t.duplicate} className="grid size-7 place-items-center rounded-md text-slate-500 hover:bg-cyan-500/10 hover:text-cyan-300"><Copy className="size-3.5" /></button>
-                          <button onClick={() => deleteAssignment(assignment.id)} title={t.remove} aria-label={t.remove} className="ml-auto grid size-7 place-items-center rounded-md text-slate-600 hover:bg-rose-500/10 hover:text-rose-300"><Trash2 className="size-3.5" /></button>
-                        </div>
-                      </article>
-                    )
-                  })}
-                  {!dayAssignments.length && <div className="grid min-h-24 place-items-center rounded-xl border border-dashed border-white/8 text-center text-xs text-slate-600"><span>{t.emptyDay}<br /><span className="text-[10px]">{t.dragHint}</span></span></div>}
+              )
+            })}
+          </div>
+
+          {visibleWorkers.length ? visibleWorkers.map((worker) => (
+            <div key={worker.id} className="grid grid-cols-[180px_repeat(7,minmax(145px,1fr))] border-b border-white/8 last:border-b-0">
+              <div className="sticky left-0 z-10 flex min-h-32 items-start gap-2.5 border-r border-white/8 bg-[#0d111c]/95 px-4 py-4">
+                <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: worker.color }} />
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-bold text-slate-200">{worker.name || t.workerName}</p>
+                  <p className="mt-1 text-[10px] text-slate-600">{tasksThisWeek.filter((assignment) => assignment.workerId === worker.id).length} {t.task.toLocaleLowerCase()}</p>
                 </div>
-                <button disabled={!config.workers.length} onClick={() => openCreate(date)} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 py-2.5 text-xs font-semibold text-slate-500 hover:border-indigo-400/30 hover:bg-indigo-500/5 hover:text-indigo-300 disabled:opacity-40"><Plus className="size-3.5" /> {t.addTask}</button>
               </div>
-            )
-          })}
+              {days.map((day) => {
+                const date = toYmd(day)
+                const cellId = `${worker.id}-${date}`
+                const cellAssignments = weekAssignments.filter((assignment) => assignment.workerId === worker.id && assignment.date === date)
+                const additionalCount = Math.max(0, cellAssignments.length - 1)
+                const isExpanded = expandedCell === cellId
+                const isToday = date === toYmd(new Date())
+                const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                return (
+                  <div
+                    key={cellId}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      const id = event.dataTransfer.getData('text/plain')
+                      if (id) updateAssignment(id, { date, workerId: worker.id })
+                    }}
+                    className={`group/cell min-h-32 border-r border-white/8 p-2 last:border-r-0 ${isToday ? 'bg-indigo-500/[0.035]' : isWeekend ? 'bg-violet-500/[0.018]' : ''}`}
+                  >
+                    <div className="flex min-h-full flex-col gap-1.5">
+                      {cellAssignments[0] && renderCellTask(cellAssignments[0])}
+                      {additionalCount > 0 && (
+                        <>
+                          <button onClick={() => setExpandedCell(isExpanded ? null : cellId)} className="no-glow w-full rounded-md px-2 py-1 text-left text-[9px] font-semibold text-indigo-300/80 hover:bg-indigo-500/10 hover:text-indigo-200">{t.moreTasks(additionalCount)}</button>
+                          <div className={`space-y-1.5 ${isExpanded ? 'block' : 'hidden group-hover/cell:block group-focus-within/cell:block'}`}>
+                            {cellAssignments.slice(1).map(renderCellTask)}
+                          </div>
+                        </>
+                      )}
+                      <button onClick={() => openCreate(date, worker.id)} title={t.addTaskFor(worker.name || t.workerName)} aria-label={t.addTaskFor(worker.name || t.workerName)} className={`mt-auto flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-1.5 text-[10px] font-semibold transition-colors ${cellAssignments.length ? 'border-white/[0.06] text-slate-700 hover:border-indigo-400/25 hover:text-indigo-300' : 'min-h-16 border-white/8 text-slate-600 hover:border-indigo-400/30 hover:bg-indigo-500/[0.04] hover:text-indigo-300'}`}><Plus className="size-3" /> {t.addTask}</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )) : (
+            <div className="grid min-h-48 place-items-center p-8 text-center">
+              <div><UsersRound className="mx-auto size-7 text-slate-700" /><p className="mt-3 text-sm text-slate-500">{t.noTeamYet}</p><button onClick={() => setShowSettings(true)} className="mt-4 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20">{t.addWorker}</button></div>
+            </div>
+          )}
         </div>
       </section>
 
