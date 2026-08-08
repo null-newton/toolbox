@@ -159,6 +159,7 @@ export function SongListener() {
   const animationRef = useRef<number | null>(null)
   const clockRef = useRef({ position: 0, startedAt: 0 })
   const activeLineRef = useRef<HTMLParagraphElement | null>(null)
+  const lyricsScrollRef = useRef<HTMLDivElement | null>(null)
 
   const lyrics = useMemo(() => parseLrc(track?.syncedLyrics ?? ''), [track])
   const activeIndex = useMemo(() => {
@@ -171,7 +172,16 @@ export function SongListener() {
   }, [lyrics, position])
 
   useEffect(() => {
-    activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const container = lyricsScrollRef.current
+    const activeLine = activeLineRef.current
+    if (!container || !activeLine) return
+    const containerBox = container.getBoundingClientRect()
+    const lineBox = activeLine.getBoundingClientRect()
+    const centeredTop = container.scrollTop
+      + lineBox.top
+      - containerBox.top
+      - (container.clientHeight - lineBox.height) / 2
+    container.scrollTo({ top: centeredTop, behavior: 'smooth' })
   }, [activeIndex])
 
   useEffect(() => {
@@ -404,7 +414,7 @@ export function SongListener() {
       </header>
 
       {track ? (
-        <section className="mt-8 grid min-h-[620px] overflow-hidden rounded-3xl border border-white/10 bg-[#090c14]/90 shadow-2xl shadow-indigo-950/30 lg:grid-cols-[340px_1fr]">
+        <section className="mt-8 grid overflow-hidden rounded-3xl border border-white/10 bg-[#090c14]/90 shadow-2xl shadow-indigo-950/30 lg:h-[680px] lg:grid-cols-[340px_1fr]">
           <aside className="relative flex flex-col overflow-hidden border-b border-white/10 bg-gradient-to-b from-indigo-950/70 via-violet-950/45 to-[#0a0d16] p-6 lg:border-b-0 lg:border-r">
             <div className="pointer-events-none absolute -left-24 -top-28 size-80 rounded-full bg-violet-500/20 blur-3xl" />
             <div className="relative mx-auto mt-4 grid aspect-square w-full max-w-[250px] place-items-center rounded-[2rem] border border-white/10 bg-gradient-to-br from-indigo-500/30 via-violet-500/15 to-cyan-400/10 shadow-2xl shadow-indigo-950/80">
@@ -448,15 +458,19 @@ export function SongListener() {
               </button>
             </div>
 
-            <button onClick={reset} className="relative mt-auto pt-8 text-xs font-medium text-slate-500 hover:text-white">
+            <button
+              onClick={reset}
+              className="relative mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300/30 hover:bg-cyan-300/[0.11] hover:text-white"
+            >
+              <Mic className="size-4" />
               {t.restart}
             </button>
           </aside>
 
-          <div className="relative flex min-h-[560px] flex-col overflow-hidden">
+          <div className="relative flex h-[560px] min-h-0 flex-col overflow-hidden lg:h-full">
             <div className="absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-[#090c14] to-transparent" />
             <div className="absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#090c14] to-transparent" />
-            <div className="h-[620px] overflow-y-auto px-7 py-48 sm:px-12 lg:h-auto lg:flex-1 lg:px-16">
+            <div ref={lyricsScrollRef} className="relative min-h-0 flex-1 overscroll-contain overflow-y-auto px-7 py-48 sm:px-12 lg:px-16">
               {lyrics.map((line, index) => {
                 const distance = Math.abs(index - activeIndex)
                 const active = index === activeIndex
