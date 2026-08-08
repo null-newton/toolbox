@@ -2,17 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   AlertCircle,
-  Check,
   ChevronLeft,
   ChevronRight,
-  KeyRound,
   LoaderCircle,
   Mic,
   Music2,
   Pause,
   Play,
   Search,
-  Settings2,
   Square,
   Waves,
   X,
@@ -35,68 +32,34 @@ interface LyricLine {
   text: string
 }
 
-interface RecognitionResultLike {
-  isFinal: boolean
-  0: { transcript: string }
-}
-
-interface RecognitionEventLike {
-  resultIndex: number
-  results: { length: number; [index: number]: RecognitionResultLike }
-}
-
-interface RecognitionErrorLike {
-  error: string
-}
-
-interface RecognitionLike {
-  continuous: boolean
-  interimResults: boolean
-  maxAlternatives: number
-  lang: string
-  processLocally?: boolean
-  onresult: ((event: RecognitionEventLike) => void) | null
-  onerror: ((event: RecognitionErrorLike) => void) | null
-  onend: (() => void) | null
-  start: () => void
-  stop: () => void
-  abort: () => void
-}
-
-type RecognitionAvailability = 'available' | 'downloadable' | 'downloading' | 'unavailable'
-
-type RecognitionOptions = {
-  langs: string[]
-  processLocally: boolean
-  quality?: 'dictation'
-}
-
-type RecognitionConstructor = (new () => RecognitionLike) & {
-  available?: (options: RecognitionOptions) => Promise<RecognitionAvailability>
-  install?: (options: RecognitionOptions) => Promise<boolean>
+interface AudioRecognition {
+  track: Song | null
+  recognized: {
+    title: string
+    artist: string
+    album: string | null
+    duration: number | null
+  }
+  offsetSeconds: number
+  confidence: number | null
 }
 
 const STR = {
   en: {
     title: 'Live Lyrics',
-    subtitle: 'Let your microphone hear a few words. We’ll find the song and keep the lyrics moving with the music.',
+    subtitle: 'Let your microphone hear the music. The backend identifies the recording and keeps its lyrics in sync.',
     idle: 'Ready when the music is',
-    idleHint: 'For the best result, play a clear vocal section near your microphone.',
-    listen: 'Start listening',
-    listening: 'Listening for lyrics…',
-    heard: 'What I’m hearing',
-    searching: 'Checking that lyric fragment…',
-    stop: 'Stop listening',
+    idleHint: 'Hold the device near the speaker. A clear 9-second sample gives the best match.',
+    listen: 'Listen for a song',
+    listening: 'Recording the music…',
+    processing: 'Matching this sample on your backend…',
+    stop: 'Cancel',
     permission: 'Microphone access is needed to listen. Check your browser permission and try again.',
-    unsupported: 'Live transcription is not supported in this browser. Try Chrome or Edge, or use manual search.',
-    noMatch: 'No confident match yet. Keep the music playing or search manually.',
+    unsupported: 'Audio recording is not supported in this browser. Try a current browser or use manual search.',
+    noMatch: 'That sample could not be identified. Try a louder or clearer section, or search manually.',
     genericError: 'Something went wrong while identifying the song.',
-    preparingLocal: 'Preparing private on-device transcription…',
-    downloadingModel: 'Downloading the speech model for this language…',
-    localReady: 'Using on-device transcription',
-    cloudReady: 'Using browser transcription',
-    networkRetry: 'The browser speech service lost its connection. Retrying…',
-    networkError: 'Your browser’s speech service could not connect. Check the connection, disable strict tracking protection for this page, or try current Chrome or Edge. Manual song search still works below.',
+    catalogNotReady: 'The backend recognizer is not ready yet. Install ShazamIO on the backend.',
+    noSyncedLyrics: 'was recognized, but no synchronized lyrics were found for it.',
     manual: 'Know the song already?',
     manualHint: 'Search by title and artist to open its synced lyrics.',
     searchPlaceholder: 'Song title or artist…',
@@ -108,37 +71,24 @@ const STR = {
     earlier: 'Lyrics earlier',
     later: 'Lyrics later',
     restart: 'Listen for another song',
-    settings: 'Recognition settings',
-    apiKey: 'Musixmatch API key',
-    songLanguage: 'Song language',
-    apiHint: 'Optional when the server already has a key. Stored only in this browser and sent only to your Toolbox backend.',
-    save: 'Save key',
-    removeKey: 'Remove key',
-    keySaved: 'Saved in this browser',
-    privacy: 'Audio is handled by your browser’s speech service. Toolbox receives only the recognized words, never a recording.',
+    privacy: 'A short microphone sample is encrypted in transit and deleted from your Toolbox backend after matching. ShazamIO sends its audio signature to Shazam.',
     source: 'Synced lyrics from LRCLIB',
-    setupNeeded: 'Automatic identification is not configured yet. Add a Musixmatch API key in settings, or ask the server owner to configure one.',
   },
   nl: {
     title: 'Live songtekst',
-    subtitle: 'Laat je microfoon een paar woorden horen. We zoeken het nummer en laten de tekst met de muziek meelopen.',
+    subtitle: 'Laat je microfoon de muziek horen. De backend herkent het nummer en laat de tekst meelopen.',
     idle: 'Klaar wanneer de muziek dat is',
-    idleHint: 'Speel voor het beste resultaat een duidelijk gezongen stuk dicht bij je microfoon.',
-    listen: 'Begin met luisteren',
-    listening: 'Luisteren naar de tekst…',
-    heard: 'Dit hoor ik',
-    searching: 'Dit tekstfragment controleren…',
-    stop: 'Stop met luisteren',
+    idleHint: 'Houd het apparaat dicht bij de luidspreker. Een helder fragment van 9 seconden werkt het beste.',
+    listen: 'Luister naar een nummer',
+    listening: 'De muziek opnemen…',
+    processing: 'Dit fragment op je backend herkennen…',
+    stop: 'Annuleren',
     permission: 'Microfoontoegang is nodig. Controleer de browsertoestemming en probeer opnieuw.',
-    unsupported: 'Live transcriptie werkt niet in deze browser. Probeer Chrome of Edge, of zoek handmatig.',
-    noMatch: 'Nog geen zekere match. Laat de muziek spelen of zoek handmatig.',
+    unsupported: 'Audio opnemen werkt niet in deze browser. Probeer een recente browser of zoek handmatig.',
+    noMatch: 'Dit fragment kon niet worden herkend. Probeer een luider of helderder stuk, of zoek handmatig.',
     genericError: 'Er ging iets mis bij het herkennen van het nummer.',
-    preparingLocal: 'Privé transcriptie op dit apparaat voorbereiden…',
-    downloadingModel: 'Het spraakmodel voor deze taal downloaden…',
-    localReady: 'Transcriptie op dit apparaat actief',
-    cloudReady: 'Browsertranscriptie actief',
-    networkRetry: 'De spraakdienst van de browser verloor de verbinding. Opnieuw proberen…',
-    networkError: 'De spraakdienst van je browser kon geen verbinding maken. Controleer de verbinding, schakel strikte trackingbeveiliging voor deze pagina uit of probeer een recente Chrome of Edge. Handmatig zoeken hieronder blijft werken.',
+    catalogNotReady: 'De herkenningssoftware op de backend is nog niet klaar. Installeer ShazamIO op de backend.',
+    noSyncedLyrics: 'werd herkend, maar er werd geen gesynchroniseerde songtekst gevonden.',
     manual: 'Ken je het nummer al?',
     manualHint: 'Zoek op titel en artiest om de gesynchroniseerde tekst te openen.',
     searchPlaceholder: 'Titel of artiest…',
@@ -150,23 +100,14 @@ const STR = {
     earlier: 'Tekst vroeger',
     later: 'Tekst later',
     restart: 'Luister naar een ander nummer',
-    settings: 'Herkenningsinstellingen',
-    apiKey: 'Musixmatch API-sleutel',
-    songLanguage: 'Taal van het nummer',
-    apiHint: 'Optioneel als de server al een sleutel heeft. Alleen in deze browser bewaard en enkel naar je Toolbox-backend gestuurd.',
-    save: 'Sleutel bewaren',
-    removeKey: 'Sleutel verwijderen',
-    keySaved: 'Bewaard in deze browser',
-    privacy: 'Audio wordt door de spraakdienst van je browser verwerkt. Toolbox ontvangt alleen herkende woorden, nooit een opname.',
+    privacy: 'Een kort microfoonfragment wordt versleuteld verstuurd en daarna van je Toolbox-backend verwijderd. ShazamIO stuurt de audiovingerafdruk naar Shazam.',
     source: 'Gesynchroniseerde tekst van LRCLIB',
-    setupNeeded: 'Automatische herkenning is nog niet ingesteld. Voeg een Musixmatch API-sleutel toe of vraag de serverbeheerder er een in te stellen.',
   },
 }
 
-const KEY_STORAGE = 'song-listener-musixmatch-key'
-const LANGUAGE_STORAGE = 'song-listener-language'
 const API_URL = `${functionsBase}/song-listener`
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const SAMPLE_DURATION_MS = 9_000
 
 function apiHeaders(extra: Record<string, string> = {}) {
   return {
@@ -188,68 +129,15 @@ function parseLrc(source: string): LyricLine[] {
   return lines.sort((a, b) => a.time - b.time)
 }
 
-function words(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9' ]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
-function alignToLyrics(fragment: string, lines: LyricLine[]) {
-  const heard = words(fragment)
-  const indexed = lines.flatMap((line, lineIndex) =>
-    words(line.text).map((word) => ({ word, lineIndex }))
-  )
-  const haystack = indexed.map((item) => item.word)
-
-  for (let size = Math.min(10, heard.length); size >= 4; size -= 1) {
-    const needle = heard.slice(-size)
-    for (let start = Math.max(0, haystack.length - 1); start >= 0; start -= 1) {
-      if (needle.every((word, offset) => haystack[start + offset] === word)) {
-        const last = indexed[start + size - 1]
-        if (!last) continue
-        const next = lines[last.lineIndex + 1]
-        return next ? Math.max(lines[last.lineIndex].time, next.time - 0.4) : lines[last.lineIndex].time + 2
-      }
-    }
-  }
-
-  // Speech recognition commonly misses short connector words. Fall back to a
-  // small two-line overlap score instead of abandoning an otherwise good match.
-  let best = { score: 0, time: 0 }
-  const tail = new Set(heard.slice(-12))
-  lines.forEach((line, index) => {
-    const windowWords = words(`${line.text} ${lines[index + 1]?.text ?? ''}`)
-    const score = windowWords.filter((word) => tail.has(word)).length / Math.max(1, Math.min(tail.size, windowWords.length))
-    if (score > best.score) best = { score, time: line.time }
-  })
-  return best.score >= 0.45 ? best.time + 2 : 0
-}
-
 function formatTime(seconds: number) {
   const safe = Math.max(0, Math.round(seconds))
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-function getRecognitionConstructor(): RecognitionConstructor | undefined {
-  const speechWindow = window as typeof window & {
-    SpeechRecognition?: RecognitionConstructor
-    webkitSpeechRecognition?: RecognitionConstructor
-  }
-  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition
-}
-
 export function SongListener() {
   const t = useT(STR)
   const [listening, setListening] = useState(false)
-  const [lookingUp, setLookingUp] = useState(false)
-  const [preparingRecognition, setPreparingRecognition] = useState(false)
-  const [speechStatus, setSpeechStatus] = useState('')
-  const [transcript, setTranscript] = useState('')
-  const [interim, setInterim] = useState('')
+  const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [track, setTrack] = useState<Song | null>(null)
   const [position, setPosition] = useState(0)
@@ -258,22 +146,17 @@ export function SongListener() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Song[]>([])
   const [manualSearching, setManualSearching] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [keyInput, setKeyInput] = useState(() => localStorage.getItem(KEY_STORAGE) ?? '')
-  const [keySaved, setKeySaved] = useState(() => Boolean(localStorage.getItem(KEY_STORAGE)))
-  const [songLanguage, setSongLanguage] = useState(() => localStorage.getItem(LANGUAGE_STORAGE) ?? 'en-US')
 
-  const recognitionRef = useRef<RecognitionLike | null>(null)
   const listeningRef = useRef(false)
-  const searchingRef = useRef(false)
-  const finalTranscriptRef = useRef('')
-  const lastQueryRef = useRef('')
+  const cancelledRef = useRef(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const captureStartedRef = useRef(0)
+  const captureTimerRef = useRef<number | null>(null)
+  const requestAbortRef = useRef<AbortController | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const animationRef = useRef<number | null>(null)
-  const restartTimerRef = useRef<number | null>(null)
-  const restartDelayRef = useRef(0)
-  const networkErrorsRef = useRef(0)
   const clockRef = useRef({ position: 0, startedAt: 0 })
   const activeLineRef = useRef<HTMLParagraphElement | null>(null)
 
@@ -312,27 +195,30 @@ export function SongListener() {
   }, [])
 
   const stopListening = useCallback(() => {
+    cancelledRef.current = true
     listeningRef.current = false
     setListening(false)
-    setPreparingRecognition(false)
-    setSpeechStatus('')
-    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
-    restartTimerRef.current = null
-    recognitionRef.current?.stop()
-    recognitionRef.current = null
+    setProcessing(false)
+    if (captureTimerRef.current !== null) window.clearTimeout(captureTimerRef.current)
+    captureTimerRef.current = null
+    if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop()
+    mediaRecorderRef.current = null
+    requestAbortRef.current?.abort()
+    requestAbortRef.current = null
     cleanupAudio()
   }, [cleanupAudio])
 
   useEffect(() => () => {
+    cancelledRef.current = true
     listeningRef.current = false
-    if (restartTimerRef.current !== null) window.clearTimeout(restartTimerRef.current)
-    recognitionRef.current?.abort()
+    if (captureTimerRef.current !== null) window.clearTimeout(captureTimerRef.current)
+    if (mediaRecorderRef.current?.state !== 'inactive') mediaRecorderRef.current?.stop()
+    requestAbortRef.current?.abort()
     cleanupAudio()
   }, [cleanupAudio])
 
-  const selectTrack = useCallback((song: Song, heard = '') => {
-    const parsed = parseLrc(song.syncedLyrics)
-    const aligned = heard ? alignToLyrics(heard, parsed) : 0
+  const selectTrack = useCallback((song: Song, startAt = 0) => {
+    const aligned = Math.max(0, Math.min(song.duration, startAt))
     setTrack(song)
     setResults([])
     setPosition(aligned)
@@ -340,30 +226,6 @@ export function SongListener() {
     setPlaying(true)
     stopListening()
   }, [stopListening])
-
-  const lookupFragment = useCallback(async (fragment: string) => {
-    const clean = fragment.trim().split(/\s+/).slice(-12).join(' ')
-    if (clean.split(' ').length < 6 || clean === lastQueryRef.current || searchingRef.current) return
-    lastQueryRef.current = clean
-    searchingRef.current = true
-    setLookingUp(true)
-    try {
-      const headers: Record<string, string> = {}
-      const storedKey = localStorage.getItem(KEY_STORAGE)
-      if (storedKey) headers['x-musixmatch-key'] = storedKey
-      const response = await fetch(`${API_URL}?action=identify&q=${encodeURIComponent(clean)}`, { headers: apiHeaders(headers) })
-      const body = await response.json() as { data?: Song | null; error?: string }
-      if (!response.ok) throw new Error(body.error || t.genericError)
-      if (body.data) selectTrack(body.data, fragment)
-      else setError(t.noMatch)
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : t.genericError
-      setError(message.includes('Musixmatch API key') ? t.setupNeeded : message)
-    } finally {
-      searchingRef.current = false
-      setLookingUp(false)
-    }
-  }, [selectTrack, t.genericError, t.noMatch, t.setupNeeded])
 
   const beginVisualizer = useCallback((stream: MediaStream) => {
     const context = new AudioContext()
@@ -387,18 +249,10 @@ export function SongListener() {
   }, [])
 
   const startListening = useCallback(async () => {
-    const Recognition = getRecognitionConstructor()
     setError('')
     setTrack(null)
-    setTranscript('')
-    setInterim('')
-    setSpeechStatus('')
-    setPreparingRecognition(false)
-    finalTranscriptRef.current = ''
-    lastQueryRef.current = ''
-    networkErrorsRef.current = 0
-    restartDelayRef.current = 0
-    if (!Recognition) {
+    setProcessing(false)
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError(t.unsupported)
       return
     }
@@ -407,112 +261,94 @@ export function SongListener() {
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
       })
       streamRef.current = stream
+      cancelledRef.current = false
       listeningRef.current = true
       setListening(true)
       beginVisualizer(stream)
-
-      const recognition = new Recognition()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.maxAlternatives = 1
-      recognition.lang = songLanguage
-
-      // Prefer a local language pack when the browser exposes the new
-      // on-device API. This avoids the remote recognition service that emits
-      // `network` errors in privacy-focused browsers and some managed setups.
-      if (Recognition.available && Recognition.install) {
-        setPreparingRecognition(true)
-        setSpeechStatus(t.preparingLocal)
-        try {
-          const options: RecognitionOptions = {
-            langs: [songLanguage],
-            processLocally: true,
-            quality: 'dictation',
-          }
-          const availability = await Recognition.available(options)
-          if (availability === 'available') {
-            recognition.processLocally = true
-            setSpeechStatus(t.localReady)
-          } else if (availability === 'downloadable' || availability === 'downloading') {
-            setSpeechStatus(t.downloadingModel)
-            if (await Recognition.install(options)) {
-              recognition.processLocally = true
-              setSpeechStatus(t.localReady)
-            } else {
-              setSpeechStatus(t.cloudReady)
-            }
-          } else {
-            setSpeechStatus(t.cloudReady)
-          }
-        } catch {
-          // Experimental on-device APIs can be present but blocked by browser
-          // policy. Remote recognition remains the compatible fallback.
-          setSpeechStatus(t.cloudReady)
-        } finally {
-          setPreparingRecognition(false)
-        }
-      } else {
-        setSpeechStatus(t.cloudReady)
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ].find((candidate) => MediaRecorder.isTypeSupported(candidate))
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 64_000,
+      })
+      mediaRecorderRef.current = recorder
+      audioChunksRef.current = []
+      captureStartedRef.current = performance.now()
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data)
       }
-
-      if (!listeningRef.current) return
-      recognition.onresult = (event) => {
-        networkErrorsRef.current = 0
-        setSpeechStatus(recognition.processLocally ? t.localReady : t.cloudReady)
-        let temporary = ''
-        for (let index = event.resultIndex; index < event.results.length; index += 1) {
-          const value = event.results[index][0]?.transcript ?? ''
-          if (event.results[index].isFinal) finalTranscriptRef.current += ` ${value}`
-          else temporary += ` ${value}`
-        }
-        const finalValue = finalTranscriptRef.current.trim()
-        setTranscript(finalValue)
-        setInterim(temporary.trim())
-        if (finalValue.split(/\s+/).length >= 6) void lookupFragment(finalValue)
+      recorder.onerror = () => {
+        stopListening()
+        setError(t.genericError)
       }
-      recognition.onerror = (event) => {
-        if (event.error === 'no-speech' || event.error === 'aborted') return
-        if (event.error === 'network') {
-          networkErrorsRef.current += 1
-          if (networkErrorsRef.current === 1) {
-            restartDelayRef.current = 1500
-            setSpeechStatus(t.networkRetry)
-          } else {
-            listeningRef.current = false
-            setListening(false)
-            setSpeechStatus('')
-            cleanupAudio()
-            setError(t.networkError)
-          }
+      recorder.onstop = async () => {
+        mediaRecorderRef.current = null
+        listeningRef.current = false
+        setListening(false)
+        cleanupAudio()
+        if (cancelledRef.current) return
+        const sample = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        if (sample.size < 4_000) {
+          setError(t.noMatch)
           return
         }
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          listeningRef.current = false
-          setListening(false)
-          cleanupAudio()
-          setError(t.permission)
-        } else {
-          setError(`${t.genericError} (${event.error})`)
+        const controller = new AbortController()
+        requestAbortRef.current = controller
+        setProcessing(true)
+        try {
+          const response = await fetch(`${API_URL}?action=recognize`, {
+            method: 'POST',
+            headers: apiHeaders({ 'Content-Type': sample.type }),
+            body: sample,
+            signal: controller.signal,
+          })
+          const body = await response.json() as {
+            data?: AudioRecognition | null
+            error?: string
+            code?: string
+          }
+          if (!response.ok) {
+            if (body.code === 'catalog_not_ready' || body.code === 'recognizer_not_ready') {
+              throw new Error(t.catalogNotReady)
+            }
+            throw new Error(body.error || t.genericError)
+          }
+          if (!body.data) {
+            setError(t.noMatch)
+            return
+          }
+          if (!body.data.track) {
+            setError(`${body.data.recognized.title} — ${body.data.recognized.artist} ${t.noSyncedLyrics}`)
+            return
+          }
+          // The recognizer returns the song position at the sample's start.
+          // Adding elapsed client time advances it to the response's arrival.
+          const elapsed = (performance.now() - captureStartedRef.current) / 1000
+          selectTrack(body.data.track, body.data.offsetSeconds + elapsed)
+        } catch (reason) {
+          if (reason instanceof DOMException && reason.name === 'AbortError') return
+          setError(reason instanceof Error ? reason.message : t.genericError)
+        } finally {
+          requestAbortRef.current = null
+          setProcessing(false)
         }
       }
-      recognition.onend = () => {
-        if (!listeningRef.current) return
-        const delay = restartDelayRef.current || 250
-        restartDelayRef.current = 0
-        restartTimerRef.current = window.setTimeout(() => {
-          if (!listeningRef.current) return
-          try { recognition.start() } catch { /* browser is already restarting */ }
-        }, delay)
-      }
-      recognitionRef.current = recognition
-      recognition.start()
+      recorder.start(1_000)
+      captureTimerRef.current = window.setTimeout(() => {
+        captureTimerRef.current = null
+        if (recorder.state !== 'inactive') recorder.stop()
+      }, SAMPLE_DURATION_MS)
     } catch {
       cleanupAudio()
       listeningRef.current = false
       setListening(false)
       setError(t.permission)
     }
-  }, [beginVisualizer, cleanupAudio, lookupFragment, songLanguage, t.cloudReady, t.downloadingModel, t.genericError, t.localReady, t.networkError, t.networkRetry, t.permission, t.preparingLocal, t.unsupported])
+  }, [beginVisualizer, cleanupAudio, selectTrack, stopListening, t.catalogNotReady, t.genericError, t.noMatch, t.noSyncedLyrics, t.permission, t.unsupported])
 
   const searchManually = async (event: FormEvent) => {
     event.preventDefault()
@@ -548,26 +384,16 @@ export function SongListener() {
     }
   }
 
-  const saveKey = () => {
-    const value = keyInput.trim()
-    if (value) localStorage.setItem(KEY_STORAGE, value)
-    else localStorage.removeItem(KEY_STORAGE)
-    setKeySaved(Boolean(value))
-    localStorage.setItem(LANGUAGE_STORAGE, songLanguage)
-    setShowSettings(false)
-  }
-
   const reset = () => {
     setTrack(null)
     setPlaying(false)
     setPosition(0)
-    setTranscript('')
     setError('')
   }
 
   return (
     <div className="mx-auto max-w-6xl animate-fade-up pb-8">
-      <header className="flex items-start justify-between gap-4">
+      <header>
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
             <Waves className="size-4" /> Audio recognition
@@ -575,14 +401,6 @@ export function SongListener() {
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">{t.subtitle}</p>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          aria-label={t.settings}
-          title={t.settings}
-          className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:bg-white/10 hover:text-white"
-        >
-          <Settings2 className="size-5" />
-        </button>
       </header>
 
       {track ? (
@@ -666,10 +484,10 @@ export function SongListener() {
           <section className="relative mt-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.055] to-white/[0.025] px-5 py-10 text-center shadow-2xl shadow-indigo-950/20 sm:px-10 sm:py-14">
             <div className="pointer-events-none absolute left-1/2 top-1/2 size-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/10 blur-3xl" />
 
-            <div className={`relative mx-auto grid size-36 place-items-center rounded-full border transition-all duration-500 sm:size-44 ${listening ? 'border-cyan-300/40 bg-cyan-400/10 shadow-[0_0_70px_rgb(34_211_238/0.16)]' : 'border-white/10 bg-white/[0.035]'}`}>
+            <div className={`relative mx-auto grid size-36 place-items-center rounded-full border transition-all duration-500 sm:size-44 ${listening || processing ? 'border-cyan-300/40 bg-cyan-400/10 shadow-[0_0_70px_rgb(34_211_238/0.16)]' : 'border-white/10 bg-white/[0.035]'}`}>
               {listening && <span className="absolute inset-0 animate-ping rounded-full border border-cyan-300/20" />}
               <div className={`grid size-24 place-items-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-400 shadow-xl shadow-indigo-500/30 sm:size-28 ${listening ? 'scale-105' : ''}`}>
-                {lookingUp || preparingRecognition ? <LoaderCircle className="size-11 animate-spin" /> : <Mic className="size-11" />}
+                {processing ? <LoaderCircle className="size-11 animate-spin" /> : <Mic className="size-11" />}
               </div>
             </div>
 
@@ -684,20 +502,9 @@ export function SongListener() {
             </div>
 
             <div className="relative mt-4">
-              <h2 className="text-xl font-semibold text-white">{listening ? t.listening : t.idle}</h2>
-              {!listening && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{t.idleHint}</p>}
-              {listening && speechStatus && <p className="mx-auto mt-2 max-w-md text-xs text-cyan-300/80">{speechStatus}</p>}
+              <h2 className="text-xl font-semibold text-white">{processing ? t.processing : listening ? t.listening : t.idle}</h2>
+              {!listening && !processing && <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">{t.idleHint}</p>}
             </div>
-
-            {(transcript || interim) && (
-              <div className="relative mx-auto mt-6 max-w-xl rounded-2xl border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{t.heard}</p>
-                <p className="mt-2 text-sm leading-relaxed text-slate-200">
-                  {transcript} <span className="text-slate-500">{interim}</span>
-                </p>
-                {lookingUp && <p className="mt-2 flex items-center gap-2 text-xs text-cyan-300"><LoaderCircle className="size-3 animate-spin" />{t.searching}</p>}
-              </div>
-            )}
 
             <div className="relative mt-7">
               {listening ? (
@@ -705,8 +512,8 @@ export function SongListener() {
                   <Square className="size-4" fill="currentColor" /> {t.stop}
                 </button>
               ) : (
-                <button onClick={startListening} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 hover:brightness-110">
-                  <Mic className="size-5" /> {t.listen}
+                <button onClick={startListening} disabled={processing} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 hover:brightness-110 disabled:cursor-wait disabled:opacity-50">
+                  {processing ? <LoaderCircle className="size-5 animate-spin" /> : <Mic className="size-5" />} {processing ? t.processing : t.listen}
                 </button>
               )}
             </div>
@@ -755,34 +562,6 @@ export function SongListener() {
         </>
       )}
 
-      {showSettings && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) setShowSettings(false) }}>
-          <div role="dialog" aria-modal="true" aria-label={t.settings} className="w-full max-w-md rounded-3xl border border-white/10 bg-[#101522] p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-violet-500/15 text-violet-300"><KeyRound className="size-5" /></span><h2 className="text-lg font-bold">{t.settings}</h2></div>
-              <button onClick={() => setShowSettings(false)} aria-label="Close" className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-white/5 hover:text-white"><X className="size-5" /></button>
-            </div>
-            <label className="mt-6 block text-sm font-medium text-slate-200" htmlFor="musixmatch-key">{t.apiKey}</label>
-            <input id="musixmatch-key" type="password" autoComplete="off" value={keyInput} onChange={(event) => setKeyInput(event.target.value)} placeholder="••••••••••••••••" className="mt-2 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 font-mono text-sm text-white outline-none focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/15" />
-            <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.apiHint}</p>
-            {keySaved && <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-300"><Check className="size-3.5" />{t.keySaved}</p>}
-            <label className="mt-5 block text-sm font-medium text-slate-200" htmlFor="song-language">{t.songLanguage}</label>
-            <select id="song-language" value={songLanguage} onChange={(event) => setSongLanguage(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#090c14] px-4 py-3 text-sm text-white outline-none focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/15">
-              <option value="en-US">English</option>
-              <option value="nl-NL">Nederlands</option>
-              <option value="fr-FR">Français</option>
-              <option value="de-DE">Deutsch</option>
-              <option value="es-ES">Español</option>
-              <option value="it-IT">Italiano</option>
-              <option value="pt-BR">Português</option>
-            </select>
-            <div className="mt-6 flex gap-2">
-              <button onClick={saveKey} className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-sm font-bold text-white hover:brightness-110">{t.save}</button>
-              {keySaved && <button onClick={() => { setKeyInput(''); localStorage.removeItem(KEY_STORAGE); setKeySaved(false) }} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white">{t.removeKey}</button>}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

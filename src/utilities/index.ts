@@ -27,7 +27,7 @@ import {
 registerUtility({
   id: 'song-listener',
   name: 'Live Lyrics',
-  description: 'Listen through your microphone, identify the song from its words, and follow synced lyrics.',
+  description: 'Identify music through your microphone and follow synchronized lyrics in real time.',
   icon: songListenerIcon,
   availableWithoutAccount: true,
   component: lazy(() =>
