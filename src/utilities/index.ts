@@ -29,7 +29,7 @@ registerUtility({
   name: 'Live Lyrics',
   description: 'Identify music through your microphone and follow synchronized lyrics in real time.',
   icon: songListenerIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./song-listener/SongListener').then((m) => ({ default: m.SongListener }))
   ),
@@ -40,7 +40,7 @@ registerUtility({
   name: 'Weather',
   description: 'Current conditions, forecasts, saved cities, and historical median highs and lows.',
   icon: weatherIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./weather/Weather').then((m) => ({ default: m.Weather }))
   ),
@@ -73,7 +73,7 @@ registerUtility({
   name: 'AI Image Upscaler',
   description: 'Enlarge photos and illustrations by 2×, 3× or 4× with self-hosted AI.',
   icon: imageUpscalerIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./image-upscaler/ImageUpscaler').then((m) => ({ default: m.ImageUpscaler }))
   ),
@@ -84,7 +84,7 @@ registerUtility({
   name: 'File Transfer',
   description: 'Upload a file and share it with a private link, with an optional password.',
   icon: fileTransferIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./file-transfer/FileTransfer').then((m) => ({ default: m.FileTransfer }))
   ),
@@ -95,7 +95,7 @@ registerUtility({
   name: 'Shortest Route',
   description: 'Reorder a list of stops into the shortest route and open it in your maps app.',
   icon: routeIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./route-optimizer/RouteOptimizer').then((m) => ({ default: m.RouteOptimizer }))
   ),
@@ -107,7 +107,7 @@ registerUtility({
   description:
     'Trace a roof on the satellite map, set each face’s slope and direction, and find the best surface for solar panels by yearly sun.',
   icon: solarRoofIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./solar-roof/SolarRoof').then((m) => ({ default: m.SolarRoof }))
   ),
