@@ -107,8 +107,10 @@ const STR = {
     cancel: 'Annuleren',
     saveTask: 'Taak bewaren',
     editTask: 'Taak aanpassen',
+    createTaskDefinition: 'Taak aanmaken',
     editTaskDefinition: 'Taak bewerken',
     saveTaskDefinition: 'Taak bewaren',
+    createTaskHint: 'Je hoeft nu nog geen medewerker te kiezen. Die wijs je later toe via de dropdown van de juiste dag.',
     taskPlaceholder: 'bv. Toiletten, restaurant, buitenwerk…',
     taskPresets: 'Taakpresets',
     taskPresetsHint: 'Presets bevatten alleen een naam en verschijnen tijdens het invoeren.',
@@ -188,8 +190,10 @@ const STR = {
     cancel: 'Cancel',
     saveTask: 'Save task',
     editTask: 'Edit task',
+    createTaskDefinition: 'Create task',
     editTaskDefinition: 'Edit task',
     saveTaskDefinition: 'Save task',
+    createTaskHint: 'You do not need to choose an employee yet. Assign one later from the dropdown on the relevant day.',
     taskPlaceholder: 'e.g. Restrooms, restaurant, outdoors…',
     taskPresets: 'Task presets',
     taskPresetsHint: 'Presets only contain a name and appear while entering a task.',
@@ -242,15 +246,6 @@ const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.
 const escapeHtml = (value: string) =>
   value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]!)
 const displayTime = (time: string) => (time ? `${time.replace(':', 'u')}` : '—')
-
-const emptyDraft = (date: string, workerId = ''): Omit<Assignment, 'id' | 'done'> => ({
-  date,
-  time: '09:00',
-  task: '',
-  workerId,
-  price: '',
-  notes: '',
-})
 
 export function WeekPlanner() {
   const { config, setConfig, loading, saving } = useUtilityConfig<PlannerConfig>('week-planner', DEFAULTS)
@@ -331,14 +326,6 @@ export function WeekPlanner() {
   const showToast = (message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 2600)
-  }
-
-  const openCreate = (date: string, workerId = config.workers[0]?.id ?? '', task = '') => {
-    setEditingId(null)
-    setFormError('')
-    setTaskMenuOpen(false)
-    setTaskLocked(Boolean(task))
-    setDraft({ ...emptyDraft(date, workerId), task, time: task ? taskDefaultTime(task) : '09:00', price: task ? taskDefaultWage(task) : '' })
   }
 
   const openEdit = (assignment: Assignment) => {
@@ -433,26 +420,31 @@ export function WeekPlanner() {
     })
   }
 
+  const openNewTaskDefinition = () => {
+    setTaskDefinitionDraft({ originalName: '', name: '', time: '09:00', wage: '' })
+  }
+
   const saveTaskDefinition = () => {
     if (!taskDefinitionDraft?.name.trim()) return
-    const oldKey = normalizedTaskKey(taskDefinitionDraft.originalName)
+    const originalName = taskDefinitionDraft.originalName.trim()
+    const oldKey = normalizedTaskKey(originalName)
     const name = taskDefinitionDraft.name.trim()
     const newKey = normalizedTaskKey(name)
     const time = taskDefinitionDraft.time || '09:00'
     const wage = taskDefinitionDraft.wage.trim()
     setConfig((previous) => {
       const taskDefaults = { ...previous.taskDefaults }
-      delete taskDefaults[oldKey]
+      if (oldKey) delete taskDefaults[oldKey]
       taskDefaults[newKey] = { time, wage }
-      const presets = previous.taskPresets
-        .map((preset) => normalizedTaskKey(preset) === oldKey ? name : preset)
+      const presets = [...previous.taskPresets, ...(originalName ? [] : [name])]
+        .map((preset) => oldKey && normalizedTaskKey(preset) === oldKey ? name : preset)
         .filter((preset, index, list) => list.findIndex((candidate) => normalizedTaskKey(candidate) === normalizedTaskKey(preset)) === index)
       return {
         ...previous,
         taskDefaults,
         taskPresets: presets,
         assignments: previous.assignments.map((assignment) =>
-          normalizedTaskKey(assignment.task) === oldKey ? { ...assignment, task: name, time, price: wage } : assignment
+          oldKey && normalizedTaskKey(assignment.task) === oldKey ? { ...assignment, task: name, time, price: wage } : assignment
         ),
       }
     })
@@ -744,7 +736,7 @@ export function WeekPlanner() {
           </select>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button disabled={!config.workers.length} onClick={() => openCreate(toYmd(days[0]))} className="flex items-center justify-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-40"><Plus className="size-4" /> {t.addTask}</button>
+          <button onClick={openNewTaskDefinition} className="flex items-center justify-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20"><Plus className="size-4" /> {t.addTask}</button>
           <button onClick={copyPreviousWeek} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"><Copy className="size-4" /> {t.copyPrevious}</button>
         </div>
       </section>
@@ -812,7 +804,7 @@ export function WeekPlanner() {
             </div>
           )) : (
             <div className="grid min-h-48 place-items-center p-8 text-center">
-              <div><BriefcaseBusiness className="mx-auto size-7 text-slate-700" /><p className="mt-3 text-sm text-slate-500">{t.noTasksYet}</p><button disabled={!config.workers.length} onClick={() => openCreate(toYmd(days[0]))} className="mt-4 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40">{t.addTask}</button>{!config.workers.length && <button onClick={() => setShowSettings(true)} className="ml-2 mt-4 rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10">{t.addWorker}</button>}</div>
+              <div><BriefcaseBusiness className="mx-auto size-7 text-slate-700" /><p className="mt-3 text-sm text-slate-500">{t.noTasksYet}</p><button onClick={openNewTaskDefinition} className="mt-4 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20">{t.addTask}</button>{!config.workers.length && <button onClick={() => setShowSettings(true)} className="ml-2 mt-4 rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10">{t.addWorker}</button>}</div>
             </div>
           )}
         </div>
@@ -883,12 +875,12 @@ export function WeekPlanner() {
       )}
 
       {taskDefinitionDraft && (
-        <Modal title={t.editTaskDefinition} onClose={() => setTaskDefinitionDraft(null)}>
+        <Modal title={taskDefinitionDraft.originalName ? t.editTaskDefinition : t.createTaskDefinition} onClose={() => setTaskDefinitionDraft(null)}>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="sm:col-span-2"><FieldLabel>{t.task}</FieldLabel><input autoFocus value={taskDefinitionDraft.name} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, name: event.target.value })} className="form-input" /></label>
             <label><FieldLabel>{t.defaultTime}</FieldLabel><input type="time" value={taskDefinitionDraft.time} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, time: event.target.value })} className="form-input" /></label>
             <label><FieldLabel>{t.wage} <span className="font-normal text-slate-600">({t.optional})</span></FieldLabel><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span><input value={taskDefinitionDraft.wage} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, wage: event.target.value })} inputMode="decimal" className="form-input pl-8" /></div></label>
-            <p className="sm:col-span-2 text-xs text-slate-500">{t.taskDefaultsHint}</p>
+            <p className="sm:col-span-2 text-xs text-slate-500">{taskDefinitionDraft.originalName ? t.taskDefaultsHint : t.createTaskHint}</p>
           </div>
           <div className="mt-6 flex justify-end gap-2"><button onClick={() => setTaskDefinitionDraft(null)} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/5">{t.cancel}</button><button onClick={saveTaskDefinition} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-400">{t.saveTaskDefinition}</button></div>
         </Modal>

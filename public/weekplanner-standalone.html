@@ -192,13 +192,13 @@
 
   <div class="modal-backdrop" id="task-definition-backdrop">
     <section class="modal" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2>Taak bewerken</h2><button class="btn icon" data-action="close-task-definition">×</button></div>
+      <div class="modal-head"><h2 id="task-definition-title">Taak bewerken</h2><button class="btn icon" data-action="close-task-definition">×</button></div>
       <form id="task-definition-form">
         <div class="form-grid">
           <div class="field full"><label for="definition-name">Taaknaam</label><input id="definition-name" class="input" required></div>
           <div class="field"><label for="definition-time">Uur</label><input id="definition-time" class="input" type="time" required></div>
           <div class="field"><label for="definition-wage">Loon (optioneel)</label><input id="definition-wage" class="input" inputmode="decimal" placeholder="€"></div>
-          <div class="field full hint">Wijzigingen gelden voor alle medewerkers en dagen van deze taak.</div>
+          <div class="field full hint" id="task-definition-hint">Wijzigingen gelden voor alle medewerkers en dagen van deze taak.</div>
         </div>
         <div class="modal-footer"><button type="button" class="btn" data-action="close-task-definition">Annuleren</button><button type="submit" class="btn primary">Taak bewaren</button></div>
       </form>
@@ -299,7 +299,7 @@
         const tasks = [...data.taskPresets,...data.assignments.map(item=>item.task)].filter((task,index,list)=>task.trim()&&list.findIndex(candidate=>candidate.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE'))===index)
         const visibleTasks = tasks.filter(task=>!needle||task.toLocaleLowerCase('nl-BE').includes(needle)||assignments.some(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)))
         const head = `<div class="matrix-grid matrix-head"><div class="corner">Taken</div>${days.map(day => { const date=ymd(day), weekend=[0,6].includes(day.getDay()); return `<div class="day-head ${date===today?'today':''} ${weekend?'weekend':''}"><div class="day-name"><span>${SHORT_DAYS[day.getDay()]}</span>${weekend?'<em>weekend</em>':''}</div><div class="day-date">${day.getDate()} <span>${day.toLocaleDateString('nl-BE',{month:'short'})}</span></div></div>` }).join('')}</div>`
-        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Voeg een taak toe om de weekmatrix te gebruiken.</p>${data.workers.length?'<button class="btn primary" data-action="new-task">Taak toevoegen</button>':'<button class="btn primary" data-action="settings">Medewerker toevoegen</button>'}</div></div>`; return }
+        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Voeg een taak toe om de weekmatrix te gebruiken.</p><button class="btn primary" data-action="new-task">Taak toevoegen</button>${data.workers.length?'':' <button class="btn" data-action="settings">Medewerker toevoegen</button>'}</div></div>`; return }
         const rows = visibleTasks.map(task => {
           const total = data.assignments.filter(item => dates.has(item.date) && item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')).length
           const cells = days.map(day => {
@@ -351,7 +351,7 @@
         $('#preset-settings').innerHTML = data.taskPresets.length ? data.taskPresets.map(name => `<div class="preset" style="width:100%;flex-wrap:wrap"><b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Loon € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label><button class="mini danger" data-action="delete-preset" data-name="${esc(name)}">×</button></div>`).join('') : '<p class="hint">Maak een preset tijdens het invoeren van een taak.</p>'
       }
       function updateTaskDefault(task, patch) { const key=taskKey(task),current=data.taskDefaults[key]||{time:taskDefaultTime(task),wage:taskDefaultWage(task)},next={...current,...patch};data.taskDefaults[key]=next;data.assignments=data.assignments.map(item=>taskKey(item.task)===key?{...item,time:next.time,price:next.wage}:item);save() }
-      function openTaskDefinition(task) { editingTaskName=task;$('#definition-name').value=task;$('#definition-time').value=taskDefaultTime(task);$('#definition-wage').value=taskDefaultWage(task);$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
+      function openTaskDefinition(task = '') { const editing=Boolean(task);editingTaskName=task||null;$('#task-definition-title').textContent=editing?'Taak bewerken':'Taak aanmaken';$('#task-definition-hint').textContent=editing?'Wijzigingen gelden voor alle medewerkers en dagen van deze taak.':'Je hoeft nu nog geen medewerker te kiezen. Die wijs je later toe via de dropdown van de juiste dag.';$('#definition-name').value=task;$('#definition-time').value=editing?taskDefaultTime(task):'09:00';$('#definition-wage').value=editing?taskDefaultWage(task):'';$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
       function closeTaskDefinition() { $('#task-definition-backdrop').classList.remove('open');editingTaskName=null }
 
       function downloadWeek() {
@@ -406,7 +406,7 @@
         if(action==='prev-week'){anchor=addDays(startOfWeek(anchor),-7);render()}
         if(action==='next-week'){anchor=addDays(startOfWeek(anchor),7);render()}
         if(action==='today'){anchor=new Date();render()}
-        if(action==='new-task'){if(!data.workers.length){openSettings()}else openTask(ymd(weekDays()[0]),data.workers[0].id)}
+        if(action==='new-task') openTaskDefinition()
         if(action==='add-task') openTask(button.dataset.date,data.workers[0]?.id||'',button.dataset.task)
         if(action==='edit-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item)openTask(item.date,item.workerId,item.task,item)}
         if(action==='done-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item){item.done=!item.done;commit()}}
@@ -437,7 +437,7 @@
       $('#week-starts').addEventListener('change',event=>{data.weekStartsOn=Number(event.target.value);save();render()})
       $('#create-preset').addEventListener('click',()=>{const name=$('#task-name').value.trim();if(name&&!data.taskPresets.some(x=>x.toLocaleLowerCase('nl-BE')===name.toLocaleLowerCase('nl-BE'))){data.taskPresets.push(name);save();$('#task-presets').innerHTML=data.taskPresets.map(x=>`<option value="${esc(x)}"></option>`).join('');updatePresetButton();toast(`Preset “${name}” aangemaakt`)}})
       $('#task-form').addEventListener('submit',event=>{event.preventDefault();const previous=data.assignments.find(x=>x.id===editingId),workerId=$('#task-worker').value,task=$('#task-name').value.trim(),time=$('#task-time').value||'09:00',wage=$('#task-price').value.trim(),item={id:editingId||uid(),task,workerId,date:$('#task-date').value,time,price:wage,notes:$('#task-notes').value.trim(),done:previous?.done||false};if(!item.task||!item.workerId)return;const key=taskKey(task);data.taskDefaults[key]={time,wage};data.assignments=data.assignments.map(existing=>taskKey(existing.task)===key?{...existing,time,price:wage}:existing);data.assignments=editingId?data.assignments.map(existing=>existing.id===editingId?item:existing):[...data.assignments,item];closeTask();commit()})
-      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const oldKey=taskKey(editingTaskName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name||!editingTaskName)return;delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=data.taskPresets.map(task=>taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);closeTaskDefinition();commit()})
+      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);closeTaskDefinition();commit()})
       $('#json-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)importWeek(file)})
       $('#matrix').addEventListener('dragstart',event=>{const card=event.target.closest('[data-task-id]');if(card){event.dataTransfer.setData('text/plain',card.dataset.taskId);event.dataTransfer.effectAllowed='move'}})
       $('#matrix').addEventListener('dragover',event=>{const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
