@@ -8,7 +8,6 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  BadgeEuro,
   Copy,
   Download,
   GripVertical,
@@ -26,6 +25,7 @@ import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 
 type Worker = { id: string; name: string; color: string }
+type TaskDefault = { time: string; wage: string }
 type Assignment = {
   id: string
   date: string
@@ -42,6 +42,7 @@ interface PlannerConfig extends Record<string, unknown> {
   weekStartsOn: number
   workers: Worker[]
   taskPresets: string[]
+  taskDefaults: Record<string, TaskDefault>
   assignments: Assignment[]
 }
 
@@ -51,6 +52,7 @@ const DEFAULTS: PlannerConfig = {
   weekStartsOn: 1,
   workers: [],
   taskPresets: [],
+  taskDefaults: {},
   assignments: [],
 }
 
@@ -81,9 +83,15 @@ const STR = {
     addTask: 'Taak toevoegen',
     emptyDay: 'Nog niets gepland',
     dragHint: 'Sleep een kaart naar een andere dag',
-    moreTasks: (n: number) => `+${n} ${n === 1 ? 'taak' : 'taken'} — beweeg erover`,
-    addTaskFor: (name: string) => `Taak toevoegen voor ${name}`,
-    noTeamYet: 'Voeg medewerkers toe om de weekmatrix te gebruiken.',
+    assignWorker: 'Medewerker toewijzen',
+    assignWorkerTo: (task: string) => `Medewerker toewijzen aan ${task}`,
+    selectWorker: '+ Medewerker kiezen',
+    everyoneAssigned: 'Iedereen toegewezen',
+    noTasksYet: 'Voeg een taak toe om de weekmatrix te gebruiken.',
+    taskRows: 'Taken',
+    taskDefaultsHint: 'Dit uur en loon gelden voor iedere medewerker die aan deze taak wordt toegewezen.',
+    defaultTime: 'Uur',
+    wage: 'Loon',
     weekend: 'Weekend',
     done: 'OK',
     edit: 'Bewerken',
@@ -99,6 +107,8 @@ const STR = {
     cancel: 'Annuleren',
     saveTask: 'Taak bewaren',
     editTask: 'Taak aanpassen',
+    editTaskDefinition: 'Taak bewerken',
+    saveTaskDefinition: 'Taak bewaren',
     taskPlaceholder: 'bv. Toiletten, restaurant, buitenwerk…',
     taskPresets: 'Taakpresets',
     taskPresetsHint: 'Presets bevatten alleen een naam en verschijnen tijdens het invoeren.',
@@ -154,9 +164,15 @@ const STR = {
     addTask: 'Add task',
     emptyDay: 'Nothing planned yet',
     dragHint: 'Drag a card to another day',
-    moreTasks: (n: number) => `+${n} more ${n === 1 ? 'task' : 'tasks'} — hover to view`,
-    addTaskFor: (name: string) => `Add task for ${name}`,
-    noTeamYet: 'Add employees to use the weekly matrix.',
+    assignWorker: 'Assign employee',
+    assignWorkerTo: (task: string) => `Assign employee to ${task}`,
+    selectWorker: '+ Choose employee',
+    everyoneAssigned: 'Everyone assigned',
+    noTasksYet: 'Add a task to use the weekly matrix.',
+    taskRows: 'Tasks',
+    taskDefaultsHint: 'This time and wage apply to every employee assigned to this task.',
+    defaultTime: 'Time',
+    wage: 'Wage',
     weekend: 'Weekend',
     done: 'OK',
     edit: 'Edit',
@@ -172,6 +188,8 @@ const STR = {
     cancel: 'Cancel',
     saveTask: 'Save task',
     editTask: 'Edit task',
+    editTaskDefinition: 'Edit task',
+    saveTaskDefinition: 'Save task',
     taskPlaceholder: 'e.g. Restrooms, restaurant, outdoors…',
     taskPresets: 'Task presets',
     taskPresetsHint: 'Presets only contain a name and appear while entering a task.',
@@ -247,15 +265,21 @@ export function WeekPlanner() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Omit<Assignment, 'id' | 'done'> | null>(null)
   const [taskMenuOpen, setTaskMenuOpen] = useState(false)
+  const [taskLocked, setTaskLocked] = useState(false)
+  const [taskDefinitionDraft, setTaskDefinitionDraft] = useState<{ originalName: string; name: string; time: string; wage: string } | null>(null)
   const [formError, setFormError] = useState('')
   const [toast, setToast] = useState('')
-  const [expandedCell, setExpandedCell] = useState<string | null>(null)
 
   const weekStart = useMemo(() => startOfWeek(anchor, config.weekStartsOn), [anchor, config.weekStartsOn])
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart])
   const weekEnd = days[6]
   const weekDates = new Set(days.map(toYmd))
   const workerMap = new Map(config.workers.map((worker) => [worker.id, worker]))
+  const normalizedTaskKey = (task: string) => task.trim().toLocaleLowerCase(locale)
+  const taskDefaultTime = (task: string) => config.taskDefaults[normalizedTaskKey(task)]?.time || config.assignments.find((assignment) => normalizedTaskKey(assignment.task) === normalizedTaskKey(task))?.time || '09:00'
+  const taskDefaultWage = (task: string) => config.taskDefaults[normalizedTaskKey(task)]?.wage || config.assignments.find((assignment) => normalizedTaskKey(assignment.task) === normalizedTaskKey(task))?.price || ''
+  const assignmentTime = (assignment: Assignment) => taskDefaultTime(assignment.task)
+  const assignmentWage = (assignment: Assignment) => taskDefaultWage(assignment.task)
   const workerOrder = new Map(config.workers.map((worker, index) => [worker.id, index]))
   const assignmentOrder = new Map(config.assignments.map((assignment, index) => [assignment.id, index]))
   const compareAssignments = (a: Assignment, b: Assignment) => {
@@ -271,19 +295,24 @@ export function WeekPlanner() {
   const weekAssignments = config.assignments
     .filter((assignment) => weekDates.has(assignment.date))
     .filter((assignment) => workerFilter === 'all' || assignment.workerId === workerFilter)
-    .filter((assignment) => {
-      if (!normalizedQuery) return true
-      const worker = workerMap.get(assignment.workerId)?.name ?? ''
-      return `${assignment.task} ${assignment.notes} ${worker}`.toLocaleLowerCase(locale).includes(normalizedQuery)
-    })
     .sort(compareAssignments)
 
   const tasksThisWeek = config.assignments.filter((assignment) => weekDates.has(assignment.date))
   const scheduledWorkers = new Set(tasksThisWeek.map((assignment) => assignment.workerId)).size
   const completedTasks = tasksThisWeek.filter((assignment) => assignment.done).length
-  const visibleWorkers = workerFilter === 'all'
-    ? config.workers
-    : config.workers.filter((worker) => worker.id === workerFilter)
+  const taskRows = [...config.taskPresets, ...config.assignments.map((assignment) => assignment.task)]
+    .filter((task, index, tasks) =>
+      task.trim() && tasks.findIndex((candidate) => candidate.trim().toLocaleLowerCase(locale) === task.trim().toLocaleLowerCase(locale)) === index
+    )
+  const visibleTaskRows = taskRows.filter((task) => {
+    if (!normalizedQuery) return true
+    if (task.toLocaleLowerCase(locale).includes(normalizedQuery)) return true
+    return weekAssignments.some((assignment) => {
+      const worker = workerMap.get(assignment.workerId)?.name ?? ''
+      return assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale)
+        && `${worker} ${assignment.notes}`.toLocaleLowerCase(locale).includes(normalizedQuery)
+    })
+  })
   const taskSearch = draft?.task.trim() ?? ''
   const matchingTaskPresets = config.taskPresets
     .filter((preset) => preset.toLocaleLowerCase(locale).includes(taskSearch.toLocaleLowerCase(locale)))
@@ -304,23 +333,25 @@ export function WeekPlanner() {
     window.setTimeout(() => setToast(''), 2600)
   }
 
-  const openCreate = (date: string, workerId = config.workers[0]?.id ?? '') => {
+  const openCreate = (date: string, workerId = config.workers[0]?.id ?? '', task = '') => {
     setEditingId(null)
     setFormError('')
     setTaskMenuOpen(false)
-    setDraft(emptyDraft(date, workerId))
+    setTaskLocked(Boolean(task))
+    setDraft({ ...emptyDraft(date, workerId), task, time: task ? taskDefaultTime(task) : '09:00', price: task ? taskDefaultWage(task) : '' })
   }
 
   const openEdit = (assignment: Assignment) => {
     setEditingId(assignment.id)
     setFormError('')
     setTaskMenuOpen(false)
+    setTaskLocked(true)
     setDraft({
       date: assignment.date,
-      time: assignment.time,
+      time: taskDefaultTime(assignment.task),
       task: assignment.task,
       workerId: assignment.workerId,
-      price: assignment.price,
+      price: taskDefaultWage(assignment.task),
       notes: assignment.notes,
     })
   }
@@ -330,16 +361,31 @@ export function WeekPlanner() {
       setFormError(t.required)
       return
     }
-    setConfig((previous) => ({
-      ...previous,
-      assignments: editingId
-        ? previous.assignments.map((assignment) =>
-            assignment.id === editingId ? { ...assignment, ...draft, task: draft.task.trim() } : assignment
-          )
-        : [...previous.assignments, { ...draft, task: draft.task.trim(), id: makeId(), done: false }],
-    }))
+    setConfig((previous) => {
+      const task = draft.task.trim()
+      const key = task.toLocaleLowerCase(locale)
+      const time = draft.time || '09:00'
+      const wage = draft.price.trim()
+      const nextDraft = {
+        ...draft,
+        task,
+        time,
+        price: wage,
+      }
+      const syncedAssignments = previous.assignments.map((assignment) =>
+        assignment.task.trim().toLocaleLowerCase(locale) === key ? { ...assignment, time, price: wage } : assignment
+      )
+      return {
+        ...previous,
+        taskDefaults: { ...previous.taskDefaults, [key]: { time, wage } },
+        assignments: editingId
+          ? syncedAssignments.map((assignment) => assignment.id === editingId ? { ...assignment, ...nextDraft } : assignment)
+          : [...syncedAssignments, { ...nextDraft, id: makeId(), done: false }],
+      }
+    })
     setDraft(null)
     setEditingId(null)
+    setTaskLocked(false)
   }
 
   const addTaskPreset = (name: string) => {
@@ -363,12 +409,82 @@ export function WeekPlanner() {
     }))
   }
 
+  const updateTaskDefault = (task: string, patch: Partial<TaskDefault>) => {
+    const key = normalizedTaskKey(task)
+    setConfig((previous) => {
+      const current = previous.taskDefaults[key] ?? { time: taskDefaultTime(task), wage: taskDefaultWage(task) }
+      const next = { ...current, ...patch }
+      return {
+        ...previous,
+        taskDefaults: { ...previous.taskDefaults, [key]: next },
+        assignments: previous.assignments.map((assignment) =>
+          normalizedTaskKey(assignment.task) === key ? { ...assignment, time: next.time, price: next.wage } : assignment
+        ),
+      }
+    })
+  }
+
+  const openTaskDefinition = (task: string) => {
+    setTaskDefinitionDraft({
+      originalName: task,
+      name: task,
+      time: taskDefaultTime(task),
+      wage: taskDefaultWage(task),
+    })
+  }
+
+  const saveTaskDefinition = () => {
+    if (!taskDefinitionDraft?.name.trim()) return
+    const oldKey = normalizedTaskKey(taskDefinitionDraft.originalName)
+    const name = taskDefinitionDraft.name.trim()
+    const newKey = normalizedTaskKey(name)
+    const time = taskDefinitionDraft.time || '09:00'
+    const wage = taskDefinitionDraft.wage.trim()
+    setConfig((previous) => {
+      const taskDefaults = { ...previous.taskDefaults }
+      delete taskDefaults[oldKey]
+      taskDefaults[newKey] = { time, wage }
+      const presets = previous.taskPresets
+        .map((preset) => normalizedTaskKey(preset) === oldKey ? name : preset)
+        .filter((preset, index, list) => list.findIndex((candidate) => normalizedTaskKey(candidate) === normalizedTaskKey(preset)) === index)
+      return {
+        ...previous,
+        taskDefaults,
+        taskPresets: presets,
+        assignments: previous.assignments.map((assignment) =>
+          normalizedTaskKey(assignment.task) === oldKey ? { ...assignment, task: name, time, price: wage } : assignment
+        ),
+      }
+    })
+    setTaskDefinitionDraft(null)
+  }
+
   const updateAssignment = (id: string, patch: Partial<Assignment>) => {
     setConfig((previous) => ({
       ...previous,
       assignments: previous.assignments.map((assignment) =>
         assignment.id === id ? { ...assignment, ...patch } : assignment
       ),
+    }))
+  }
+
+  const assignWorker = (task: string, date: string, workerId: string) => {
+    if (!workerId) return
+    setConfig((previous) => ({
+      ...previous,
+      assignments: [
+        ...previous.assignments,
+        {
+          id: makeId(),
+          task,
+          date,
+          workerId,
+          time: taskDefaultTime(task),
+          price: taskDefaultWage(task),
+          notes: '',
+          done: false,
+        },
+      ],
     }))
   }
 
@@ -473,22 +589,16 @@ export function WeekPlanner() {
     const all = config.assignments
       .filter((assignment) => weekDates.has(assignment.date))
       .sort(compareAssignments)
-    const groupedTasks = Array.from(
-      all.reduce((groups, assignment) => {
-        const key = assignment.task.trim().replace(/\s+/g, ' ').toLocaleLowerCase(locale)
-        const group = groups.get(key) ?? []
-        group.push(assignment)
-        groups.set(key, group)
-        return groups
-      }, new Map<string, Assignment[]>()).values()
-    )
+    const groupedTasks = taskRows.map((task) => ({
+      task,
+      assignments: all.filter((assignment) => assignment.task.trim().toLocaleLowerCase(locale) === task.trim().toLocaleLowerCase(locale)),
+    }))
     const dayHeaders = days.map((day) => `<th colspan="2">${escapeHtml(t.days[day.getDay()])}<br><span class="muted">${day.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}</span></th>`).join('')
     const subHeaders = days.map(() => `<th>${escapeHtml(t.employee)}</th><th class="center">OK</th>`).join('')
     const rows = groupedTasks.length
-      ? groupedTasks.map((assignments) => {
-          const first = assignments[0]
-          const prices = [...new Set(assignments.map((assignment) => assignment.price).filter(Boolean))]
-          const times = [...new Set(assignments.map((assignment) => displayTime(assignment.time)).filter((time) => time !== '—'))]
+      ? groupedTasks.map(({ task, assignments }) => {
+          const prices = [...new Set(assignments.map(assignmentWage).filter(Boolean))]
+          const times = [...new Set(assignments.map((assignment) => displayTime(assignmentTime(assignment))).filter((time) => time !== '—'))]
           const notes = [...new Set(assignments.map((assignment) => assignment.notes.trim()).filter(Boolean))]
           const cells = days.map((day) => {
             const dayAssignments = assignments.filter((assignment) => assignment.date === toYmd(day))
@@ -497,7 +607,7 @@ export function WeekPlanner() {
             const checks = dayAssignments.map((assignment) => `<div class="cell-line">${assignment.done ? '✓' : '&nbsp;'}</div>`).join('')
             return `<td>${workers}</td><td class="center">${checks}</td>`
           }).join('')
-          return `<tr><td class="task">${escapeHtml(first.task)}${notes.map((note) => `<span class="notes">${escapeHtml(note)}</span>`).join('')}</td><td>${prices.map(escapeHtml).join(' / ')}</td><td>${times.map(escapeHtml).join(' / ')}</td>${cells}</tr>`
+          return `<tr><td class="task">${escapeHtml(task)}${notes.map((note) => `<span class="notes">${escapeHtml(note)}</span>`).join('')}</td><td>${prices.map(escapeHtml).join(' / ')}</td><td>${times.map(escapeHtml).join(' / ')}</td>${cells}</tr>`
         }).join('')
       : `<tr><td colspan="17" class="center muted">${escapeHtml(t.emptyDay)}</td></tr>`
     printDocument(`<section class="general"><div class="sheet-head"><div><div class="brand">${escapeHtml(config.companyName || t.planning)}</div><h1>${escapeHtml(t.generalPdf)}</h1></div><div>${escapeHtml(formatRange())}</div></div><table><thead><tr><th rowspan="2" class="task-col">${escapeHtml(t.task)}</th><th rowspan="2" class="price-col">€</th><th rowspan="2" class="time-col">${escapeHtml(t.time)}</th>${dayHeaders}</tr><tr class="sub">${subHeaders}</tr></thead><tbody>${rows}</tbody></table></section>`, true)
@@ -514,14 +624,16 @@ export function WeekPlanner() {
         if (!assignments.length) {
           return `<tr><td>${day.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })}</td><td></td><td></td><td></td></tr>`
         }
-        return assignments.map((assignment, index) => `<tr>${index === 0 ? `<td rowspan="${assignments.length}">${day.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })}</td>` : ''}<td>${escapeHtml(displayTime(assignment.time))}</td><td class="task">${escapeHtml(assignment.task)}${assignment.notes ? `<span class="notes">${escapeHtml(assignment.notes)}</span>` : ''}</td><td class="center">${assignment.done ? '✓' : ''}</td></tr>`).join('')
+        return assignments.map((assignment, index) => `<tr>${index === 0 ? `<td rowspan="${assignments.length}">${day.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })}</td>` : ''}<td>${escapeHtml(displayTime(assignmentTime(assignment)))}</td><td class="task">${escapeHtml(assignment.task)}${assignment.notes ? `<span class="notes">${escapeHtml(assignment.notes)}</span>` : ''}</td><td class="center">${assignment.done ? '✓' : ''}</td></tr>`).join('')
       }).join('')
       return `<section class="sheet"><div class="sheet-head"><div><div class="brand">${escapeHtml(config.companyName || t.workSheet)}</div><h1>${escapeHtml(worker.name || t.workerName)}</h1></div><div><strong>${escapeHtml(t.workSheet)}</strong><br><span class="muted">${escapeHtml(formatRange())}</span></div></div><table class="work-table"><thead><tr><th class="date-col">${escapeHtml(t.date)}</th><th class="time-col">${escapeHtml(t.time)}</th><th>${escapeHtml(t.task)}</th><th class="ok-col center">OK</th></tr></thead><tbody>${rows}</tbody></table></section>`
     }).join('')
     printDocument(sheets, false)
   }
 
-  const renderCellTask = (assignment: Assignment) => (
+  const renderCellAssignment = (assignment: Assignment) => {
+    const worker = workerMap.get(assignment.workerId)
+    return (
     <article
       key={assignment.id}
       draggable
@@ -534,13 +646,11 @@ export function WeekPlanner() {
       <div className="flex items-start gap-1.5">
         <GripVertical className="mt-0.5 size-3 shrink-0 cursor-grab text-slate-700 group-hover/task:text-slate-500" />
         <button onClick={() => openEdit(assignment)} className="no-glow min-w-0 flex-1 text-left">
-          <span className={`block break-words text-xs font-bold leading-4 ${assignment.done ? 'line-through text-slate-400' : 'text-slate-200'}`}>{assignment.task}</span>
-          <span className="mt-1 block font-mono text-[9px] text-slate-500">{displayTime(assignment.time)}</span>
+          <span className={`flex items-center gap-1.5 break-words text-xs font-bold leading-4 ${assignment.done ? 'line-through text-slate-400' : 'text-slate-200'}`}><span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: worker?.color ?? '#64748b' }} />{worker?.name || t.workerName}</span>
         </button>
       </div>
-      {(assignment.price || assignment.notes) && (
+      {assignment.notes && (
         <div className="mt-1.5 pl-[18px]">
-          {assignment.price && <span className="flex items-center gap-1 text-[9px] text-slate-500"><BadgeEuro className="size-2.5" />{assignment.price}</span>}
           {assignment.notes && <p className="mt-1 line-clamp-2 text-[9px] leading-3 text-slate-600">{assignment.notes}</p>}
         </div>
       )}
@@ -551,7 +661,8 @@ export function WeekPlanner() {
         <button onClick={() => deleteAssignment(assignment.id)} title={t.remove} aria-label={t.remove} className="ml-auto grid size-6 place-items-center rounded-md text-slate-700 hover:bg-rose-500/10 hover:text-rose-300"><Trash2 className="size-3" /></button>
       </div>
     </article>
-  )
+    )
+  }
 
   if (loading) return <p className="animate-pulse text-slate-400">Loading…</p>
 
@@ -632,14 +743,17 @@ export function WeekPlanner() {
             {config.workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name || t.workerName}</option>)}
           </select>
         </div>
-        <button onClick={copyPreviousWeek} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"><Copy className="size-4" /> {t.copyPrevious}</button>
+        <div className="flex flex-wrap gap-2">
+          <button disabled={!config.workers.length} onClick={() => openCreate(toYmd(days[0]))} className="flex items-center justify-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20 disabled:opacity-40"><Plus className="size-4" /> {t.addTask}</button>
+          <button onClick={copyPreviousWeek} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"><Copy className="size-4" /> {t.copyPrevious}</button>
+        </div>
       </section>
 
       <section className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
         <div className="min-w-[1240px]">
           <div className="grid grid-cols-[180px_repeat(7,minmax(145px,1fr))] border-b border-white/8 bg-[#0d111c]/95">
             <div className="sticky left-0 z-20 flex items-end border-r border-white/8 bg-[#0d111c] px-4 py-3">
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{t.team}</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{t.taskRows}</span>
             </div>
             {days.map((day) => {
               const date = toYmd(day)
@@ -657,21 +771,22 @@ export function WeekPlanner() {
             })}
           </div>
 
-          {visibleWorkers.length ? visibleWorkers.map((worker) => (
-            <div key={worker.id} className="grid grid-cols-[180px_repeat(7,minmax(145px,1fr))] border-b border-white/8 last:border-b-0">
-              <div className="sticky left-0 z-10 flex min-h-32 items-start gap-2.5 border-r border-white/8 bg-[#0d111c]/95 px-4 py-4">
-                <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: worker.color }} />
-                <div className="min-w-0">
-                  <p className="break-words text-sm font-bold text-slate-200">{worker.name || t.workerName}</p>
-                  <p className="mt-1 text-[10px] text-slate-600">{tasksThisWeek.filter((assignment) => assignment.workerId === worker.id).length} {t.task.toLocaleLowerCase()}</p>
+          {visibleTaskRows.length ? visibleTaskRows.map((task) => (
+            <div key={task.toLocaleLowerCase(locale)} className="grid grid-cols-[180px_repeat(7,minmax(145px,1fr))] border-b border-white/8 last:border-b-0">
+              <div className="sticky left-0 z-10 min-h-32 border-r border-white/8 bg-[#0d111c]/95 px-4 py-4">
+                <div className="flex items-start gap-2">
+                  <p className="min-w-0 flex-1 break-words text-sm font-bold text-slate-200">{task}</p>
+                  <button onClick={() => openTaskDefinition(task)} title={t.editTaskDefinition} aria-label={`${t.editTaskDefinition}: ${task}`} className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300"><Pencil className="size-3.5" /></button>
                 </div>
+                <p className="mt-1 font-mono text-[10px] text-slate-500">{displayTime(taskDefaultTime(task))}{taskDefaultWage(task) ? ` · €${taskDefaultWage(task)}` : ''}</p>
+                <p className="mt-1 text-[10px] text-slate-600">{tasksThisWeek.filter((assignment) => assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale)).length} {t.person.toLocaleLowerCase()}</p>
               </div>
               {days.map((day) => {
                 const date = toYmd(day)
-                const cellId = `${worker.id}-${date}`
-                const cellAssignments = weekAssignments.filter((assignment) => assignment.workerId === worker.id && assignment.date === date)
-                const additionalCount = Math.max(0, cellAssignments.length - 1)
-                const isExpanded = expandedCell === cellId
+                const cellId = `${task}-${date}`
+                const cellAssignments = weekAssignments.filter((assignment) => assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale) && assignment.date === date)
+                const assignedWorkerIds = new Set(config.assignments.filter((assignment) => assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale) && assignment.date === date).map((assignment) => assignment.workerId))
+                const availableWorkers = config.workers.filter((worker) => !assignedWorkerIds.has(worker.id))
                 const isToday = date === toYmd(new Date())
                 const isWeekend = day.getDay() === 0 || day.getDay() === 6
                 return (
@@ -680,21 +795,16 @@ export function WeekPlanner() {
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => {
                       const id = event.dataTransfer.getData('text/plain')
-                      if (id) updateAssignment(id, { date, workerId: worker.id })
+                      if (id) updateAssignment(id, { date, task })
                     }}
-                    className={`group/cell min-h-32 border-r border-white/8 p-2 last:border-r-0 ${isToday ? 'bg-indigo-500/[0.035]' : isWeekend ? 'bg-violet-500/[0.018]' : ''}`}
+                    className={`min-h-32 border-r border-white/8 p-2 last:border-r-0 ${isToday ? 'bg-indigo-500/[0.035]' : isWeekend ? 'bg-violet-500/[0.018]' : ''}`}
                   >
                     <div className="flex min-h-full flex-col gap-1.5">
-                      {cellAssignments[0] && renderCellTask(cellAssignments[0])}
-                      {additionalCount > 0 && (
-                        <>
-                          <button onClick={() => setExpandedCell(isExpanded ? null : cellId)} className="no-glow w-full rounded-md px-2 py-1 text-left text-[9px] font-semibold text-indigo-300/80 hover:bg-indigo-500/10 hover:text-indigo-200">{t.moreTasks(additionalCount)}</button>
-                          <div className={`space-y-1.5 ${isExpanded ? 'block' : 'hidden group-hover/cell:block group-focus-within/cell:block'}`}>
-                            {cellAssignments.slice(1).map(renderCellTask)}
-                          </div>
-                        </>
-                      )}
-                      <button onClick={() => openCreate(date, worker.id)} title={t.addTaskFor(worker.name || t.workerName)} aria-label={t.addTaskFor(worker.name || t.workerName)} className={`mt-auto flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-1.5 text-[10px] font-semibold transition-colors ${cellAssignments.length ? 'border-white/[0.06] text-slate-700 hover:border-indigo-400/25 hover:text-indigo-300' : 'min-h-16 border-white/8 text-slate-600 hover:border-indigo-400/30 hover:bg-indigo-500/[0.04] hover:text-indigo-300'}`}><Plus className="size-3" /> {t.addTask}</button>
+                      {cellAssignments.map(renderCellAssignment)}
+                      <select value="" disabled={!availableWorkers.length} onChange={(event) => assignWorker(task, date, event.target.value)} title={t.assignWorkerTo(task)} aria-label={t.assignWorkerTo(task)} className="mt-auto w-full rounded-lg border border-dashed border-white/10 bg-[#101522] px-2 py-2 text-[10px] font-semibold text-slate-500 outline-none hover:border-indigo-400/30 hover:text-indigo-300 disabled:opacity-40">
+                        <option value="">{availableWorkers.length ? t.selectWorker : t.everyoneAssigned}</option>
+                        {availableWorkers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name || t.workerName}</option>)}
+                      </select>
                     </div>
                   </div>
                 )
@@ -702,7 +812,7 @@ export function WeekPlanner() {
             </div>
           )) : (
             <div className="grid min-h-48 place-items-center p-8 text-center">
-              <div><UsersRound className="mx-auto size-7 text-slate-700" /><p className="mt-3 text-sm text-slate-500">{t.noTeamYet}</p><button onClick={() => setShowSettings(true)} className="mt-4 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20">{t.addWorker}</button></div>
+              <div><BriefcaseBusiness className="mx-auto size-7 text-slate-700" /><p className="mt-3 text-sm text-slate-500">{t.noTasksYet}</p><button disabled={!config.workers.length} onClick={() => openCreate(toYmd(days[0]))} className="mt-4 rounded-xl bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-40">{t.addTask}</button>{!config.workers.length && <button onClick={() => setShowSettings(true)} className="ml-2 mt-4 rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10">{t.addWorker}</button>}</div>
             </div>
           )}
         </div>
@@ -718,6 +828,7 @@ export function WeekPlanner() {
               <input
                 autoFocus
                 value={draft.task}
+                disabled={taskLocked}
                 onFocus={() => setTaskMenuOpen(true)}
                 onBlur={() => window.setTimeout(() => setTaskMenuOpen(false), 120)}
                 onChange={(event) => {
@@ -726,7 +837,7 @@ export function WeekPlanner() {
                 }}
                 placeholder={t.taskPlaceholder}
                 autoComplete="off"
-                className="form-input"
+                className="form-input disabled:cursor-not-allowed disabled:opacity-60"
               />
               {taskMenuOpen && (matchingTaskPresets.length > 0 || (taskSearch && !taskPresetExists)) && (
                 <div className="absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-xl border border-white/10 bg-[#171d2b] p-1.5 shadow-2xl shadow-black/40">
@@ -761,12 +872,25 @@ export function WeekPlanner() {
             </div>
             <label><FieldLabel>{t.person}</FieldLabel><select value={draft.workerId} onChange={(event) => setDraft({ ...draft, workerId: event.target.value })} className="form-input"><option value="">—</option>{config.workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name || t.workerName}</option>)}</select></label>
             <label><FieldLabel>{t.date}</FieldLabel><input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} className="form-input" /></label>
-            <label><FieldLabel>{t.time}</FieldLabel><input type="time" value={draft.time} onChange={(event) => setDraft({ ...draft, time: event.target.value })} className="form-input" /></label>
-            <label><FieldLabel>{t.amount} <span className="font-normal text-slate-600">({t.optional})</span></FieldLabel><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span><input value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} inputMode="decimal" className="form-input pl-8" /></div></label>
+            <label><FieldLabel>{t.defaultTime}</FieldLabel><input type="time" value={draft.time} onChange={(event) => setDraft({ ...draft, time: event.target.value })} className="form-input" /></label>
+            <label><FieldLabel>{t.wage} <span className="font-normal text-slate-600">({t.optional})</span></FieldLabel><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span><input value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} inputMode="decimal" className="form-input pl-8" /></div></label>
+            <p className="sm:col-span-2 -mt-2 text-xs text-slate-500">{t.taskDefaultsHint}</p>
             <label className="sm:col-span-2"><FieldLabel>{t.notes} <span className="font-normal text-slate-600">({t.optional})</span></FieldLabel><textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} placeholder={t.notesPlaceholder} rows={3} className="form-input resize-none" /></label>
           </div>
           {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
           <div className="mt-6 flex justify-end gap-2"><button onClick={() => setDraft(null)} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/5">{t.cancel}</button><button onClick={saveDraft} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-400">{t.saveTask}</button></div>
+        </Modal>
+      )}
+
+      {taskDefinitionDraft && (
+        <Modal title={t.editTaskDefinition} onClose={() => setTaskDefinitionDraft(null)}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="sm:col-span-2"><FieldLabel>{t.task}</FieldLabel><input autoFocus value={taskDefinitionDraft.name} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, name: event.target.value })} className="form-input" /></label>
+            <label><FieldLabel>{t.defaultTime}</FieldLabel><input type="time" value={taskDefinitionDraft.time} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, time: event.target.value })} className="form-input" /></label>
+            <label><FieldLabel>{t.wage} <span className="font-normal text-slate-600">({t.optional})</span></FieldLabel><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span><input value={taskDefinitionDraft.wage} onChange={(event) => setTaskDefinitionDraft({ ...taskDefinitionDraft, wage: event.target.value })} inputMode="decimal" className="form-input pl-8" /></div></label>
+            <p className="sm:col-span-2 text-xs text-slate-500">{t.taskDefaultsHint}</p>
+          </div>
+          <div className="mt-6 flex justify-end gap-2"><button onClick={() => setTaskDefinitionDraft(null)} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/5">{t.cancel}</button><button onClick={saveTaskDefinition} className="rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-400">{t.saveTaskDefinition}</button></div>
         </Modal>
       )}
 
@@ -779,9 +903,9 @@ export function WeekPlanner() {
           <div className="mt-7 flex items-center justify-between"><div><h3 className="font-bold">{t.team}</h3><p className="mt-1 text-xs text-slate-500">{config.workers.length} {t.person.toLocaleLowerCase()}</p></div><button onClick={addWorker} className="flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20"><Plus className="size-4" /> {t.addWorker}</button></div>
           <div className="mt-3 space-y-2">
             {config.workers.map((worker, index) => (
-              <div key={worker.id} className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.025] p-2">
+              <div key={worker.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-white/[0.025] p-2">
                 <UserRound className="ml-1 size-4 text-slate-500" />
-                <input value={worker.name} onChange={(event) => updateWorker(worker.id, { name: event.target.value })} placeholder={t.workerName} className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-600" />
+                <input value={worker.name} onChange={(event) => updateWorker(worker.id, { name: event.target.value })} placeholder={t.workerName} className="min-w-40 flex-1 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-600" />
                 <div className="flex items-center gap-1">{WORKER_COLORS.map((color) => <button key={color} aria-label={color} onClick={() => updateWorker(worker.id, { color })} className={`size-5 rounded-full border-2 ${worker.color === color ? 'border-white' : 'border-transparent'}`} style={{ backgroundColor: color }} />)}</div>
                 <div className="flex flex-col">
                   <button disabled={index === 0} onClick={() => moveWorker(worker.id, -1)} title={t.moveUp} aria-label={t.moveUp} className="grid size-6 place-items-center rounded-md text-slate-500 hover:bg-white/5 hover:text-white disabled:opacity-20"><ArrowUp className="size-3" /></button>
@@ -796,12 +920,14 @@ export function WeekPlanner() {
             <h3 className="font-bold">{t.taskPresets}</h3>
             <p className="mt-1 text-xs text-slate-500">{t.taskPresetsHint}</p>
             {config.taskPresets.length ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 space-y-2">
                 {config.taskPresets.map((preset) => (
-                  <span key={preset} className="flex items-center gap-1.5 rounded-lg bg-white/5 py-1.5 pl-3 pr-1.5 text-sm text-slate-300 ring-1 ring-inset ring-white/8">
-                    {preset}
+                  <div key={preset} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/5 p-2 pl-3 text-sm text-slate-300 ring-1 ring-inset ring-white/8">
+                    <span className="min-w-36 flex-1 font-semibold">{preset}</span>
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500"><span>{t.defaultTime}</span><input type="time" value={taskDefaultTime(preset)} onChange={(event) => updateTaskDefault(preset, { time: event.target.value })} className="w-24 rounded-lg border border-white/8 bg-white/5 px-2 py-1.5 text-xs text-slate-300 outline-none" /></label>
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500"><span>{t.wage} €</span><input value={taskDefaultWage(preset)} onChange={(event) => updateTaskDefault(preset, { wage: event.target.value })} inputMode="decimal" className="w-20 rounded-lg border border-white/8 bg-white/5 px-2 py-1.5 text-xs text-slate-300 outline-none" /></label>
                     <button onClick={() => removeTaskPreset(preset)} title={t.removePreset} aria-label={`${t.removePreset}: ${preset}`} className="grid size-6 place-items-center rounded-md text-slate-600 hover:bg-rose-500/10 hover:text-rose-300"><X className="size-3.5" /></button>
-                  </span>
+                  </div>
                 ))}
               </div>
             ) : (
