@@ -24,7 +24,7 @@ import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 
-type Worker = { id: string; name: string; color: string }
+type Worker = { id: string; name: string; color: string; monthlyLimit?: string }
 type TaskDefault = { time: string; wage: string }
 type Assignment = {
   id: string
@@ -40,6 +40,7 @@ type Assignment = {
 interface PlannerConfig extends Record<string, unknown> {
   companyName: string
   weekStartsOn: number
+  defaultMonthlyLimit: string
   workers: Worker[]
   taskPresets: string[]
   taskDefaults: Record<string, TaskDefault>
@@ -50,6 +51,7 @@ const WORKER_COLORS = ['#818cf8', '#22d3ee', '#f59e0b', '#f472b6', '#34d399', '#
 const DEFAULTS: PlannerConfig = {
   companyName: '',
   weekStartsOn: 1,
+  defaultMonthlyLimit: '285',
   workers: [],
   taskPresets: [],
   taskDefaults: {},
@@ -68,14 +70,14 @@ const STR = {
     generalPdf: 'Algemene planning',
     generalPdfHint: 'Liggende weektabel zoals je voorbeeld',
     allSheets: 'Alle werkfiches',
-    allSheetsHint: 'Eén liggende A4-pagina per bewoner',
+    allSheetsHint: 'Eén staande A4-pagina per bewoner, geschikt voor 4 pagina’s per blad',
     oneSheet: 'Individuele werkfiche',
     noWorkers: 'Voeg eerst een bewoner toe.',
-    printHint: 'In het afdrukvenster kies je “Bewaar als PDF”.',
+    printHint: 'Kies in het afdrukvenster A4 en “4 pagina’s per blad”.',
     totalTasks: 'Taken deze week',
     activeWorkers: 'Ingeplande bewoners',
     completed: 'Afgevinkt',
-    search: 'Zoek taak, persoon of notitie…',
+    search: 'Zoek taak, bewoner of notitie…',
     allWorkers: 'Alle bewoners',
     copyPrevious: 'Vorige week kopiëren',
     copyEmpty: 'Er staan geen taken in de vorige week.',
@@ -99,6 +101,7 @@ const STR = {
     remove: 'Verwijderen',
     task: 'Taak',
     person: 'Bewoner',
+    people: 'Bewoners',
     time: 'Uur',
     amount: 'Bedrag',
     optional: 'optioneel',
@@ -126,6 +129,13 @@ const STR = {
     team: 'Bewoners',
     addWorker: 'Bewoner toevoegen',
     workerName: 'Naam bewoner',
+    monthlyLimit: 'Maandmaximum',
+    defaultMonthlyLimit: 'Standaard maandmaximum',
+    personalMonthlyLimit: 'Eigen maximum',
+    usesDefaultLimit: 'Leeg = standaardbedrag',
+    monthlyEarnings: 'Maandverdiensten',
+    plannedEarned: 'Gepland / verdiend',
+    noResidents: 'Nog geen bewoners toegevoegd.',
     moveUp: 'Naar boven',
     moveDown: 'Naar beneden',
     close: 'Sluiten',
@@ -151,14 +161,14 @@ const STR = {
     generalPdf: 'Full schedule',
     generalPdfHint: 'Landscape weekly table',
     allSheets: 'All work sheets',
-    allSheetsHint: 'One landscape A4 page per resident',
+    allSheetsHint: 'One portrait A4 page per resident, designed for 4 pages per sheet',
     oneSheet: 'Individual work sheet',
     noWorkers: 'Add a resident first.',
-    printHint: 'Choose “Save as PDF” in the print dialog.',
+    printHint: 'Choose A4 and “4 pages per sheet” in the print dialog.',
     totalTasks: 'Tasks this week',
     activeWorkers: 'Scheduled residents',
     completed: 'Completed',
-    search: 'Search task, person or note…',
+    search: 'Search task, resident or note…',
     allWorkers: 'All residents',
     copyPrevious: 'Copy previous week',
     copyEmpty: 'There are no tasks in the previous week.',
@@ -182,6 +192,7 @@ const STR = {
     remove: 'Delete',
     task: 'Task',
     person: 'Resident',
+    people: 'Residents',
     time: 'Time',
     amount: 'Amount',
     optional: 'optional',
@@ -209,6 +220,13 @@ const STR = {
     team: 'Residents',
     addWorker: 'Add resident',
     workerName: 'Resident name',
+    monthlyLimit: 'Monthly maximum',
+    defaultMonthlyLimit: 'Default monthly maximum',
+    personalMonthlyLimit: 'Personal maximum',
+    usesDefaultLimit: 'Empty = default amount',
+    monthlyEarnings: 'Monthly earnings',
+    plannedEarned: 'Planned / earned',
+    noResidents: 'No residents added yet.',
     moveUp: 'Move up',
     moveDown: 'Move down',
     close: 'Close',
@@ -223,6 +241,27 @@ const STR = {
     yes: 'Yes',
     no: 'No',
   },
+}
+
+const HELP = {
+  nl: [
+    { id: 'start', title: 'Snel starten', intro: 'Van een lege planner naar een bruikbare weekplanning.', steps: ['Open Instellingen en vul eerst de algemene gegevens in.', 'Voeg bewoners toe en controleer hun volgorde en maandmaximum.', 'Maak daarna de nodige taken aan.', 'Wijs bewoners per dag toe in de weekmatrix.', 'Controleer de maandverdiensten en exporteer de juiste documenten.'] },
+    { id: 'settings', title: 'Configuratie', intro: 'De basisinstellingen gelden voor de volledige planner.', steps: ['Bedrijfsnaam verschijnt bovenaan de exports.', 'Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven altijd zichtbaar.', 'Stel het standaard maandmaximum in. Bewoners zonder eigen maximum gebruiken automatisch dit bedrag.', 'Alle wijzigingen worden automatisch opgeslagen.'] },
+    { id: 'residents', title: 'Bewoners', intro: 'Beheer namen, volgorde, kleuren en persoonlijke limieten.', steps: ['Klik bij Instellingen op Bewoner toevoegen.', 'Gebruik de pijlen om de vaste volgorde van de bewoners te bepalen.', 'Kies een kleur om bewoners snel te herkennen in de planning.', 'Laat Eigen maximum leeg om het standaardbedrag te gebruiken, of vul een afwijkend bedrag in.', 'Bij het verwijderen van een bewoner worden ook diens gekoppelde toewijzingen verwijderd.'] },
+    { id: 'tasks', title: 'Taken en loon', intro: 'Een taak bestaat uit een naam, uur en loon; er hoeft bij het aanmaken nog geen bewoner gekozen te worden.', steps: ['Klik op Taak toevoegen en vul naam, uur en eventueel loon in.', 'De taak verschijnt als een aparte rij in iedere week.', 'Gebruik het potlood naast de taaknaam om naam, uur of loon later aan te passen.', 'Taakpresets blijven beschikbaar voor toekomstig gebruik.', 'Het loon van een taak wordt per ingeplande bewoner meegeteld in de maandverdiensten.'] },
+    { id: 'planning', title: 'Weekplanning', intro: 'Iedere taak is een rij en iedere dag is een kolom.', steps: ['Kies in een dagcel een bewoner via de dropdown.', 'Meerdere bewoners kunnen op dezelfde taak en dag staan.', 'Sleep een bewonerskaart naar een andere taak of dag om ze te verplaatsen.', 'Gebruik de knoppen op een kaart om af te vinken, te bewerken, te dupliceren of te verwijderen.', 'Met Vorige week kopiëren neem je alle toewijzingen over naar de huidige week.'] },
+    { id: 'earnings', title: 'Maandverdiensten', intro: 'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner voor één kalendermaand.', steps: ['Open Maandverdiensten via de vaste knop bovenaan.', 'Kies de gewenste maand.', 'Elke taaktoewijzing telt het taakloon één keer mee.', 'Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij of boven het maximum.', 'Pas een limiet aan via Instellingen wanneer een bewoner een persoonlijke uitzondering nodig heeft.'] },
+    { id: 'printing', title: 'Exporteren en printen', intro: 'De algemene planning en werkfiches hebben elk hun eigen afdrukindeling.', steps: ['Algemene planning: exporteer als A4 liggend.', 'Werkfiches: iedere bewoner krijgt één A4-pagina in staande richting.', 'Kies voor werkfiches in het afdrukvenster A4 en 4 pagina’s per blad.', 'Kies de gewenste printer of Bewaar als PDF.', 'Controleer in het afdrukvoorbeeld of schaal en marges niet handmatig zijn overschreven.'] },
+  ],
+  en: [
+    { id: 'start', title: 'Quick start', intro: 'Go from an empty planner to a usable weekly schedule.', steps: ['Open Settings and enter the general details.', 'Add residents and check their order and monthly maximum.', 'Create the required tasks.', 'Assign residents per day in the weekly matrix.', 'Review monthly earnings and export the required documents.'] },
+    { id: 'settings', title: 'Configuration', intro: 'The general settings apply to the complete planner.', steps: ['The company name appears on exports.', 'Choose the first day of the work week; weekends always remain visible.', 'Set the default monthly maximum. Residents without a personal maximum automatically use this amount.', 'All changes are saved automatically.'] },
+    { id: 'residents', title: 'Residents', intro: 'Manage names, ordering, colours, and personal limits.', steps: ['Click Add resident in Settings.', 'Use the arrows to set the fixed resident order.', 'Choose a colour to recognise residents in the schedule.', 'Leave Personal maximum empty to use the default, or enter an exception.', 'Deleting a resident also removes their linked assignments.'] },
+    { id: 'tasks', title: 'Tasks and wages', intro: 'A task has a name, time, and wage; no resident is required when creating it.', steps: ['Click Add task and enter its name, time, and optional wage.', 'The task appears as a separate row in every week.', 'Use the pencil beside the task name to edit it later.', 'Task presets remain available for future use.', 'The task wage is counted once for every assigned resident in monthly earnings.'] },
+    { id: 'planning', title: 'Weekly schedule', intro: 'Each task is a row and each day is a column.', steps: ['Select a resident from the dropdown in a day cell.', 'Multiple residents can be assigned to the same task and day.', 'Drag a resident card to another task or day.', 'Use the card actions to complete, edit, duplicate, or remove it.', 'Copy previous week duplicates all assignments into the current week.'] },
+    { id: 'earnings', title: 'Monthly earnings', intro: 'The right panel shows the planned or earned amount per resident for a calendar month.', steps: ['Open Monthly earnings from the fixed header button.', 'Choose the required month.', 'Each task assignment counts the task wage once.', 'Green is below 70%, yellow from 70%, orange from 90%, and red at or above the maximum.', 'Use Settings to enter a personal exception.'] },
+    { id: 'printing', title: 'Exporting and printing', intro: 'The full schedule and work sheets use different print layouts.', steps: ['The full schedule exports as landscape A4.', 'Each resident work sheet is one portrait A4 page.', 'For work sheets, choose A4 and 4 pages per sheet in the print dialog.', 'Select a printer or Save as PDF.', 'Check that scale and margins were not manually overridden.'] },
+  ],
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -246,6 +285,10 @@ const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.
 const escapeHtml = (value: string) =>
   value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]!)
 const displayTime = (time: string) => (time ? `${time.replace(':', 'u')}` : '—')
+const parseMoney = (value: string | number | undefined) => {
+  const parsed = Number(String(value ?? '').replace(',', '.').replace(/[^\d.-]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
 export function WeekPlanner() {
   const { config, setConfig, loading, saving } = useUtilityConfig<PlannerConfig>('week-planner', DEFAULTS)
@@ -262,8 +305,14 @@ export function WeekPlanner() {
   const [taskMenuOpen, setTaskMenuOpen] = useState(false)
   const [taskLocked, setTaskLocked] = useState(false)
   const [taskDefinitionDraft, setTaskDefinitionDraft] = useState<{ originalName: string; name: string; time: string; wage: string } | null>(null)
+  const [showEarnings, setShowEarnings] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [helpSection, setHelpSection] = useState('start')
+  const [earningsMonth, setEarningsMonth] = useState(() => toYmd(new Date()).slice(0, 7))
   const [formError, setFormError] = useState('')
   const [toast, setToast] = useState('')
+  const helpSections = HELP[lang]
+  const activeHelpSection = helpSections.find((section) => section.id === helpSection) ?? helpSections[0]
 
   const weekStart = useMemo(() => startOfWeek(anchor, config.weekStartsOn), [anchor, config.weekStartsOn])
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart])
@@ -275,6 +324,19 @@ export function WeekPlanner() {
   const taskDefaultWage = (task: string) => config.taskDefaults[normalizedTaskKey(task)]?.wage || config.assignments.find((assignment) => normalizedTaskKey(assignment.task) === normalizedTaskKey(task))?.price || ''
   const assignmentTime = (assignment: Assignment) => taskDefaultTime(assignment.task)
   const assignmentWage = (assignment: Assignment) => taskDefaultWage(assignment.task)
+  const earningsByWorker = new Map<string, number>()
+  config.assignments
+    .filter((assignment) => assignment.date.startsWith(`${earningsMonth}-`))
+    .forEach((assignment) => earningsByWorker.set(assignment.workerId, (earningsByWorker.get(assignment.workerId) ?? 0) + parseMoney(assignmentWage(assignment))))
+  const formatMoney = (value: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value)
+  const monthlyLimitFor = (worker: Worker) => parseMoney(worker.monthlyLimit || config.defaultMonthlyLimit || '285')
+  const earningsTone = (earned: number, limit: number) => {
+    const ratio = limit > 0 ? earned / limit : earned > 0 ? 1 : 0
+    if (ratio >= 1) return { cell: 'border-rose-400/40 bg-rose-500/15', text: 'text-rose-200', bar: 'bg-rose-400', ratio }
+    if (ratio >= 0.9) return { cell: 'border-orange-400/35 bg-orange-500/12', text: 'text-orange-200', bar: 'bg-orange-400', ratio }
+    if (ratio >= 0.7) return { cell: 'border-amber-400/30 bg-amber-500/10', text: 'text-amber-200', bar: 'bg-amber-400', ratio }
+    return { cell: 'border-emerald-400/25 bg-emerald-500/10', text: 'text-emerald-200', bar: 'bg-emerald-400', ratio }
+  }
   const workerOrder = new Map(config.workers.map((worker, index) => [worker.id, index]))
   const assignmentOrder = new Map(config.assignments.map((assignment, index) => [assignment.id, index]))
   const compareAssignments = (a: Assignment, b: Assignment) => {
@@ -518,7 +580,7 @@ export function WeekPlanner() {
       ...previous,
       workers: [
         ...previous.workers,
-        { id: makeId(), name: '', color: WORKER_COLORS[index % WORKER_COLORS.length] },
+        { id: makeId(), name: '', color: WORKER_COLORS[index % WORKER_COLORS.length], monthlyLimit: '' },
       ],
     }))
   }
@@ -551,13 +613,13 @@ export function WeekPlanner() {
     if (workerFilter === worker.id) setWorkerFilter('all')
   }
 
-  const printDocument = (body: string, landscape: boolean) => {
+  const printDocument = (body: string, workSheets = false) => {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
     printWindow.opener = null
     const title = `${t.title} — ${formatRange()}`
     printWindow.document.write(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-      @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 12mm; }
+      @page { size: ${workSheets ? 'A4 portrait' : 'A4 landscape'}; margin: ${workSheets ? '8mm' : '12mm'}; }
       * { box-sizing: border-box; } body { color: #111827; font-family: Arial, sans-serif; margin: 0; font-size: 10px; }
       h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 0; }
       .meta { color: #4b5563; margin-bottom: 16px; } .brand { color: #4f46e5; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -570,8 +632,16 @@ export function WeekPlanner() {
       .general .task-col { width: 14%; } .general .price-col { width: 4%; } .general .time-col { width: 5%; }
       .work-table .date-col { width: 16%; } .work-table .time-col { width: 13%; } .work-table .ok-col { width: 9%; }
       .work-table td { height: 34px; } .notes { display: block; font-size: 8px; font-weight: 400; margin-top: 3px; }
+      body.worksheets { font-size: 17px; }
+      .worksheets h1 { font-size: 34px; }
+      .worksheets .sheet { display: flex; min-height: 280mm; flex-direction: column; }
+      .worksheets .sheet-head { margin-bottom: 14px; padding-bottom: 10px; }
+      .worksheets .work-table { flex: 1; height: 238mm; font-size: 17px; }
+      .worksheets .work-table th, .worksheets .work-table td { padding: 11px 9px; vertical-align: middle; }
+      .worksheets .work-table td { height: auto; }
+      .worksheets .work-table .notes { font-size: 13px; line-height: 1.35; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-    </style></head><body>${body}</body></html>`)
+    </style></head><body class="${workSheets ? 'worksheets' : 'general-export'}">${body}</body></html>`)
     printWindow.document.close()
     printWindow.focus()
     window.setTimeout(() => printWindow.print(), 250)
@@ -602,7 +672,7 @@ export function WeekPlanner() {
           return `<tr><td class="task">${escapeHtml(task)}${notes.map((note) => `<span class="notes">${escapeHtml(note)}</span>`).join('')}</td><td>${prices.map(escapeHtml).join(' / ')}</td><td>${times.map(escapeHtml).join(' / ')}</td>${cells}</tr>`
         }).join('')
       : `<tr><td colspan="17" class="center muted">${escapeHtml(t.emptyDay)}</td></tr>`
-    printDocument(`<section class="general"><div class="sheet-head"><div><div class="brand">${escapeHtml(config.companyName || t.planning)}</div><h1>${escapeHtml(t.generalPdf)}</h1></div><div>${escapeHtml(formatRange())}</div></div><table><thead><tr><th rowspan="2" class="task-col">${escapeHtml(t.task)}</th><th rowspan="2" class="price-col">€</th><th rowspan="2" class="time-col">${escapeHtml(t.time)}</th>${dayHeaders}</tr><tr class="sub">${subHeaders}</tr></thead><tbody>${rows}</tbody></table></section>`, true)
+    printDocument(`<section class="general"><div class="sheet-head"><div><div class="brand">${escapeHtml(config.companyName || t.planning)}</div><h1>${escapeHtml(t.generalPdf)}</h1></div><div>${escapeHtml(formatRange())}</div></div><table><thead><tr><th rowspan="2" class="task-col">${escapeHtml(t.task)}</th><th rowspan="2" class="price-col">€</th><th rowspan="2" class="time-col">${escapeHtml(t.time)}</th>${dayHeaders}</tr><tr class="sub">${subHeaders}</tr></thead><tbody>${rows}</tbody></table></section>`)
   }
 
   const exportWorkSheets = (workerIds: string[]) => {
@@ -663,6 +733,7 @@ export function WeekPlanner() {
       <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-3">
+            <button onClick={() => setShowHelp(true)} aria-label={lang === 'nl' ? 'Hulp openen' : 'Open help'} title={lang === 'nl' ? 'Hulp' : 'Help'} className="grid size-11 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/5 text-xl font-black text-slate-300 hover:border-indigo-400/30 hover:bg-indigo-500/10 hover:text-white">?</button>
             <span className="grid size-11 place-items-center rounded-2xl bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-400/20">
               <CalendarDays className="size-6" />
             </span>
@@ -674,6 +745,9 @@ export function WeekPlanner() {
           <p className="max-w-2xl text-sm leading-6 text-slate-400">{t.intro}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => setShowEarnings((value) => !value)} aria-expanded={showEarnings} className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/20">
+            <span className="text-base">€</span> {t.monthlyEarnings}
+          </button>
           <button onClick={() => setShowSettings(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/10">
             <Settings2 className="size-4" /> {t.settings}
           </button>
@@ -771,7 +845,7 @@ export function WeekPlanner() {
                   <button onClick={() => openTaskDefinition(task)} title={t.editTaskDefinition} aria-label={`${t.editTaskDefinition}: ${task}`} className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300"><Pencil className="size-3.5" /></button>
                 </div>
                 <p className="mt-1 font-mono text-[10px] text-slate-500">{displayTime(taskDefaultTime(task))}{taskDefaultWage(task) ? ` · €${taskDefaultWage(task)}` : ''}</p>
-                <p className="mt-1 text-[10px] text-slate-600">{tasksThisWeek.filter((assignment) => assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale)).length} {t.person.toLocaleLowerCase()}</p>
+                {(() => { const count = tasksThisWeek.filter((assignment) => assignment.task.toLocaleLowerCase(locale) === task.toLocaleLowerCase(locale)).length; return <p className="mt-1 text-[10px] text-slate-600">{count} {(count === 1 ? t.person : t.people).toLocaleLowerCase(locale)}</p> })()}
               </div>
               {days.map((day) => {
                 const date = toYmd(day)
@@ -810,7 +884,49 @@ export function WeekPlanner() {
         </div>
       </section>
 
+      <aside className={`fixed right-0 top-0 z-40 h-dvh w-[min(360px,calc(100vw-44px))] border-l border-white/10 bg-[#0d111c]/98 shadow-2xl shadow-black/50 backdrop-blur-xl transition-transform duration-300 ${showEarnings ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex h-full flex-col">
+          <div className="border-b border-white/8 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div><h2 className="text-lg font-bold">{t.monthlyEarnings}</h2><p className="mt-1 text-xs text-slate-500">{t.plannedEarned}</p></div>
+              <button onClick={() => setShowEarnings(false)} aria-label={t.close} className="grid size-9 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white"><X className="size-4" /></button>
+            </div>
+            <input type="month" value={earningsMonth} onChange={(event) => setEarningsMonth(event.target.value)} className="form-input mt-4" />
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {config.workers.length ? config.workers.map((worker) => {
+              const earned = earningsByWorker.get(worker.id) ?? 0
+              const limit = monthlyLimitFor(worker)
+              const tone = earningsTone(earned, limit)
+              return (
+                <article key={worker.id} className={`rounded-xl border p-3 transition-colors ${tone.cell}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2"><span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: worker.color }} /><strong className="truncate text-sm">{worker.name || t.workerName}</strong></div>
+                    <strong className={`shrink-0 font-mono text-sm ${tone.text}`}>€{formatMoney(earned)} / €{formatMoney(limit)}</strong>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/25"><div className={`h-full rounded-full transition-[width] ${tone.bar}`} style={{ width: `${Math.min(100, tone.ratio * 100)}%` }} /></div>
+                </article>
+              )
+            }) : <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-500">{t.noResidents}</p>}
+          </div>
+        </div>
+      </aside>
+
       {toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-white/10 bg-[#151b2a] px-4 py-3 text-sm font-semibold shadow-2xl">{toast}</div>}
+
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowHelp(false) }}>
+          <section role="dialog" aria-modal="true" aria-label={lang === 'nl' ? 'Handleiding' : 'Guide'} className="flex h-[min(820px,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#101522] shadow-2xl shadow-black/60">
+            <div className="flex items-center justify-between border-b border-white/8 px-5 py-4 sm:px-6"><div><h2 className="text-xl font-bold">{lang === 'nl' ? 'Hoe gebruik je de weekplanner?' : 'How to use the weekly planner'}</h2><p className="mt-1 text-xs text-slate-500">{lang === 'nl' ? 'Kies links een onderwerp.' : 'Choose a topic on the left.'}</p></div><button onClick={() => setShowHelp(false)} className="grid size-9 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white"><X className="size-4" /></button></div>
+            <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr] md:grid-cols-[240px_1fr] md:grid-rows-1">
+              <nav className="flex gap-2 overflow-x-auto border-b border-white/8 bg-black/10 p-3 md:block md:space-y-1 md:overflow-y-auto md:border-b-0 md:border-r">
+                {helpSections.map((section) => <button key={section.id} onClick={() => setHelpSection(section.id)} className={`shrink-0 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors md:block md:w-full ${activeHelpSection.id === section.id ? 'bg-indigo-500/15 text-indigo-200 ring-1 ring-inset ring-indigo-400/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>{section.title}</button>)}
+              </nav>
+              <article className="overflow-y-auto p-6 sm:p-9"><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-300">{lang === 'nl' ? 'Handleiding' : 'Guide'}</p><h3 className="mt-3 text-3xl font-bold tracking-tight">{activeHelpSection.title}</h3><p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">{activeHelpSection.intro}</p><ol className="mt-8 max-w-3xl space-y-4">{activeHelpSection.steps.map((step, index) => <li key={step} className="flex gap-4 rounded-xl border border-white/8 bg-white/[0.025] p-4 text-sm leading-6 text-slate-300"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-indigo-500/15 text-xs font-bold text-indigo-200">{index + 1}</span><span>{step}</span></li>)}</ol></article>
+            </div>
+          </section>
+        </div>
+      )}
 
       {draft && (
         <Modal title={editingId ? t.editTask : t.addTask} onClose={() => setDraft(null)}>
@@ -888,16 +1004,18 @@ export function WeekPlanner() {
 
       {showSettings && (
         <Modal title={t.planningSettings} onClose={() => setShowSettings(false)} wide>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-3">
             <label><FieldLabel>{t.company}</FieldLabel><input value={config.companyName} onChange={(event) => setConfig({ companyName: event.target.value })} placeholder={t.companyPlaceholder} className="form-input" /></label>
             <label><FieldLabel>{t.weekStarts}</FieldLabel><select value={config.weekStartsOn} onChange={(event) => setConfig({ weekStartsOn: Number(event.target.value) })} className="form-input">{t.days.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>
+            <label><FieldLabel>{t.defaultMonthlyLimit}</FieldLabel><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">€</span><input value={config.defaultMonthlyLimit ?? '285'} onChange={(event) => setConfig({ defaultMonthlyLimit: event.target.value })} inputMode="decimal" className="form-input pl-8" /></div></label>
           </div>
-          <div className="mt-7 flex items-center justify-between"><div><h3 className="font-bold">{t.team}</h3><p className="mt-1 text-xs text-slate-500">{config.workers.length} {t.person.toLocaleLowerCase()}</p></div><button onClick={addWorker} className="flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20"><Plus className="size-4" /> {t.addWorker}</button></div>
+          <div className="mt-7 flex items-center justify-between"><div><h3 className="font-bold">{t.team}</h3><p className="mt-1 text-xs text-slate-500">{config.workers.length} {(config.workers.length === 1 ? t.person : t.people).toLocaleLowerCase(locale)}</p></div><button onClick={addWorker} className="flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-500/10 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/20"><Plus className="size-4" /> {t.addWorker}</button></div>
           <div className="mt-3 space-y-2">
             {config.workers.map((worker, index) => (
               <div key={worker.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-white/[0.025] p-2">
                 <UserRound className="ml-1 size-4 text-slate-500" />
                 <input value={worker.name} onChange={(event) => updateWorker(worker.id, { name: event.target.value })} placeholder={t.workerName} className="min-w-40 flex-1 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-600" />
+                <label className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500" title={t.usesDefaultLimit}><span>{t.personalMonthlyLimit} €</span><input value={worker.monthlyLimit ?? ''} onChange={(event) => updateWorker(worker.id, { monthlyLimit: event.target.value })} inputMode="decimal" placeholder={config.defaultMonthlyLimit || '285'} aria-label={`${t.personalMonthlyLimit}: ${worker.name || t.workerName}`} className="w-20 rounded-lg border border-white/8 bg-white/5 px-2 py-1.5 text-xs text-slate-300 outline-none placeholder:text-slate-600 focus:border-indigo-400/50" /></label>
                 <div className="flex items-center gap-1">{WORKER_COLORS.map((color) => <button key={color} aria-label={color} onClick={() => updateWorker(worker.id, { color })} className={`size-5 rounded-full border-2 ${worker.color === color ? 'border-white' : 'border-transparent'}`} style={{ backgroundColor: color }} />)}</div>
                 <div className="flex flex-col">
                   <button disabled={index === 0} onClick={() => moveWorker(worker.id, -1)} title={t.moveUp} aria-label={t.moveUp} className="grid size-6 place-items-center rounded-md text-slate-500 hover:bg-white/5 hover:text-white disabled:opacity-20"><ArrowUp className="size-3" /></button>
