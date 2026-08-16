@@ -19,23 +19,11 @@ import {
   backgroundRemoverIcon,
   weatherIcon,
   songListenerIcon,
-  weekPlannerIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
 // Components are lazy-imported so each utility builds into its own chunk
 // and only loads when the user opens it.
-registerUtility({
-  id: 'week-planner',
-  name: 'Weekly Planner',
-  description: 'Schedule a seven-day work week and export the full plan or individual work sheets.',
-  icon: weekPlannerIcon,
-  availableWithoutAccount: true,
-  component: lazy(() =>
-    import('./week-planner/WeekPlanner').then((m) => ({ default: m.WeekPlanner }))
-  ),
-})
-
 registerUtility({
   id: 'song-listener',
   name: 'Live Lyrics',
