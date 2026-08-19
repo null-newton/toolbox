@@ -59,6 +59,55 @@ export function Layout() {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
   }, [collapsed])
 
+  useEffect(() => {
+    if (!navOpen) return
+
+    const mobileQuery = window.matchMedia('(max-width: 1023px)')
+    let unlockScroll: (() => void) | undefined
+
+    const syncScrollLock = () => {
+      if (!mobileQuery.matches) {
+        unlockScroll?.()
+        unlockScroll = undefined
+        return
+      }
+
+      if (unlockScroll) return
+
+      const scrollY = window.scrollY
+      const bodyStyles = {
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        top: document.body.style.top,
+        width: document.body.style.width,
+      }
+      const rootOverflow = document.documentElement.style.overflow
+
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+
+      unlockScroll = () => {
+        document.documentElement.style.overflow = rootOverflow
+        document.body.style.overflow = bodyStyles.overflow
+        document.body.style.position = bodyStyles.position
+        document.body.style.top = bodyStyles.top
+        document.body.style.width = bodyStyles.width
+        window.scrollTo({ top: scrollY, behavior: 'auto' })
+      }
+    }
+
+    syncScrollLock()
+    mobileQuery.addEventListener('change', syncScrollLock)
+
+    return () => {
+      mobileQuery.removeEventListener('change', syncScrollLock)
+      unlockScroll?.()
+    }
+  }, [navOpen])
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `group flex items-center gap-3 rounded-xl py-2 text-sm font-medium transition-all duration-200 ${
       collapsed ? 'lg:justify-center lg:px-2 px-3' : 'px-3'
