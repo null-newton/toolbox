@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
@@ -150,6 +151,7 @@ const STR = {
     audioFormat: 'Audio format',
     audioBest: 'Best (no convert)',
     browserNone: 'None',
+    moreOptions: 'Subtitles, extras & advanced',
     subtitles: 'Subtitles',
     downloadSubs: 'Download subtitles',
     autoSubs: 'Include auto-generated subtitles',
@@ -184,6 +186,7 @@ const STR = {
       'Playlist mode is set to “whole playlist”, but downloading here fetches only the single video. Copy the command below to grab the full playlist.',
     cookiesDownloadNote:
       'Browser cookies can’t be read by the server. If this video needs a login, copy the command and run it locally instead.',
+    commandAndHelp: 'Command, setup & supported sites',
     command: 'Or copy the command',
     copy: 'Copy',
     copied: 'Copied!',
@@ -223,6 +226,7 @@ const STR = {
     audioFormat: 'Audioformaat',
     audioBest: 'Beste (geen conversie)',
     browserNone: 'Geen',
+    moreOptions: 'Ondertitels, extra’s & geavanceerd',
     subtitles: 'Ondertitels',
     downloadSubs: 'Ondertitels downloaden',
     autoSubs: 'Automatisch gegenereerde ondertitels meenemen',
@@ -257,6 +261,7 @@ const STR = {
       'Afspeellijstmodus staat op “volledige afspeellijst”, maar hier downloaden haalt enkel de losse video op. Kopieer het commando hieronder voor de volledige afspeellijst.',
     cookiesDownloadNote:
       'De server kan geen browsercookies lezen. Heeft deze video een login nodig? Kopieer dan het commando en voer het lokaal uit.',
+    commandAndHelp: 'Commando, installatie & ondersteunde sites',
     command: 'Of kopieer het commando',
     copy: 'Kopiëren',
     copied: 'Gekopieerd!',
@@ -436,6 +441,26 @@ function Pills<T extends string>({
         </button>
       ))}
     </div>
+  )
+}
+
+function Foldout({
+  title,
+  className = '',
+  children,
+}: {
+  title: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <details className={`glass group rounded-2xl ${className}`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400 transition-colors hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <ChevronDown className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="px-5 pb-5">{children}</div>
+    </details>
   )
 }
 
@@ -742,7 +767,8 @@ export function YtDlpCommand() {
             </Field>
           )}
 
-          <div className="glass rounded-2xl p-5">
+          <Foldout title={t.moreOptions}>
+            <section>
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.subtitles}
             </p>
@@ -770,9 +796,9 @@ export function YtDlpCommand() {
                 </Field>
               )}
             </div>
-          </div>
+            </section>
 
-          <div className="glass rounded-2xl p-5">
+            <section className="mt-6 border-t border-white/10 pt-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.extras}
             </p>
@@ -802,9 +828,9 @@ export function YtDlpCommand() {
                 {t.sponsorblock}
               </Toggle>
             </div>
-          </div>
+            </section>
 
-          <div className="glass rounded-2xl p-5">
+            <section className="mt-6 border-t border-white/10 pt-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.advanced}
             </p>
@@ -853,7 +879,8 @@ export function YtDlpCommand() {
                 {t.restrictFilenames}
               </Toggle>
             </div>
-          </div>
+            </section>
+          </Foldout>
         </div>
 
         <div className="min-w-0 lg:sticky lg:top-8 lg:self-start">
@@ -907,7 +934,8 @@ export function YtDlpCommand() {
             )}
           </div>
 
-          <div className="glass mt-4 rounded-2xl p-5">
+          <Foldout title={t.commandAndHelp} className="mt-4">
+            <section>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
                 {t.command}
@@ -925,9 +953,9 @@ export function YtDlpCommand() {
             {!url.trim() && (
               <p className="mt-3 text-xs text-slate-500">{t.enterUrlHint}</p>
             )}
-          </div>
+            </section>
 
-          <div className="glass mt-4 rounded-2xl p-5">
+            <section className="mt-6 border-t border-white/10 pt-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.firstTime}
             </p>
@@ -959,9 +987,9 @@ export function YtDlpCommand() {
               </code>
               {t.installFfmpeg}
             </p>
-          </div>
+            </section>
 
-          <div className="glass mt-4 rounded-2xl p-5">
+            <section className="mt-6 border-t border-white/10 pt-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.supportedSites}
             </p>
@@ -986,7 +1014,8 @@ export function YtDlpCommand() {
             >
               {t.fullListLink}
             </a>
-          </div>
+            </section>
+          </Foldout>
         </div>
       </div>
     </div>
