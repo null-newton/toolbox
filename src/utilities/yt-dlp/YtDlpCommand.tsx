@@ -27,7 +27,7 @@ import { functionsBase } from '../../lib/supabase'
 
 type Mode = 'video' | 'audio'
 
-const CURRENT_RELEASE = '2026.07.04'
+const CURRENT_RELEASE = '2026.08.19'
 const RELEASE_CACHE_KEY = 'toolbox:yt-dlp:latest-release'
 const RELEASE_CACHE_TTL = 6 * 60 * 60 * 1000
 
