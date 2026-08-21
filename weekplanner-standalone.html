@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekplanning</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07090f;
+      --panel: #0d111c;
+      --panel-2: #121725;
+      --line: rgba(255,255,255,.09);
+      --muted: #77839a;
+      --text: #f4f7fb;
+      --indigo: #818cf8;
+      --violet: #a855f7;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--text); background: var(--bg); }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(700px circle at 10% -10%, rgba(99,102,241,.18), transparent 60%), radial-gradient(700px circle at 95% 110%, rgba(34,211,238,.09), transparent 60%); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .4; }
+    .app { position: relative; width: min(1800px, 100%); margin: auto; padding: 32px; }
+    .top { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 15px; color: #c7d2fe; background: rgba(99,102,241,.16); border: 1px solid rgba(129,140,248,.22); font-size: 22px; }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
+    .sub { margin: 8px 0 0 60px; max-width: 700px; color: #94a3b8; font-size: 14px; }
+    .save-status { margin-top: 3px; color: #64748b; font-size: 11px; }
+    .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); }
+    .actions, .week-nav, .filters, .stats, .row { display: flex; align-items: center; gap: 8px; }
+    .actions { flex-wrap: wrap; justify-content: end; }
+    .btn { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; color: #dbe2ee; background: rgba(255,255,255,.045); font-weight: 650; font-size: 13px; transition: .18s ease; }
+    .btn:hover { color: white; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
+    .btn.primary { border: 0; color: white; background: linear-gradient(120deg, #6366f1, #9333ea); box-shadow: 0 10px 30px rgba(99,102,241,.2); }
+    .btn.small { padding: 7px 10px; font-size: 11px; }
+    .btn.icon { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; }
+    .card { margin-top: 26px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.035); }
+    .overview { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .range { min-width: 230px; margin-left: 8px; }
+    .range strong { display: block; font-size: 18px; }
+    .range span { color: #64748b; font-size: 11px; }
+    .stat { min-width: 125px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; background: rgba(255,255,255,.025); }
+    .stat b { display: block; font-size: 14px; }
+    .stat span { display: block; color: #64748b; font-size: 9px; }
+    .stat-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--indigo); background: rgba(99,102,241,.1); }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 22px 0 14px; }
+    .filters { flex: 1; }
+    .control { min-height: 40px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; color: #dbe2ee; background: #101522; outline: none; }
+    .control:focus { border-color: rgba(129,140,248,.6); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    .search { width: min(430px, 100%); }
+    .matrix-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.018); }
+    .matrix { min-width: 1240px; }
+    .matrix-grid { display: grid; grid-template-columns: 180px repeat(7, minmax(145px, 1fr)); }
+    .matrix-head { position: sticky; top: 0; z-index: 5; background: rgba(13,17,28,.98); border-bottom: 1px solid var(--line); }
+    .corner, .worker { position: sticky; left: 0; z-index: 4; background: rgba(13,17,28,.98); border-right: 1px solid var(--line); }
+    .corner { display: flex; align-items: end; padding: 13px 16px; color: #596579; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .day-head { padding: 12px; border-right: 1px solid var(--line); }
+    .day-head:last-child, .day-cell:last-child { border-right: 0; }
+    .day-head.today, .day-cell.today { background: rgba(99,102,241,.055); }
+    .day-head.weekend, .day-cell.weekend { background: rgba(168,85,247,.025); }
+    .day-name { display: flex; justify-content: space-between; color: #6f7c92; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+    .day-name em { color: rgba(192,132,252,.7); font-size: 8px; font-style: normal; }
+    .day-date { margin-top: 3px; font-weight: 800; }
+    .day-date span { color: #556176; font-size: 10px; font-weight: 600; }
+    .worker-row { border-bottom: 1px solid var(--line); }
+    .worker-row:last-child { border-bottom: 0; }
+    .worker { min-height: 132px; padding: 16px; display: flex; align-items: start; gap: 10px; }
+    .worker-dot { width: 10px; height: 10px; flex: none; margin-top: 5px; border-radius: 50%; }
+    .worker b { display: block; overflow-wrap: anywhere; font-size: 14px; }
+    .worker small { display: block; margin-top: 4px; color: #536076; font-size: 10px; }
+    .day-cell { min-height: 132px; padding: 8px; border-right: 1px solid var(--line); transition: background .15s ease; }
+    .day-cell.drag-over { background: rgba(99,102,241,.12); box-shadow: inset 0 0 0 1px rgba(129,140,248,.45); }
+    .cell-content { min-height: 116px; display: flex; flex-direction: column; gap: 6px; }
+    .task-card { padding: 8px; border-radius: 9px; background: rgba(255,255,255,.045); box-shadow: inset 0 0 0 1px rgba(255,255,255,.065); }
+    .task-card.done { opacity: .58; box-shadow: inset 0 0 0 1px rgba(52,211,153,.16); }
+    .task-main { display: flex; align-items: start; gap: 5px; }
+    .grip { flex: none; color: #465269; cursor: grab; font-size: 14px; line-height: 17px; }
+    .task-title { min-width: 0; flex: 1; border: 0; padding: 0; color: #e6ebf4; background: none; text-align: left; font-size: 12px; font-weight: 750; line-height: 16px; overflow-wrap: anywhere; }
+    .task-card.done .task-title { text-decoration: line-through; }
+    .task-time { display: block; margin-top: 3px; color: #64748b; font: 9px ui-monospace, monospace; }
+    .task-meta { margin: 5px 0 0 18px; color: #5b677c; font-size: 9px; }
+    .task-tools { display: flex; gap: 1px; margin-top: 5px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.05); opacity: .65; }
+    .task-card:hover .task-tools { opacity: 1; }
+    .mini { width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 6px; color: #68758b; background: transparent; font-size: 12px; }
+    .mini:hover { color: white; background: rgba(255,255,255,.07); }
+    .mini.danger { margin-left: auto; }
+    .mini.danger:hover { color: #fda4af; background: rgba(244,63,94,.1); }
+    .more { width: 100%; border: 0; border-radius: 6px; padding: 5px 8px; color: rgba(165,180,252,.85); background: none; text-align: left; font-size: 9px; font-weight: 700; }
+    .more:hover { background: rgba(99,102,241,.1); }
+    .extra { display: none; gap: 6px; }
+    .day-cell:hover .extra, .day-cell.expanded .extra, .day-cell:focus-within .extra { display: grid; }
+    .add-cell { width: 100%; min-height: 29px; margin-top: auto; border: 1px dashed rgba(255,255,255,.075); border-radius: 8px; color: #4f5b70; background: transparent; font-size: 10px; font-weight: 700; }
+    .add-cell.empty { min-height: 65px; }
+    .add-cell:hover { color: #a5b4fc; border-color: rgba(129,140,248,.35); background: rgba(99,102,241,.04); }
+    .empty-state { min-height: 220px; display: grid; place-items: center; color: #667085; text-align: center; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 18px; background: rgba(0,0,0,.72); backdrop-filter: blur(7px); }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(600px, 100%); max-height: 90vh; overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: 19px; background: #101522; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+    .modal.wide { width: min(800px, 100%); }
+    .modal.help-modal { width: min(1100px, 100%); height: min(820px, 92vh); overflow: hidden; padding: 0; }
+    .help-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
+    .help-head h2 { margin: 0; font-size: 21px; }
+    .help-head p { margin: 4px 0 0; color: #64748b; font-size: 11px; }
+    .help-layout { display: grid; grid-template-columns: 230px 1fr; height: calc(100% - 78px); min-height: 0; }
+    .help-nav { overflow-y: auto; padding: 12px; border-right: 1px solid var(--line); background: rgba(0,0,0,.1); }
+    .help-nav button { display: block; width: 100%; margin-bottom: 4px; border: 0; border-radius: 10px; padding: 10px 11px; color: #8d99ad; background: transparent; text-align: left; font-size: 12px; font-weight: 700; }
+    .help-nav button:hover { color: white; background: rgba(255,255,255,.05); }
+    .help-nav button.active { color: #c7d2fe; background: rgba(99,102,241,.14); box-shadow: inset 0 0 0 1px rgba(129,140,248,.2); }
+    .help-content { overflow-y: auto; padding: 34px 38px; }
+    .help-kicker { color: #a5b4fc; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .help-content h3 { margin: 10px 0 0; font-size: 30px; letter-spacing: -.03em; }
+    .help-intro { max-width: 720px; margin: 14px 0 24px; color: #cbd5e1; font-size: 15px; line-height: 1.7; }
+    .help-step { display: flex; gap: 13px; max-width: 760px; margin-bottom: 10px; padding: 13px; border: 1px solid rgba(255,255,255,.075); border-radius: 11px; color: #cbd5e1; background: rgba(255,255,255,.025); font-size: 13px; line-height: 1.55; }
+    .help-step b { width: 27px; height: 27px; flex: none; display: grid; place-items: center; border-radius: 8px; color: #c7d2fe; background: rgba(99,102,241,.15); font-size: 11px; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .modal-head h2 { margin: 0; font-size: 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .field.full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 6px; color: #94a3b8; font-size: 11px; font-weight: 700; }
+    .input { width: 100%; border: 1px solid var(--line); border-radius: 11px; padding: 10px 11px; color: white; background: rgba(255,255,255,.045); outline: none; }
+    .input:focus { border-color: rgba(129,140,248,.6); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    textarea.input { min-height: 80px; resize: vertical; }
+    .preset-create { display: none; width: 100%; margin-top: 6px; border: 0; border-radius: 8px; padding: 8px; color: #a5b4fc; background: rgba(99,102,241,.09); text-align: left; font-size: 11px; font-weight: 700; }
+    .modal-footer { display: flex; justify-content: end; gap: 8px; margin-top: 20px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 10px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .section-head h3 { margin: 0; font-size: 15px; }
+    .hint { margin: 4px 0 0; color: #64748b; font-size: 11px; }
+    .worker-setting { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; padding: 7px; border: 1px solid rgba(255,255,255,.07); border-radius: 11px; background: rgba(255,255,255,.025); }
+    .worker-setting .input { min-width: 80px; flex: 1; border: 0; background: transparent; }
+    .color { width: 28px; height: 28px; flex: none; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; }
+    .preset-list { display: flex; flex-wrap: wrap; gap: 7px; }
+    .preset { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 8px; color: #cbd5e1; background: rgba(255,255,255,.05); font-size: 12px; }
+    .file-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .file-group span { margin-right: auto; color: #64748b; font-size: 11px; }
+    .earnings-drawer { position: fixed; top: 0; right: 0; z-index: 20; width: min(360px, calc(100vw - 44px)); height: 100dvh; border-left: 1px solid var(--line); background: rgba(13,17,28,.985); box-shadow: -24px 0 60px rgba(0,0,0,.45); backdrop-filter: blur(18px); transform: translateX(100%); transition: transform .3s ease; }
+    .earnings-drawer.open { transform: translateX(0); }
+    .earnings-inner { display: flex; height: 100%; flex-direction: column; }
+    .earnings-head { padding: 20px; border-bottom: 1px solid var(--line); }
+    .earnings-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .earnings-head h2 { margin: 0; font-size: 18px; }
+    .earnings-head p { margin: 4px 0 0; color: #64748b; font-size: 11px; }
+    .earnings-list { flex: 1; overflow-y: auto; padding: 14px; }
+    .earning-cell { margin-bottom: 10px; padding: 12px; border: 1px solid; border-radius: 12px; }
+    .earning-cell.green { border-color: rgba(52,211,153,.28); background: rgba(16,185,129,.1); }
+    .earning-cell.amber { border-color: rgba(251,191,36,.32); background: rgba(245,158,11,.11); }
+    .earning-cell.orange { border-color: rgba(251,146,60,.38); background: rgba(249,115,22,.13); }
+    .earning-cell.red { border-color: rgba(251,113,133,.45); background: rgba(244,63,94,.16); }
+    .earning-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .earning-name { min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .earning-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .earning-value { flex: none; font: 700 13px ui-monospace, monospace; }
+    .earning-progress { height: 6px; margin-top: 11px; overflow: hidden; border-radius: 999px; background: rgba(0,0,0,.28); }
+    .earning-progress span { display: block; height: 100%; border-radius: inherit; transition: width .2s ease; }
+    .green .earning-progress span { background: #34d399; } .amber .earning-progress span { background: #fbbf24; } .orange .earning-progress span { background: #fb923c; } .red .earning-progress span { background: #fb7185; }
+    .toast { position: fixed; left: 50%; bottom: 24px; z-index: 50; translate: -50% 20px; padding: 11px 15px; border: 1px solid var(--line); border-radius: 11px; color: white; background: #171d2b; box-shadow: 0 20px 50px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: .2s ease; }
+    .toast.show { translate: -50% 0; opacity: 1; }
+    @media (max-width: 900px) { .app { padding: 20px; } .top, .overview, .toolbar { align-items: stretch; flex-direction: column; } .actions { justify-content: start; } .stats { overflow-x: auto; } .filters { width: 100%; } .search { max-width: none; } }
+    @media (max-width: 560px) { .app { padding: 14px; } .sub { margin-left: 0; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .worker-setting { flex-wrap: wrap; } .help-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .help-nav { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .help-nav button { width: auto; flex: none; margin: 0; } .help-content { padding: 24px 20px; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Weekplanning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
+        <p class="sub">Plan een volledige werkweek, bewaar alles in deze browser en neem afzonderlijke weken mee als JSON-bestand.</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="earnings-toggle" data-action="toggle-earnings" aria-expanded="false">€ Maandverdiensten</button>
+        <button class="btn" data-action="settings">⚙ Instellingen</button>
+        <button class="btn" data-action="print-general">Algemene planning</button>
+        <select id="sheet-worker" class="control" title="Werkfiche kiezen"></select>
+        <button class="btn primary" data-action="print-sheets" title="Bekijk de werkfiches en druk ze daarna af">Werkfiche(s)</button>
+      </div>
+    </header>
+
+    <section class="card overview">
+      <div class="week-nav">
+        <button class="btn icon" data-action="prev-week" title="Vorige week">←</button>
+        <button class="btn" data-action="today">Vandaag</button>
+        <button class="btn icon" data-action="next-week" title="Volgende week">→</button>
+        <div class="range"><strong id="range"></strong><span id="range-sub"></span></div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <div class="file-group">
+      <span>Maandbestand: de gekozen maand, inclusief bewoners en taakpresets.</span>
+      <button class="btn small" data-action="download-json">↓ Maand als JSON</button>
+      <button class="btn small" data-action="upload-json">↑ JSON uploaden</button>
+      <input id="json-file" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <section class="toolbar">
+      <div class="filters">
+        <input id="search" class="control search" type="search" placeholder="Zoek taak, bewoner of notitie…">
+        <select id="worker-filter" class="control"></select>
+      </div>
+      <div class="actions"><button class="btn" data-action="new-task">+ Taak toevoegen</button><button class="btn" data-action="copy-previous">⧉ Vorige week kopiëren</button></div>
+    </section>
+
+    <section class="matrix-shell"><div class="matrix" id="matrix"></div></section>
+  </main>
+
+  <aside class="earnings-drawer" id="earnings-drawer">
+    <div class="earnings-inner">
+      <div class="earnings-head">
+        <div class="earnings-head-row"><div><h2>Maandverdiensten</h2><p>Gepland / verdiend</p></div><button class="btn icon" data-action="close-earnings">×</button></div>
+        <input id="earnings-month" class="input" type="month" style="margin-top:16px">
+      </div>
+      <div class="earnings-list" id="earnings-list"></div>
+    </div>
+  </aside>
+
+  <div class="modal-backdrop" id="help-backdrop">
+    <section class="modal help-modal" role="dialog" aria-modal="true" aria-label="Handleiding">
+      <div class="help-head"><div><h2>Hoe gebruik je de weekplanner?</h2><p>Kies links een onderwerp.</p></div><button class="btn icon" data-action="close-help">×</button></div>
+      <div class="help-layout"><nav class="help-nav" id="help-nav"></nav><article class="help-content" id="help-content"></article></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="task-backdrop">
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2 id="task-modal-title">Taak toevoegen</h2><button class="btn icon" data-action="close-task">×</button></div>
+      <form id="task-form">
+        <div class="form-grid">
+          <div class="field full"><label for="task-name">Taak</label><input id="task-name" class="input" list="task-presets" autocomplete="off" required placeholder="bv. Toiletten, restaurant, buitenwerk…"><datalist id="task-presets"></datalist><button id="create-preset" class="preset-create" type="button"></button></div>
+          <div class="field"><label for="task-worker">Bewoner</label><select id="task-worker" class="input" required></select></div>
+          <div class="field"><label for="task-date">Datum</label><input id="task-date" class="input" type="date" required></div>
+          <div class="field"><label for="task-time">Uur</label><input id="task-time" class="input" type="time" value="09:00"></div>
+          <div class="field"><label for="task-price">Loon (optioneel)</label><input id="task-price" class="input" inputmode="decimal" placeholder="€"></div>
+          <div class="field full hint">Dit uur en loon gelden voor iedere bewoner die aan deze taak wordt toegewezen.</div>
+          <div class="field full"><label for="task-notes">Notitie (optioneel)</label><textarea id="task-notes" class="input" placeholder="Adres, materiaal of extra instructie…"></textarea></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn" data-action="close-task">Annuleren</button><button type="submit" class="btn primary">Taak bewaren</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="task-definition-backdrop">
+    <section class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2 id="task-definition-title">Taak bewerken</h2><button class="btn icon" data-action="close-task-definition">×</button></div>
+      <form id="task-definition-form">
+        <div class="form-grid">
+          <div class="field full"><label for="definition-name">Taaknaam</label><input id="definition-name" class="input" required></div>
+          <div class="field"><label for="definition-time">Uur</label><input id="definition-time" class="input" type="time" required></div>
+          <div class="field"><label for="definition-wage">Loon (optioneel)</label><input id="definition-wage" class="input" inputmode="decimal" placeholder="€"></div>
+          <div class="field full hint" id="task-definition-hint">Wijzigingen gelden voor alle bewoners en dagen van deze taak.</div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn" data-action="close-task-definition">Annuleren</button><button type="submit" class="btn primary">Taak bewaren</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="settings-backdrop">
+    <section class="modal wide" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2>Planning instellen</h2><button class="btn icon" data-action="close-settings">×</button></div>
+      <div class="form-grid">
+        <div class="field"><label for="company">Bedrijfsnaam</label><input id="company" class="input" placeholder="Naam op de exports"></div>
+        <div class="field"><label for="week-starts">De week begint op</label><select id="week-starts" class="input"></select></div>
+        <div class="field full"><label for="default-monthly-limit">Standaard maandmaximum</label><input id="default-monthly-limit" class="input" inputmode="decimal" placeholder="€"></div>
+      </div>
+      <div class="section-head"><div><h3>Bewoners</h3><p class="hint">Deze volgorde wordt gebruikt in de planner en exports.</p></div><button class="btn small" data-action="add-worker">+ Bewoner</button></div>
+      <div id="worker-settings"></div>
+      <div class="section-head"><div><h3>Taakpresets</h3><p class="hint">Presets bevatten uitsluitend een taaknaam.</p></div></div>
+      <div class="preset-list" id="preset-settings"></div>
+      <div class="modal-footer"><button class="btn primary" data-action="close-settings">Sluiten</button></div>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (() => {
+      'use strict'
+      const STORAGE_KEY = 'weekplanner-standalone-v1'
+      const COLORS = ['#818cf8','#22d3ee','#f59e0b','#f472b6','#34d399','#a78bfa']
+      const DAYS = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
+      const SHORT_DAYS = ['zo','ma','di','wo','do','vr','za']
+      const HELP_SECTIONS = [
+        {id:'start',title:'Snel starten',intro:'Van een lege planner naar een bruikbare weekplanning.',steps:['Open Instellingen en vul de algemene gegevens in.','Voeg bewoners toe en controleer hun volgorde en maandmaximum.','Maak de nodige taken aan.','Wijs bewoners per dag toe in de weekmatrix.','Controleer de maandverdiensten en exporteer de documenten.']},
+        {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
+        {id:'residents',title:'Bewoners',intro:'Beheer namen, volgorde, kleuren en persoonlijke limieten.',steps:['Klik bij Instellingen op Bewoner toevoegen.','Gebruik de pijlen om de vaste volgorde te bepalen.','Kies een herkenbare kleur.','Laat Eigen maximum leeg voor het standaardbedrag, of vul een afwijkend bedrag in.','Bij verwijderen verdwijnen ook de gekoppelde toewijzingen.']},
+        {id:'tasks',title:'Taken en loon',intro:'Een taak heeft een naam, uur en loon; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Taak toevoegen en vul de taakgegevens in.','De taak verschijnt als een aparte rij.','Gebruik het potlood naast de taak om ze later te bewerken.','Taakpresets blijven beschikbaar voor toekomstig gebruik.','Het taakloon telt per ingeplande bewoner mee in de maandverdiensten.']},
+        {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Vorige week kopiëren neemt alle toewijzingen over.']},
+        {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Maandverdiensten via de vaste knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt het taakloon één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
+        {id:'json',title:'Maandbestand JSON',intro:'Gebruik een maandbestand als lokale back-up of om gegevens naar een andere browser te verplaatsen.',steps:['Kies eerst de juiste maand in Maandverdiensten.','Klik op Maand als JSON om alleen die maand te downloaden.','JSON uploaden vervangt uitsluitend de maand uit het bestand.','Andere maanden blijven behouden.','Oude weekbestanden kunnen nog steeds worden geïmporteerd.']},
+        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en werkfiches hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of werkfiches.','Controleer de inhoud en klik bovenaan op Afdrukken.','Algemene planning wordt A4 liggend geëxporteerd; iedere bewonersfiche is één A4-pagina in staande richting.','Kies voor werkfiches indien gewenst A4 en 4 pagina’s per blad.','Kies daarna een printer of Bewaar als PDF.']},
+      ]
+      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', workers: [], taskPresets: [], taskDefaults: {}, assignments: [] })
+      let data = loadData()
+      let anchor = new Date()
+      let query = ''
+      let workerFilter = 'all'
+      let sheetWorker = 'all'
+      let earningsMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`
+      let editingId = null
+      let lockedTask = false
+      let editingTaskName = null
+      let helpSection = 'start'
+
+      const $ = (selector) => document.querySelector(selector)
+      const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
+      const pad = value => String(value).padStart(2, '0')
+      const ymd = date => `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`
+      const fromYmd = value => { const [y,m,d] = value.split('-').map(Number); return new Date(y,m-1,d) }
+      const addDays = (date, amount) => { const next = new Date(date); next.setDate(next.getDate()+amount); return next }
+      const startOfWeek = date => { const next = new Date(date); next.setHours(0,0,0,0); next.setDate(next.getDate()-((next.getDay()-data.weekStartsOn+7)%7)); return next }
+      const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      const timeLabel = value => value ? value.replace(':','u') : '—'
+      const weekDays = () => Array.from({length:7}, (_, index) => addDays(startOfWeek(anchor), index))
+      const weekSet = () => new Set(weekDays().map(ymd))
+
+      function loadData() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+          if (!saved || typeof saved !== 'object') return emptyData()
+          return { ...emptyData(), ...saved, workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
+        } catch { return emptyData() }
+      }
+      function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
+      function commit(next = data) { data = next; save(); render() }
+      function toast(message) { const node = $('#toast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2400) }
+      function renderHelp() { const active=HELP_SECTIONS.find(section=>section.id===helpSection)||HELP_SECTIONS[0];$('#help-nav').innerHTML=HELP_SECTIONS.map(section=>`<button data-action="help-section" data-section="${esc(section.id)}" class="${section.id===active.id?'active':''}">${esc(section.title)}</button>`).join('');$('#help-content').innerHTML=`<div class="help-kicker">Handleiding</div><h3>${esc(active.title)}</h3><p class="help-intro">${esc(active.intro)}</p>${active.steps.map((step,index)=>`<div class="help-step"><b>${index+1}</b><span>${esc(step)}</span></div>`).join('')}` }
+      function openHelp() { renderHelp();$('#help-backdrop').classList.add('open') }
+      function closeHelp() { $('#help-backdrop').classList.remove('open') }
+      function workerMap() { return new Map(data.workers.map(worker => [worker.id, worker])) }
+      const taskKey = task => String(task||'').trim().toLocaleLowerCase('nl-BE')
+      function taskDefaultTime(task) { return data.taskDefaults[taskKey(task)]?.time || data.assignments.find(item=>taskKey(item.task)===taskKey(task))?.time || '09:00' }
+      function taskDefaultWage(task) { return data.taskDefaults[taskKey(task)]?.wage || data.assignments.find(item=>taskKey(item.task)===taskKey(task))?.price || '' }
+      function assignmentTime(item) { return taskDefaultTime(item.task) }
+      function assignmentWage(item) { return taskDefaultWage(item.task) }
+      function moneyValue(value) { const parsed=Number(String(value??'').replace(',','.').replace(/[^\d.-]/g,''));return Number.isFinite(parsed)?parsed:0 }
+      function moneyLabel(value) { return new Intl.NumberFormat('nl-BE',{minimumFractionDigits:0,maximumFractionDigits:2}).format(value) }
+      function sortAssignments(assignments) {
+        const ranks = new Map(data.workers.map((worker,index) => [worker.id,index]))
+        return [...assignments].sort((a,b) => a.date.localeCompare(b.date) || (ranks.get(a.workerId) ?? 9999)-(ranks.get(b.workerId) ?? 9999) || assignmentTime(a).localeCompare(assignmentTime(b)) || data.assignments.indexOf(a)-data.assignments.indexOf(b))
+      }
+      function formatRange() {
+        const days = weekDays(), first = days[0], last = days[6]
+        const sameMonth = first.getMonth() === last.getMonth()
+        const left = first.toLocaleDateString('nl-BE',{day:'numeric', ...(sameMonth ? {} : {month:'short'})})
+        const right = last.toLocaleDateString('nl-BE',{day:'numeric',month:'long',year:'numeric'})
+        return `${left} – ${right}`
+      }
+
+      function render() {
+        const dates = weekSet()
+        const allWeek = data.assignments.filter(item => dates.has(item.date))
+        $('#range').textContent = formatRange()
+        const days = weekDays()
+        $('#range-sub').textContent = `${DAYS[days[0].getDay()]} → ${DAYS[days[6].getDay()]}`
+        $('#stats').innerHTML = stat('▣',allWeek.length,'Taken deze week') + stat('♙',new Set(allWeek.map(item => item.workerId)).size,'Bewoners') + stat('✓',allWeek.filter(item => item.done).length,'Afgevinkt')
+        $('#search').value = query
+        $('#worker-filter').innerHTML = `<option value="all">Alle bewoners</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${workerFilter===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        $('#sheet-worker').innerHTML = `<option value="all">Alle werkfiches</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${sheetWorker===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        renderEarnings()
+        renderMatrix()
+      }
+
+      function renderEarnings() {
+        $('#earnings-month').value=earningsMonth
+        const totals=new Map()
+        data.assignments.filter(item=>item.date.startsWith(`${earningsMonth}-`)).forEach(item=>totals.set(item.workerId,(totals.get(item.workerId)||0)+moneyValue(assignmentWage(item))))
+        $('#earnings-list').innerHTML=data.workers.length?data.workers.map(worker=>{const earned=totals.get(worker.id)||0,limit=moneyValue(worker.monthlyLimit||data.defaultMonthlyLimit||'285'),ratio=limit>0?earned/limit:earned>0?1:0,tone=ratio>=1?'red':ratio>=.9?'orange':ratio>=.7?'amber':'green';return `<article class="earning-cell ${tone}"><div class="earning-main"><div class="earning-name"><span class="worker-dot" style="margin:0;background:${esc(worker.color||'#64748b')}"></span><b>${esc(worker.name||'Naam bewoner')}</b></div><strong class="earning-value">€${moneyLabel(earned)} / €${moneyLabel(limit)}</strong></div><div class="earning-progress"><span style="width:${Math.min(100,ratio*100)}%"></span></div></article>`}).join(''):'<p class="hint" style="padding:8px">Nog geen bewoners toegevoegd.</p>'
+      }
+      const stat = (icon,value,label) => `<div class="stat"><div class="stat-icon">${icon}</div><div><b>${value}</b><span>${label}</span></div></div>`
+
+      function renderMatrix() {
+        const days = weekDays(), dates = new Set(days.map(ymd)), today = ymd(new Date())
+        const map = workerMap(), needle = query.trim().toLocaleLowerCase('nl-BE')
+        const assignments = sortAssignments(data.assignments.filter(item => dates.has(item.date)).filter(item => workerFilter==='all'||item.workerId===workerFilter))
+        const tasks = [...data.taskPresets,...data.assignments.map(item=>item.task)].filter((task,index,list)=>task.trim()&&list.findIndex(candidate=>candidate.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE'))===index)
+        const visibleTasks = tasks.filter(task=>!needle||task.toLocaleLowerCase('nl-BE').includes(needle)||assignments.some(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)))
+        const head = `<div class="matrix-grid matrix-head"><div class="corner">Taken</div>${days.map(day => { const date=ymd(day), weekend=[0,6].includes(day.getDay()); return `<div class="day-head ${date===today?'today':''} ${weekend?'weekend':''}"><div class="day-name"><span>${SHORT_DAYS[day.getDay()]}</span>${weekend?'<em>weekend</em>':''}</div><div class="day-date">${day.getDate()} <span>${day.toLocaleDateString('nl-BE',{month:'short'})}</span></div></div>` }).join('')}</div>`
+        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Voeg een taak toe om de weekmatrix te gebruiken.</p><button class="btn primary" data-action="new-task">Taak toevoegen</button>${data.workers.length?'':' <button class="btn" data-action="settings">Bewoner toevoegen</button>'}</div></div>`; return }
+        const rows = visibleTasks.map(task => {
+          const total = data.assignments.filter(item => dates.has(item.date) && item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')).length
+          const cells = days.map(day => {
+            const date=ymd(day), taskMatches=task.toLocaleLowerCase('nl-BE').includes(needle), items=assignments.filter(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&item.date===date).filter(item=>!needle||taskMatches||`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)), assignedIds=new Set(data.assignments.filter(item=>taskKey(item.task)===taskKey(task)&&item.date===date).map(item=>item.workerId)),available=data.workers.filter(worker=>!assignedIds.has(worker.id)),weekend=[0,6].includes(day.getDay())
+            return `<div class="day-cell ${date===today?'today':''} ${weekend?'weekend':''}" data-date="${date}" data-task="${esc(task)}"><div class="cell-content">${items.map(taskCard).join('')}<select class="add-cell" data-assign-task="${esc(task)}" data-assign-date="${date}" ${available.length?'':'disabled'}><option value="">${available.length?'+ Bewoner kiezen':'Iedereen toegewezen'}</option>${available.map(worker=>`<option value="${esc(worker.id)}">${esc(worker.name||'Naam bewoner')}</option>`).join('')}</select></div></div>`
+          }).join('')
+          return `<div class="matrix-grid worker-row"><div class="worker" style="justify-content:space-between"><div><b>${esc(task)}</b><small style="font-family:ui-monospace,monospace;color:#77839a">${esc(timeLabel(taskDefaultTime(task)))}${taskDefaultWage(task)?` · €${esc(taskDefaultWage(task))}`:''}</small><small>${total} ${total===1?'bewoner':'bewoners'}</small></div><button class="mini" data-action="edit-task-definition" data-task="${esc(task)}" title="Taak bewerken">✎</button></div>${cells}</div>`
+        }).join('')
+        $('#matrix').innerHTML = head + rows
+      }
+      function taskCard(item) {
+        const worker=workerMap().get(item.workerId)
+        return `<article class="task-card ${item.done?'done':''}" draggable="true" data-task-id="${esc(item.id)}"><div class="task-main"><span class="grip">⠿</span><button class="task-title" data-action="edit-task" data-id="${esc(item.id)}"><span class="worker-dot" style="display:inline-block;background:${esc(worker?.color||'#64748b')};margin:0 5px 0 0"></span>${esc(worker?.name||'Naam bewoner')}</button></div>${item.notes?`<div class="task-meta"><div>${esc(item.notes)}</div></div>`:''}<div class="task-tools"><button class="mini" data-action="done-task" data-id="${esc(item.id)}" title="OK">✓</button><button class="mini" data-action="edit-task" data-id="${esc(item.id)}" title="Bewerken">✎</button><button class="mini" data-action="duplicate-task" data-id="${esc(item.id)}" title="Dupliceren">⧉</button><button class="mini danger" data-action="delete-task" data-id="${esc(item.id)}" title="Verwijderen">⌫</button></div></article>`
+      }
+
+      function openTask(date, workerId, taskName = '', item = null) {
+        editingId = item?.id || null
+        lockedTask = Boolean(taskName || item)
+        $('#task-modal-title').textContent = item ? 'Toewijzing aanpassen' : taskName ? 'Bewoner toewijzen' : 'Taak toevoegen'
+        $('#task-presets').innerHTML = data.taskPresets.map(name => `<option value="${esc(name)}"></option>`).join('')
+        $('#task-worker').innerHTML = data.workers.map(worker => `<option value="${esc(worker.id)}">${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        $('#task-name').value = item?.task || taskName
+        $('#task-name').disabled = lockedTask
+        $('#task-worker').value = item?.workerId || workerId
+        $('#task-date').value = item?.date || date
+        $('#task-time').value = taskDefaultTime(item?.task || taskName || '')
+        $('#task-price').value = taskDefaultWage(item?.task || taskName || '')
+        $('#task-notes').value = item?.notes || ''
+        updatePresetButton()
+        $('#task-backdrop').classList.add('open')
+        setTimeout(() => (lockedTask ? $('#task-worker') : $('#task-name')).focus(), 20)
+      }
+      function closeTask() { $('#task-backdrop').classList.remove('open'); editingId = null; lockedTask = false }
+      function updatePresetButton() {
+        const value = $('#task-name').value.trim(), exists = data.taskPresets.some(name => name.toLocaleLowerCase('nl-BE')===value.toLocaleLowerCase('nl-BE')), button=$('#create-preset')
+        button.style.display = value && !exists && !lockedTask ? 'block' : 'none'
+        button.textContent = value ? `+ Maak “${value}” als preset` : ''
+      }
+
+      function openSettings() {
+        $('#company').value = data.companyName
+        $('#default-monthly-limit').value = data.defaultMonthlyLimit || '285'
+        $('#week-starts').innerHTML = DAYS.map((name,index) => `<option value="${index}" ${data.weekStartsOn===index?'selected':''}>${name}</option>`).join('')
+        renderSettingsLists()
+        $('#settings-backdrop').classList.add('open')
+      }
+      function closeSettings() { $('#settings-backdrop').classList.remove('open'); render() }
+      function renderSettingsLists() {
+        $('#worker-settings').innerHTML = data.workers.length ? data.workers.map((worker,index) => `<div class="worker-setting" style="flex-wrap:wrap"><input class="color" type="color" value="${esc(worker.color)}" data-worker-color="${esc(worker.id)}" title="Kleur"><input class="input" style="min-width:160px;flex:1" value="${esc(worker.name)}" data-worker-name="${esc(worker.id)}" placeholder="Naam bewoner"><label style="display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap" title="Leeg = standaardbedrag">Eigen maximum € <input class="input" style="width:82px" inputmode="decimal" value="${esc(worker.monthlyLimit??'')}" placeholder="${esc(data.defaultMonthlyLimit||'285')}" data-worker-limit="${esc(worker.id)}"></label><button class="mini" data-action="move-worker-up" data-id="${esc(worker.id)}" ${index===0?'disabled':''}>↑</button><button class="mini" data-action="move-worker-down" data-id="${esc(worker.id)}" ${index===data.workers.length-1?'disabled':''}>↓</button><button class="mini danger" data-action="delete-worker" data-id="${esc(worker.id)}">⌫</button></div>`).join('') : '<p class="hint">Nog geen bewoners.</p>'
+        $('#preset-settings').innerHTML = data.taskPresets.length ? data.taskPresets.map(name => `<div class="preset" style="width:100%;flex-wrap:wrap"><b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Loon € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label><button class="mini danger" data-action="delete-preset" data-name="${esc(name)}">×</button></div>`).join('') : '<p class="hint">Maak een preset tijdens het invoeren van een taak.</p>'
+      }
+      function updateTaskDefault(task, patch) { const key=taskKey(task),current=data.taskDefaults[key]||{time:taskDefaultTime(task),wage:taskDefaultWage(task)},next={...current,...patch};data.taskDefaults[key]=next;data.assignments=data.assignments.map(item=>taskKey(item.task)===key?{...item,time:next.time,price:next.wage}:item);save() }
+      function openTaskDefinition(task = '') { const editing=Boolean(task);editingTaskName=task||null;$('#task-definition-title').textContent=editing?'Taak bewerken':'Taak aanmaken';$('#task-definition-hint').textContent=editing?'Wijzigingen gelden voor alle bewoners en dagen van deze taak.':'Je hoeft nu nog geen bewoner te kiezen. Die wijs je later toe via de dropdown van de juiste dag.';$('#definition-name').value=task;$('#definition-time').value=editing?taskDefaultTime(task):'09:00';$('#definition-wage').value=editing?taskDefaultWage(task):'';$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
+      function closeTaskDefinition() { $('#task-definition-backdrop').classList.remove('open');editingTaskName=null }
+
+      function downloadMonth() {
+        const month=/^\d{4}-\d{2}$/.test(earningsMonth)?earningsMonth:ymd(new Date()).slice(0,7), assignments=data.assignments.filter(item=>item.date.startsWith(`${month}-`))
+        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, assignments }
+        const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob), link=document.createElement('a')
+        link.href=url; link.download=`maandplanning-${month}.json`; link.click(); URL.revokeObjectURL(url)
+      }
+      async function importPlannerFile(file) {
+        try {
+          const payload=JSON.parse(await file.text())
+          const isMonth=payload?.type==='weekplanner-month'&&payload.version===1&&/^\d{4}-\d{2}$/.test(payload.month)
+          const isLegacyWeek=payload?.type==='weekplanner-week'&&payload.version===1&&/^\d{4}-\d{2}-\d{2}$/.test(payload.weekStart)
+          if ((!isMonth&&!isLegacyWeek)||!Array.isArray(payload.assignments)||!Array.isArray(payload.workers)) throw new Error('Ongeldig maandbestand')
+          const start=isMonth?fromYmd(`${payload.month}-01`):fromYmd(payload.weekStart)
+          const legacyDates=isLegacyWeek?new Set(Array.from({length:7},(_,index)=>ymd(addDays(start,index)))):null
+          const isInPeriod=date=>isMonth?date.startsWith(`${payload.month}-`):legacyDates.has(date)
+          const periodLabel=isMonth?start.toLocaleDateString('nl-BE',{month:'long',year:'numeric'}):`${payload.weekStart} t/m ${payload.weekEnd||ymd(addDays(start,6))}`
+          if (!confirm(`De planning van ${periodLabel} vervangen door dit bestand?`)) return
+          const importedIds=new Set(payload.workers.map(worker=>worker.id))
+          const workers=[...payload.workers.map(imported=>({...data.workers.find(worker=>worker.id===imported.id),...imported})),...data.workers.filter(worker=>!importedIds.has(worker.id))]
+          const presets=[...data.taskPresets]
+          ;(payload.taskPresets||[]).forEach(name=>{ if(!presets.some(item=>item.toLocaleLowerCase('nl-BE')===String(name).toLocaleLowerCase('nl-BE'))) presets.push(String(name)) })
+          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
+          anchor=start; earningsMonth=ymd(start).slice(0,7); workerFilter='all'; query=''; commit(); toast(isMonth?'Maandbestand geïmporteerd':'Oud weekbestand geïmporteerd')
+        } catch(error) { alert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.') }
+        finally { $('#json-file').value='' }
+      }
+
+      function printWindow(body, workSheets = false) {
+        const win=window.open('','_blank'); if(!win){ alert('Sta pop-ups toe om te exporteren.'); return } win.opener=null
+        win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Afdrukweergave · Weekplanning</title><style>@page{size:${workSheets?'A4 portrait':'A4 landscape'};margin:${workSheets?'8mm':'12mm'}}*{box-sizing:border-box}body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}.preview-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;color:#f9fafb;background:#111827;box-shadow:0 4px 16px rgba(0,0,0,.2)}.preview-toolbar strong{display:block;font-size:14px}.preview-toolbar span{display:block;margin-top:2px;color:#9ca3af;font-size:11px}.preview-actions{display:flex;gap:8px}.preview-actions button{border:1px solid #4b5563;border-radius:8px;padding:9px 14px;color:#f9fafb;background:#1f2937;cursor:pointer;font:bold 12px Arial}.preview-actions .primary{border-color:#4f46e5;background:#4f46e5}.preview-content{width:${workSheets?'210mm':'297mm'};min-height:${workSheets?'297mm':'210mm'};margin:24px auto;padding:${workSheets?'8mm':'12mm'};background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.18)}h1{font-size:20px;margin:0}.head{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:14px}.brand{color:#4f46e5;font-weight:700;text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #374151;padding:6px 5px;text-align:left;vertical-align:top}th{background:#eef2ff}.subh th{background:#f8fafc;font-size:8px}.center{text-align:center}.muted{color:#6b7280}.task{font-weight:700}.notes{display:block;font-size:8px;font-weight:400;margin-top:3px}.line{min-height:12px}.sheet{break-after:page}.sheet:last-child{break-after:auto}.work .date{width:16%}.work .time{width:13%}.work .wage{width:13%}.work .ok{width:9%}.work td{height:34px}body.worksheets{font-size:17px}.worksheets h1{font-size:34px}.worksheets .sheet{display:flex;min-height:280mm;flex-direction:column}.worksheets .head{margin-bottom:14px;padding-bottom:10px}.worksheets .work{flex:1;height:238mm;font-size:17px}.worksheets .work th,.worksheets .work td{padding:11px 9px;vertical-align:middle}.worksheets .work td{height:auto}.worksheets .work .notes{font-size:13px;line-height:1.35}@media(max-width:900px){.preview-content{width:calc(100% - 24px);min-height:0;margin:12px auto;overflow-x:auto}.preview-toolbar{align-items:flex-start;padding:10px 12px}.preview-toolbar span{display:none}.preview-actions button{padding:8px 10px}}@media print{body{background:#fff}.preview-toolbar{display:none}.preview-content{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}}</style></head><body class="${workSheets?'worksheets':'general-export'}"><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>Controleer de planning en open daarna het afdrukvenster.</span></div><div class="preview-actions"><button id="close-preview" type="button">Sluiten</button><button id="start-print" class="primary" type="button">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
+        win.document.close()
+        win.document.querySelector('#start-print').addEventListener('click',()=>win.print())
+        win.document.querySelector('#close-preview').addEventListener('click',()=>win.close())
+        win.focus()
+      }
+      function printGeneral() {
+        const days=weekDays(), dates=new Set(days.map(ymd)), map=workerMap(), all=sortAssignments(data.assignments.filter(item=>dates.has(item.date))), tasks=[...data.taskPresets,...data.assignments.map(item=>item.task)].filter((task,index,list)=>task.trim()&&list.findIndex(candidate=>candidate.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE'))===index)
+        const dayHeads=days.map(day=>`<th colspan="2">${esc(DAYS[day.getDay()])}<br><span class="muted">${day.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'})}</span></th>`).join(''), sub=days.map(()=>'<th>Bewoner</th><th class="center">OK</th>').join('')
+        const rows=tasks.map(task=>{ const items=all.filter(item=>item.task.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE')),wage=taskDefaultWage(task),time=timeLabel(taskDefaultTime(task)),notes=[...new Set(items.map(x=>x.notes?.trim()).filter(Boolean))],cells=days.map(day=>{ const found=items.filter(x=>x.date===ymd(day)); if(!found.length)return'<td></td><td></td>'; return `<td>${found.map(x=>`<div class="line">${esc(map.get(x.workerId)?.name||'—')}</div>`).join('')}</td><td class="center">${found.map(x=>`<div class="line">${x.done?'✓':'&nbsp;'}</div>`).join('')}</td>` }).join(''); return `<tr><td class="task">${esc(task)}${notes.map(note=>`<span class="notes">${esc(note)}</span>`).join('')}</td><td class="center">${esc(wage)}</td><td class="center">${esc(time)}</td>${cells}</tr>` }).join('')||'<tr><td colspan="17" class="center muted">Nog niets gepland</td></tr>'
+        printWindow(`<div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table><thead><tr><th rowspan="2">Taak</th><th rowspan="2" class="center">€</th><th rowspan="2" class="center">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table>`)
+      }
+      function printSheets() {
+        const selectedWorkers=sheetWorker==='all'?data.workers:data.workers.filter(worker=>worker.id===sheetWorker)
+        if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return} const days=weekDays()
+        const sheets=selectedWorkers.map(worker=>{ const rows=days.map(day=>{ const items=data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))); if(!items.length)return`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td></td><td></td><td></td><td></td></tr>`; return items.map((item,index)=>`<tr>${index===0?`<td rowspan="${items.length}">${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td>`:''}<td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</td><td>${assignmentWage(item)?`€${esc(assignmentWage(item))}`:''}</td><td class="center">${item.done?'✓':''}</td></tr>`).join('') }).join(''); return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Werkfiche')}</div><h1>${esc(worker.name||'Bewoner')}</h1></div><div><b>Werkfiche</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><thead><tr><th class="date">Datum</th><th class="time">Uur</th><th>Taak</th><th class="wage">Loon</th><th class="ok center">OK</th></tr></thead><tbody>${rows}</tbody></table></section>` }).join('')
+        printWindow(sheets,true)
+      }
+
+      document.addEventListener('click', event => {
+        const button=event.target.closest('[data-action]'); if(!button)return
+        const action=button.dataset.action
+        if(action==='settings') openSettings()
+        if(action==='help') openHelp()
+        if(action==='close-help') closeHelp()
+        if(action==='help-section'){helpSection=button.dataset.section;renderHelp()}
+        if(action==='close-settings') closeSettings()
+        if(action==='close-task') closeTask()
+        if(action==='close-task-definition') closeTaskDefinition()
+        if(action==='toggle-earnings'){const drawer=$('#earnings-drawer'),open=drawer.classList.toggle('open');button.setAttribute('aria-expanded',String(open))}
+        if(action==='close-earnings'){const drawer=$('#earnings-drawer');drawer.classList.remove('open');$('#earnings-toggle').setAttribute('aria-expanded','false')}
+        if(action==='edit-task-definition') openTaskDefinition(button.dataset.task)
+        if(action==='prev-week'){anchor=addDays(startOfWeek(anchor),-7);render()}
+        if(action==='next-week'){anchor=addDays(startOfWeek(anchor),7);render()}
+        if(action==='today'){anchor=new Date();render()}
+        if(action==='new-task') openTaskDefinition()
+        if(action==='add-task') openTask(button.dataset.date,data.workers[0]?.id||'',button.dataset.task)
+        if(action==='edit-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item)openTask(item.date,item.workerId,item.task,item)}
+        if(action==='done-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item){item.done=!item.done;commit()}}
+        if(action==='duplicate-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item)commit({...data,assignments:[...data.assignments,{...item,id:uid(),done:false}]})}
+        if(action==='delete-task') commit({...data,assignments:data.assignments.filter(x=>x.id!==button.dataset.id)})
+        if(action==='copy-previous'){const dates=new Set(Array.from({length:7},(_,i)=>ymd(addDays(startOfWeek(anchor),-7+i)))),source=data.assignments.filter(x=>dates.has(x.date));if(!source.length){toast('Geen taken in de vorige week');return}commit({...data,assignments:[...data.assignments,...source.map(x=>({...x,id:uid(),date:ymd(addDays(fromYmd(x.date),7)),done:false}))]});toast(`${source.length} taken gekopieerd`)}
+        if(action==='add-worker'){const worker={id:uid(),name:'',color:COLORS[data.workers.length%COLORS.length],monthlyLimit:''};data.workers.push(worker);save();renderSettingsLists();renderEarnings();setTimeout(()=>document.querySelector(`[data-worker-name="${worker.id}"]`)?.focus(),0)}
+        if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&confirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken verwijderen?`)){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
+        if(action==='move-worker-up'||action==='move-worker-down'){const index=data.workers.findIndex(x=>x.id===button.dataset.id),target=index+(action.endsWith('up')?-1:1);if(index>=0&&target>=0&&target<data.workers.length){[data.workers[index],data.workers[target]]=[data.workers[target],data.workers[index]];save();renderSettingsLists();renderEarnings()}}
+        if(action==='delete-preset'){data.taskPresets=data.taskPresets.filter(name=>name!==button.dataset.name);save();renderSettingsLists()}
+        if(action==='download-json') downloadMonth()
+        if(action==='upload-json') $('#json-file').click()
+        if(action==='print-general') printGeneral()
+        if(action==='print-sheets') printSheets()
+      })
+      document.addEventListener('input', event => {
+        if(event.target.id==='search'){query=event.target.value;renderMatrix()}
+        if(event.target.id==='task-name')updatePresetButton()
+        if(event.target.matches('[data-worker-name]')){const worker=data.workers.find(x=>x.id===event.target.dataset.workerName);if(worker){worker.name=event.target.value;save();renderEarnings()}}
+        if(event.target.matches('[data-worker-color]')){const worker=data.workers.find(x=>x.id===event.target.dataset.workerColor);if(worker){worker.color=event.target.value;save();renderEarnings()}}
+        if(event.target.matches('[data-worker-limit]')){const worker=data.workers.find(x=>x.id===event.target.dataset.workerLimit);if(worker){worker.monthlyLimit=event.target.value;save();renderEarnings()}}
+        if(event.target.matches('[data-task-time]'))updateTaskDefault(event.target.dataset.taskTime,{time:event.target.value})
+        if(event.target.matches('[data-task-wage]'))updateTaskDefault(event.target.dataset.taskWage,{wage:event.target.value})
+      })
+      document.addEventListener('change',event=>{if(event.target.matches('[data-assign-task]')){const workerId=event.target.value,task=event.target.dataset.assignTask,date=event.target.dataset.assignDate;if(workerId){data.assignments.push({id:uid(),task,workerId,date,time:taskDefaultTime(task),price:taskDefaultWage(task),notes:'',done:false});commit()}}})
+      $('#worker-filter').addEventListener('change',event=>{workerFilter=event.target.value;renderMatrix()})
+      $('#sheet-worker').addEventListener('change',event=>{sheetWorker=event.target.value})
+      $('#earnings-month').addEventListener('change',event=>{earningsMonth=event.target.value;renderEarnings()})
+      $('#company').addEventListener('input',event=>{data.companyName=event.target.value;save()})
+      $('#default-monthly-limit').addEventListener('input',event=>{data.defaultMonthlyLimit=event.target.value;save();renderEarnings()})
+      $('#week-starts').addEventListener('change',event=>{data.weekStartsOn=Number(event.target.value);save();render()})
+      $('#create-preset').addEventListener('click',()=>{const name=$('#task-name').value.trim();if(name&&!data.taskPresets.some(x=>x.toLocaleLowerCase('nl-BE')===name.toLocaleLowerCase('nl-BE'))){data.taskPresets.push(name);save();$('#task-presets').innerHTML=data.taskPresets.map(x=>`<option value="${esc(x)}"></option>`).join('');updatePresetButton();toast(`Preset “${name}” aangemaakt`)}})
+      $('#task-form').addEventListener('submit',event=>{event.preventDefault();const previous=data.assignments.find(x=>x.id===editingId),workerId=$('#task-worker').value,task=$('#task-name').value.trim(),time=$('#task-time').value||'09:00',wage=$('#task-price').value.trim(),item={id:editingId||uid(),task,workerId,date:$('#task-date').value,time,price:wage,notes:$('#task-notes').value.trim(),done:previous?.done||false};if(!item.task||!item.workerId)return;const key=taskKey(task);data.taskDefaults[key]={time,wage};data.assignments=data.assignments.map(existing=>taskKey(existing.task)===key?{...existing,time,price:wage}:existing);data.assignments=editingId?data.assignments.map(existing=>existing.id===editingId?item:existing):[...data.assignments,item];closeTask();commit()})
+      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);closeTaskDefinition();commit()})
+      $('#json-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)importPlannerFile(file)})
+      $('#matrix').addEventListener('dragstart',event=>{const card=event.target.closest('[data-task-id]');if(card){event.dataTransfer.setData('text/plain',card.dataset.taskId);event.dataTransfer.effectAllowed='move'}})
+      $('#matrix').addEventListener('dragover',event=>{const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
+      $('#matrix').addEventListener('dragleave',event=>event.target.closest('.day-cell')?.classList.remove('drag-over'))
+      $('#matrix').addEventListener('drop',event=>{const cell=event.target.closest('.day-cell');if(!cell)return;event.preventDefault();const id=event.dataTransfer.getData('text/plain'),item=data.assignments.find(x=>x.id===id);if(item){item.date=cell.dataset.date;item.task=cell.dataset.task;commit()}})
+      ;['help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else closeSettings()}}))
+      render()
+    })()
+  </script>
+</body>
+</html>
