@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ClipboardPaste, X } from 'lucide-react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
@@ -142,6 +142,8 @@ const STR = {
       ' for you and sends the file straight to your device. Prefer to run it yourself? Copy the ready-to-run command instead.',
     urlLabel: 'Video / playlist URL',
     urlPlaceholder: 'https://www.youtube.com/watch?v=…',
+    pasteUrl: 'Paste',
+    clearUrl: 'Clear',
     whatToDownload: 'What to download',
     optVideo: 'Video',
     optAudioOnly: 'Audio only',
@@ -217,6 +219,8 @@ const STR = {
       ' voor jou en stuurt het bestand meteen naar je apparaat. Liever zelf uitvoeren? Kopieer dan het kant-en-klare commando.',
     urlLabel: 'Video- / afspeellijst-URL',
     urlPlaceholder: 'https://www.youtube.com/watch?v=…',
+    pasteUrl: 'Plakken',
+    clearUrl: 'Wissen',
     whatToDownload: 'Wat downloaden',
     optVideo: 'Video',
     optAudioOnly: 'Enkel audio',
@@ -547,6 +551,23 @@ export function YtDlpCommand() {
     }
   }
 
+  async function pasteUrl() {
+    try {
+      const clipboardText = await navigator.clipboard.readText()
+      if (clipboardText) {
+        setUrl(clipboardText.trim())
+        setDlError(null)
+      }
+    } catch {
+      // Clipboard access can be denied by the browser; manual paste still works.
+    }
+  }
+
+  function clearUrl() {
+    setUrl('')
+    setDlError(null)
+  }
+
   function stageLabel(s: string | null): string {
     if (s === 'Merger' || s === 'VideoConvertor') return t.downloadStageMerging
     if (s === 'ExtractAudio') return t.downloadStageAudio
@@ -720,13 +741,24 @@ export function YtDlpCommand() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_minmax(300px,420px)]">
         <div className="min-w-0 space-y-6">
           <Field label={t.urlLabel}>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={t.urlPlaceholder}
-              className={inputClass}
-            />
+            <div className="relative">
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder={t.urlPlaceholder}
+                className={`${inputClass} pr-24`}
+              />
+              <button
+                type="button"
+                onClick={url ? clearUrl : pasteUrl}
+                className="no-glow absolute inset-y-1.5 right-1.5 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label={url ? t.clearUrl : t.pasteUrl}
+              >
+                {url ? <X className="size-3.5" /> : <ClipboardPaste className="size-3.5" />}
+                {url ? t.clearUrl : t.pasteUrl}
+              </button>
+            </div>
           </Field>
 
           <Field group label={t.whatToDownload}>
