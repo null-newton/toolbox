@@ -740,19 +740,20 @@ export function YtDlpCommand() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_minmax(300px,420px)]">
         <div className="min-w-0 space-y-6">
-          <Field label={t.urlLabel}>
-            <div className="relative">
+          <Field group label={t.urlLabel}>
+            <div className="glass flex overflow-hidden rounded-xl transition-all duration-200 focus-within:border-indigo-400/60 focus-within:ring-2 focus-within:ring-indigo-500/20">
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder={t.urlPlaceholder}
-                className={`${inputClass} pr-24`}
+                className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none"
+                aria-label={t.urlLabel}
               />
               <button
                 type="button"
                 onClick={url ? clearUrl : pasteUrl}
-                className="no-glow absolute inset-y-1.5 right-1.5 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                className="no-glow flex shrink-0 items-center gap-1.5 border-l border-white/10 bg-white/5 px-3.5 text-xs font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label={url ? t.clearUrl : t.pasteUrl}
               >
                 {url ? <X className="size-3.5" /> : <ClipboardPaste className="size-3.5" />}
