@@ -22,6 +22,21 @@
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; color: var(--text); background: var(--bg); }
     body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(700px circle at 10% -10%, rgba(99,102,241,.18), transparent 60%), radial-gradient(700px circle at 95% 110%, rgba(34,211,238,.09), transparent 60%); }
+    body[data-theme="white"] {
+      color-scheme: light;
+      --bg: #f3f5f9;
+      --panel: #ffffff;
+      --panel-2: #f8fafc;
+      --line: rgba(15,23,42,.12);
+      --muted: #64748b;
+      --text: #172033;
+      --indigo: #4f46e5;
+      --violet: #7c3aed;
+      --cyan: #0891b2;
+      --green: #059669;
+    }
+    body[data-theme="ocean"] { --bg:#07151d; --panel:#0b202b; --panel-2:#102a37; --indigo:#38bdf8; --violet:#2dd4bf; --cyan:#67e8f9; }
+    body[data-theme="forest"] { --bg:#08140f; --panel:#0d2017; --panel-2:#13291e; --indigo:#34d399; --violet:#a3e635; --cyan:#5eead4; }
     button, input, select, textarea { font: inherit; }
     button { cursor: pointer; }
     button:disabled { cursor: not-allowed; opacity: .4; }
@@ -160,11 +175,70 @@
     .green .earning-progress span { background: #34d399; } .amber .earning-progress span { background: #fbbf24; } .orange .earning-progress span { background: #fb923c; } .red .earning-progress span { background: #fb7185; }
     .toast { position: fixed; left: 50%; bottom: 24px; z-index: 50; translate: -50% 20px; padding: 11px 15px; border: 1px solid var(--line); border-radius: 11px; color: white; background: #171d2b; box-shadow: 0 20px 50px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: .2s ease; }
     .toast.show { translate: -50% 0; opacity: 1; }
+    body[data-theme="white"]::before { background: radial-gradient(700px circle at 10% -10%, rgba(99,102,241,.11), transparent 60%), radial-gradient(700px circle at 95% 110%, rgba(14,165,233,.08), transparent 60%); }
+    body[data-theme="white"] .logo { color: #4338ca; background: #eef2ff; border-color: #c7d2fe; }
+    body[data-theme="white"] .sub,
+    body[data-theme="white"] .range span,
+    body[data-theme="white"] .stat span,
+    body[data-theme="white"] .day-name,
+    body[data-theme="white"] .day-date span,
+    body[data-theme="white"] .worker small,
+    body[data-theme="white"] .task-time,
+    body[data-theme="white"] .task-meta,
+    body[data-theme="white"] .hint,
+    body[data-theme="white"] label,
+    body[data-theme="white"] .file-group span,
+    body[data-theme="white"] .earnings-head p { color: #64748b; }
+    body[data-theme="white"] .save-status { color: #64748b; }
+    body[data-theme="white"] .btn { color: #334155; background: rgba(255,255,255,.82); }
+    body[data-theme="white"] .btn:hover { color: #0f172a; background: #fff; border-color: rgba(15,23,42,.22); }
+    body[data-theme="white"] .btn.primary { color: #fff; background: linear-gradient(120deg, #4f46e5, #7c3aed); }
+    body[data-theme="white"] .card,
+    body[data-theme="white"] .matrix-shell { background: rgba(255,255,255,.72); box-shadow: 0 12px 35px rgba(15,23,42,.06); }
+    body[data-theme="white"] .stat { border-color: var(--line); background: rgba(255,255,255,.75); }
+    body[data-theme="white"] .stat-icon { color: #4f46e5; background: #eef2ff; }
+    body[data-theme="white"] .control,
+    body[data-theme="white"] .modal,
+    body[data-theme="white"] .input { color: #172033; background: #fff; }
+    body[data-theme="white"] .matrix-head,
+    body[data-theme="white"] .corner,
+    body[data-theme="white"] .worker { background: rgba(248,250,252,.98); }
+    body[data-theme="white"] .day-head.today,
+    body[data-theme="white"] .day-cell.today { background: rgba(79,70,229,.07); }
+    body[data-theme="white"] .day-head.weekend,
+    body[data-theme="white"] .day-cell.weekend { background: rgba(124,58,237,.035); }
+    body[data-theme="white"] .task-card,
+    body[data-theme="white"] .worker-setting,
+    body[data-theme="white"] .preset,
+    body[data-theme="white"] .help-step { color: #334155; background: rgba(255,255,255,.9); box-shadow: inset 0 0 0 1px rgba(15,23,42,.08); }
+    body[data-theme="white"] .task-title { color: #172033; }
+    body[data-theme="white"] .mini:hover { color: #172033; background: rgba(15,23,42,.06); }
+    body[data-theme="white"] .add-cell { color: #64748b; border-color: rgba(15,23,42,.15); }
+    body[data-theme="white"] .help-nav { background: rgba(15,23,42,.025); }
+    body[data-theme="white"] .help-nav button:hover { color: #172033; background: rgba(15,23,42,.05); }
+    body[data-theme="white"] .help-nav button.active { color: #4338ca; background: #eef2ff; }
+    body[data-theme="white"] .help-intro { color: #475569; }
+    body[data-theme="white"] .earnings-drawer { background: rgba(255,255,255,.985); box-shadow: -24px 0 60px rgba(15,23,42,.14); }
+    body[data-theme="white"] .toast { color: #fff; background: #172033; }
+    body:is([data-theme="ocean"],[data-theme="forest"])::before { background: radial-gradient(700px circle at 10% -10%, color-mix(in srgb, var(--indigo) 18%, transparent), transparent 60%), radial-gradient(700px circle at 95% 110%, color-mix(in srgb, var(--cyan) 10%, transparent), transparent 60%); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .logo,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .stat-icon { color: var(--indigo); background: color-mix(in srgb, var(--indigo) 14%, transparent); border-color: color-mix(in srgb, var(--indigo) 24%, transparent); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .btn.primary { background: linear-gradient(120deg, var(--indigo), var(--violet)); box-shadow: 0 10px 30px color-mix(in srgb, var(--indigo) 20%, transparent); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .control,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .modal { background: var(--panel-2); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .matrix-head,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .corner,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .worker,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .earnings-drawer { background: color-mix(in srgb, var(--panel) 98%, transparent); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .day-head.today,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.today { background: color-mix(in srgb, var(--indigo) 8%, transparent); }
+    body:is([data-theme="ocean"],[data-theme="forest"]) .day-head.weekend,
+    body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.weekend { background: color-mix(in srgb, var(--violet) 4%, transparent); }
     @media (max-width: 900px) { .app { padding: 20px; } .top, .overview, .toolbar { align-items: stretch; flex-direction: column; } .actions { justify-content: start; } .stats { overflow-x: auto; } .filters { width: 100%; } .search { max-width: none; } }
     @media (max-width: 560px) { .app { padding: 14px; } .sub { margin-left: 0; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .worker-setting { flex-wrap: wrap; } .help-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .help-nav { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .help-nav button { width: auto; flex: none; margin: 0; } .help-content { padding: 24px 20px; } }
   </style>
 </head>
-<body>
+<body data-theme="white">
   <main class="app">
     <header class="top">
       <div>
@@ -172,6 +246,12 @@
         <p class="sub">Plan een volledige werkweek, bewaar alles in deze browser en neem afzonderlijke weken mee als JSON-bestand.</p>
       </div>
       <div class="actions">
+        <select id="theme-select" class="control" title="Kleurenthema" aria-label="Kleurenthema">
+          <option value="white">Wit</option>
+          <option value="violet">Nachtpaars</option>
+          <option value="ocean">Oceaan</option>
+          <option value="forest">Bos</option>
+        </select>
         <button class="btn" id="earnings-toggle" data-action="toggle-earnings" aria-expanded="false">€ Maandverdiensten</button>
         <button class="btn" data-action="settings">⚙ Instellingen</button>
         <button class="btn" data-action="print-general">Algemene planning</button>
@@ -279,20 +359,27 @@
     (() => {
       'use strict'
       const STORAGE_KEY = 'weekplanner-standalone-v1'
+      const THEMES = ['white','violet','ocean','forest']
+      const PRINT_THEMES = {
+        white: { accent: '#4f46e5', heading: '#e0e7ff', subheading: '#eef2ff' },
+        violet: { accent: '#7c3aed', heading: '#ede9fe', subheading: '#f5f3ff' },
+        ocean: { accent: '#0284c7', heading: '#e0f2fe', subheading: '#f0f9ff' },
+        forest: { accent: '#047857', heading: '#dcfce7', subheading: '#f0fdf4' },
+      }
       const COLORS = ['#818cf8','#22d3ee','#f59e0b','#f472b6','#34d399','#a78bfa']
       const DAYS = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
       const SHORT_DAYS = ['zo','ma','di','wo','do','vr','za']
       const HELP_SECTIONS = [
         {id:'start',title:'Snel starten',intro:'Van een lege planner naar een bruikbare weekplanning.',steps:['Open Instellingen en vul de algemene gegevens in.','Voeg bewoners toe en controleer hun volgorde en maandmaximum.','Maak de nodige taken aan.','Wijs bewoners per dag toe in de weekmatrix.','Controleer de maandverdiensten en exporteer de documenten.']},
-        {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
+        {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies bovenaan een kleurenthema; je keuze wordt automatisch in deze browser opgeslagen.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
         {id:'residents',title:'Bewoners',intro:'Beheer namen, volgorde, kleuren en persoonlijke limieten.',steps:['Klik bij Instellingen op Bewoner toevoegen.','Gebruik de pijlen om de vaste volgorde te bepalen.','Kies een herkenbare kleur.','Laat Eigen maximum leeg voor het standaardbedrag, of vul een afwijkend bedrag in.','Bij verwijderen verdwijnen ook de gekoppelde toewijzingen.']},
         {id:'tasks',title:'Taken en loon',intro:'Een taak heeft een naam, uur en loon; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Taak toevoegen en vul de taakgegevens in.','De taak verschijnt als een aparte rij.','Gebruik het potlood naast de taak om ze later te bewerken.','Taakpresets blijven beschikbaar voor toekomstig gebruik.','Het taakloon telt per ingeplande bewoner mee in de maandverdiensten.']},
         {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Vorige week kopiëren neemt alle toewijzingen over.']},
         {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Maandverdiensten via de vaste knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt het taakloon één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
         {id:'json',title:'Maandbestand JSON',intro:'Gebruik een maandbestand als lokale back-up of om gegevens naar een andere browser te verplaatsen.',steps:['Kies eerst de juiste maand in Maandverdiensten.','Klik op Maand als JSON om alleen die maand te downloaden.','JSON uploaden vervangt uitsluitend de maand uit het bestand.','Andere maanden blijven behouden.','Oude weekbestanden kunnen nog steeds worden geïmporteerd.']},
-        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en werkfiches hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of werkfiches.','Controleer de inhoud en klik bovenaan op Afdrukken.','Algemene planning wordt A4 liggend geëxporteerd; iedere bewonersfiche is één A4-pagina in staande richting.','Kies voor werkfiches indien gewenst A4 en 4 pagina’s per blad.','Kies daarna een printer of Bewaar als PDF.']},
+        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en werkfiches hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of werkfiches.','Controleer de inhoud en klik bovenaan op Afdrukken.','De algemene planning en werkfiches worden op A4 liggend geëxporteerd.','Op iedere werkfichepagina staan maximaal twee bewonersfiches naast elkaar.','Kies daarna een printer of Bewaar als PDF.']},
       ]
-      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', workers: [], taskPresets: [], taskDefaults: {}, assignments: [] })
+      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', theme: 'white', workers: [], taskPresets: [], taskDefaults: {}, assignments: [] })
       let data = loadData()
       let anchor = new Date()
       let query = ''
@@ -320,11 +407,12 @@
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
           if (!saved || typeof saved !== 'object') return emptyData()
-          return { ...emptyData(), ...saved, workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
+          return { ...emptyData(), ...saved, theme: THEMES.includes(saved.theme) ? saved.theme : 'white', workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
         } catch { return emptyData() }
       }
       function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
       function commit(next = data) { data = next; save(); render() }
+      function applyTheme() { data.theme=THEMES.includes(data.theme)?data.theme:'white';document.body.dataset.theme=data.theme;$('#theme-select').value=data.theme }
       function toast(message) { const node = $('#toast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2400) }
       function renderHelp() { const active=HELP_SECTIONS.find(section=>section.id===helpSection)||HELP_SECTIONS[0];$('#help-nav').innerHTML=HELP_SECTIONS.map(section=>`<button data-action="help-section" data-section="${esc(section.id)}" class="${section.id===active.id?'active':''}">${esc(section.title)}</button>`).join('');$('#help-content').innerHTML=`<div class="help-kicker">Handleiding</div><h3>${esc(active.title)}</h3><p class="help-intro">${esc(active.intro)}</p>${active.steps.map((step,index)=>`<div class="help-step"><b>${index+1}</b><span>${esc(step)}</span></div>`).join('')}` }
       function openHelp() { renderHelp();$('#help-backdrop').classList.add('open') }
@@ -350,6 +438,7 @@
       }
 
       function render() {
+        applyTheme()
         const dates = weekSet()
         const allWeek = data.assignments.filter(item => dates.has(item.date))
         $('#range').textContent = formatRange()
@@ -436,7 +525,7 @@
 
       function downloadMonth() {
         const month=/^\d{4}-\d{2}$/.test(earningsMonth)?earningsMonth:ymd(new Date()).slice(0,7), assignments=data.assignments.filter(item=>item.date.startsWith(`${month}-`))
-        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, assignments }
+        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit,theme:data.theme}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, assignments }
         const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob), link=document.createElement('a')
         link.href=url; link.download=`maandplanning-${month}.json`; link.click(); URL.revokeObjectURL(url)
       }
@@ -455,7 +544,7 @@
           const workers=[...payload.workers.map(imported=>({...data.workers.find(worker=>worker.id===imported.id),...imported})),...data.workers.filter(worker=>!importedIds.has(worker.id))]
           const presets=[...data.taskPresets]
           ;(payload.taskPresets||[]).forEach(name=>{ if(!presets.some(item=>item.toLocaleLowerCase('nl-BE')===String(name).toLocaleLowerCase('nl-BE'))) presets.push(String(name)) })
-          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
+          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
           anchor=start; earningsMonth=ymd(start).slice(0,7); workerFilter='all'; query=''; commit(); toast(isMonth?'Maandbestand geïmporteerd':'Oud weekbestand geïmporteerd')
         } catch(error) { alert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.') }
         finally { $('#json-file').value='' }
@@ -464,6 +553,10 @@
       function printWindow(body, workSheets = false) {
         const win=window.open('','_blank'); if(!win){ alert('Sta pop-ups toe om te exporteren.'); return } win.opener=null
         win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Afdrukweergave · Weekplanning</title><style>@page{size:${workSheets?'A4 portrait':'A4 landscape'};margin:${workSheets?'8mm':'12mm'}}*{box-sizing:border-box}body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}.preview-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;color:#f9fafb;background:#111827;box-shadow:0 4px 16px rgba(0,0,0,.2)}.preview-toolbar strong{display:block;font-size:14px}.preview-toolbar span{display:block;margin-top:2px;color:#9ca3af;font-size:11px}.preview-actions{display:flex;gap:8px}.preview-actions button{border:1px solid #4b5563;border-radius:8px;padding:9px 14px;color:#f9fafb;background:#1f2937;cursor:pointer;font:bold 12px Arial}.preview-actions .primary{border-color:#4f46e5;background:#4f46e5}.preview-content{width:${workSheets?'210mm':'297mm'};min-height:${workSheets?'297mm':'210mm'};margin:24px auto;padding:${workSheets?'8mm':'12mm'};background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.18)}h1{font-size:20px;margin:0}.head{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:14px}.brand{color:#4f46e5;font-weight:700;text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #374151;padding:6px 5px;text-align:left;vertical-align:top}th{background:#eef2ff}.subh th{background:#f8fafc;font-size:8px}.center{text-align:center}.muted{color:#6b7280}.task{font-weight:700}.notes{display:block;font-size:8px;font-weight:400;margin-top:3px}.line{min-height:12px}.sheet{break-after:page}.sheet:last-child{break-after:auto}.work .date{width:16%}.work .time{width:13%}.work .wage{width:13%}.work .ok{width:9%}.work td{height:34px}body.worksheets{font-size:17px}.worksheets h1{font-size:34px}.worksheets .sheet{display:flex;min-height:280mm;flex-direction:column}.worksheets .head{margin-bottom:14px;padding-bottom:10px}.worksheets .work{flex:1;height:238mm;font-size:17px}.worksheets .work th,.worksheets .work td{padding:11px 9px;vertical-align:middle}.worksheets .work td{height:auto}.worksheets .work .notes{font-size:13px;line-height:1.35}@media(max-width:900px){.preview-content{width:calc(100% - 24px);min-height:0;margin:12px auto;overflow-x:auto}.preview-toolbar{align-items:flex-start;padding:10px 12px}.preview-toolbar span{display:none}.preview-actions button{padding:8px 10px}}@media print{body{background:#fff}.preview-toolbar{display:none}.preview-content{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}}</style></head><body class="${workSheets?'worksheets':'general-export'}"><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>Controleer de planning en open daarna het afdrukvenster.</span></div><div class="preview-actions"><button id="close-preview" type="button">Sluiten</button><button id="start-print" class="primary" type="button">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
+        const palette=PRINT_THEMES[data.theme]||PRINT_THEMES.white, printStyle=win.document.createElement('style')
+        printStyle.textContent=`.brand{color:${palette.accent}}thead th{color:#111827!important;background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;forced-color-adjust:none}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}thead th{background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}}`
+        win.document.head.append(printStyle)
+        if(workSheets){const style=win.document.createElement('style');style.textContent='@page{size:A4 landscape;margin:0}.worksheets{font-size:10px}.worksheets .preview-content{width:297mm;min-height:210mm;padding:0}.worksheets .sheet-page{display:grid;width:297mm;height:210mm;grid-template-columns:repeat(2,148.5mm);break-after:page;page-break-after:always}.worksheets .sheet-page:last-child{break-after:auto;page-break-after:auto}.worksheets .sheet{display:flex;width:148.5mm;height:210mm;min-width:0;min-height:0;padding:8mm;flex-direction:column;break-after:auto;break-inside:avoid}.worksheets h1{font-size:20px}.worksheets .head{margin-bottom:5px;padding-bottom:4px}.worksheets .work{height:auto;min-height:0;flex:1;font-size:10px}.worksheets .work th,.worksheets .work td{height:auto;padding:3px 5px;vertical-align:middle}.worksheets .work .notes{font-size:8px;line-height:1.2}@media print{.worksheets .preview-content{width:auto;min-height:0;margin:0;padding:0}.worksheets .sheet-page{width:297mm;height:210mm}}';win.document.head.append(style)}
         win.document.close()
         win.document.querySelector('#start-print').addEventListener('click',()=>win.print())
         win.document.querySelector('#close-preview').addEventListener('click',()=>win.close())
@@ -478,8 +571,10 @@
       function printSheets() {
         const selectedWorkers=sheetWorker==='all'?data.workers:data.workers.filter(worker=>worker.id===sheetWorker)
         if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return} const days=weekDays()
-        const sheets=selectedWorkers.map(worker=>{ const rows=days.map(day=>{ const items=data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))); if(!items.length)return`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td></td><td></td><td></td><td></td></tr>`; return items.map((item,index)=>`<tr>${index===0?`<td rowspan="${items.length}">${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td>`:''}<td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</td><td>${assignmentWage(item)?`€${esc(assignmentWage(item))}`:''}</td><td class="center">${item.done?'✓':''}</td></tr>`).join('') }).join(''); return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Werkfiche')}</div><h1>${esc(worker.name||'Bewoner')}</h1></div><div><b>Werkfiche</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><thead><tr><th class="date">Datum</th><th class="time">Uur</th><th>Taak</th><th class="wage">Loon</th><th class="ok center">OK</th></tr></thead><tbody>${rows}</tbody></table></section>` }).join('')
-        printWindow(sheets,true)
+        const sheets=selectedWorkers.map(worker=>{ const rows=days.map(day=>{ const items=data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))); if(!items.length)return`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td></td><td></td><td></td><td></td></tr>`; return items.map((item,index)=>`<tr>${index===0?`<td rowspan="${items.length}">${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td>`:''}<td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</td><td>${assignmentWage(item)?`€${esc(assignmentWage(item))}`:''}</td><td class="center">${item.done?'✓':''}</td></tr>`).join('') }).join(''); return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Werkfiche')}</div><h1>${esc(worker.name||'Bewoner')}</h1></div><div><b>Werkfiche</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><thead><tr><th class="date">Datum</th><th class="time">Uur</th><th>Taak</th><th class="wage">Loon</th><th class="ok center">OK</th></tr></thead><tbody>${rows}</tbody></table></section>` })
+        const pages=[]
+        for(let index=0;index<sheets.length;index+=2)pages.push(`<div class="sheet-page">${sheets.slice(index,index+2).join('')}</div>`)
+        printWindow(pages.join(''),true)
       }
 
       document.addEventListener('click', event => {
@@ -526,6 +621,7 @@
       document.addEventListener('change',event=>{if(event.target.matches('[data-assign-task]')){const workerId=event.target.value,task=event.target.dataset.assignTask,date=event.target.dataset.assignDate;if(workerId){data.assignments.push({id:uid(),task,workerId,date,time:taskDefaultTime(task),price:taskDefaultWage(task),notes:'',done:false});commit()}}})
       $('#worker-filter').addEventListener('change',event=>{workerFilter=event.target.value;renderMatrix()})
       $('#sheet-worker').addEventListener('change',event=>{sheetWorker=event.target.value})
+      $('#theme-select').addEventListener('change',event=>{data.theme=THEMES.includes(event.target.value)?event.target.value:'white';applyTheme();save()})
       $('#earnings-month').addEventListener('change',event=>{earningsMonth=event.target.value;renderEarnings()})
       $('#company').addEventListener('input',event=>{data.companyName=event.target.value;save()})
       $('#default-monthly-limit').addEventListener('input',event=>{data.defaultMonthlyLimit=event.target.value;save();renderEarnings()})
