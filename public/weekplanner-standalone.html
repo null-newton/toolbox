@@ -143,6 +143,18 @@
     textarea.input { min-height: 80px; resize: vertical; }
     .preset-create { display: none; width: 100%; margin-top: 6px; border: 0; border-radius: 8px; padding: 8px; color: #a5b4fc; background: rgba(99,102,241,.09); text-align: left; font-size: 11px; font-weight: 700; }
     .modal-footer { display: flex; justify-content: end; gap: 8px; margin-top: 20px; }
+    #dialog-backdrop { z-index: 60; }
+    .app-dialog { width: min(460px, 100%); overflow: visible; text-align: center; animation: dialog-in .18s ease-out; }
+    .dialog-icon { width: 54px; height: 54px; display: grid; place-items: center; margin: 0 auto 16px; border: 1px solid rgba(129,140,248,.25); border-radius: 17px; color: #c7d2fe; background: rgba(99,102,241,.14); font-size: 25px; font-weight: 800; }
+    .dialog-icon.danger { color: #fda4af; border-color: rgba(251,113,133,.28); background: rgba(244,63,94,.13); }
+    .dialog-icon.warning { color: #fcd34d; border-color: rgba(251,191,36,.28); background: rgba(245,158,11,.12); }
+    .dialog-title { margin: 0; font-size: 21px; letter-spacing: -.02em; }
+    .dialog-message { margin: 10px auto 0; max-width: 370px; color: #94a3b8; font-size: 13px; line-height: 1.65; white-space: pre-line; }
+    .dialog-actions { justify-content: center; margin-top: 24px; }
+    .dialog-actions .btn { min-width: 110px; }
+    .btn.danger { color: white; border-color: transparent; background: linear-gradient(120deg, #e11d48, #be123c); box-shadow: 0 10px 28px rgba(225,29,72,.2); }
+    .btn.danger:hover { color: white; border-color: transparent; background: linear-gradient(120deg, #f43f5e, #e11d48); }
+    @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
     .section-head { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 10px; padding-top: 20px; border-top: 1px solid var(--line); }
     .section-head h3 { margin: 0; font-size: 15px; }
     .hint { margin: 4px 0 0; color: #64748b; font-size: 11px; }
@@ -193,6 +205,8 @@
     body[data-theme="white"] .btn { color: #334155; background: rgba(255,255,255,.82); }
     body[data-theme="white"] .btn:hover { color: #0f172a; background: #fff; border-color: rgba(15,23,42,.22); }
     body[data-theme="white"] .btn.primary { color: #fff; background: linear-gradient(120deg, #4f46e5, #7c3aed); }
+    body[data-theme="white"] .btn.danger { color: #fff; border-color: transparent; background: linear-gradient(120deg, #e11d48, #be123c); }
+    body[data-theme="white"] .btn.danger:hover { color: #fff; border-color: transparent; background: linear-gradient(120deg, #f43f5e, #e11d48); }
     body[data-theme="white"] .card,
     body[data-theme="white"] .matrix-shell { background: rgba(255,255,255,.72); box-shadow: 0 12px 35px rgba(15,23,42,.06); }
     body[data-theme="white"] .stat { border-color: var(--line); background: rgba(255,255,255,.75); }
@@ -218,6 +232,10 @@
     body[data-theme="white"] .help-nav button:hover { color: #172033; background: rgba(15,23,42,.05); }
     body[data-theme="white"] .help-nav button.active { color: #4338ca; background: #eef2ff; }
     body[data-theme="white"] .help-intro { color: #475569; }
+    body[data-theme="white"] .dialog-message { color: #64748b; }
+    body[data-theme="white"] .dialog-icon { color: #4338ca; border-color: #c7d2fe; background: #eef2ff; }
+    body[data-theme="white"] .dialog-icon.danger { color: #be123c; border-color: #fecdd3; background: #fff1f2; }
+    body[data-theme="white"] .dialog-icon.warning { color: #b45309; border-color: #fde68a; background: #fffbeb; }
     body[data-theme="white"] .earnings-drawer { background: rgba(255,255,255,.985); box-shadow: -24px 0 60px rgba(15,23,42,.14); }
     body[data-theme="white"] .toast { color: #fff; background: #172033; }
     body:is([data-theme="ocean"],[data-theme="forest"])::before { background: radial-gradient(700px circle at 10% -10%, color-mix(in srgb, var(--indigo) 18%, transparent), transparent 60%), radial-gradient(700px circle at 95% 110%, color-mix(in srgb, var(--cyan) 10%, transparent), transparent 60%); }
@@ -353,6 +371,18 @@
       <div class="modal-footer"><button class="btn primary" data-action="close-settings">Sluiten</button></div>
     </section>
   </div>
+
+  <div class="modal-backdrop" id="dialog-backdrop">
+    <section class="modal app-dialog" role="alertdialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-message">
+      <div class="dialog-icon" id="dialog-icon" aria-hidden="true">?</div>
+      <h2 class="dialog-title" id="dialog-title">Bevestigen</h2>
+      <p class="dialog-message" id="dialog-message"></p>
+      <div class="modal-footer dialog-actions">
+        <button class="btn" id="dialog-cancel" type="button" data-action="dialog-cancel">Annuleren</button>
+        <button class="btn primary" id="dialog-confirm" type="button" data-action="dialog-confirm">Doorgaan</button>
+      </div>
+    </section>
+  </div>
   <div class="toast" id="toast"></div>
 
   <script>
@@ -390,6 +420,8 @@
       let lockedTask = false
       let editingTaskName = null
       let helpSection = 'start'
+      let dialogResolve = null
+      let dialogFocus = null
 
       const $ = (selector) => document.querySelector(selector)
       const esc = (value = '') => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
@@ -414,6 +446,34 @@
       function commit(next = data) { data = next; save(); render() }
       function applyTheme() { data.theme=THEMES.includes(data.theme)?data.theme:'white';document.body.dataset.theme=data.theme;$('#theme-select').value=data.theme }
       function toast(message) { const node = $('#toast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2400) }
+      function showDialog({title='Melding',message='',confirmLabel='Oké',cancelLabel='',variant='info'}={}) {
+        if(dialogResolve) closeDialog(false)
+        dialogFocus=document.activeElement
+        $('#dialog-title').textContent=title
+        $('#dialog-message').textContent=message
+        const icon=$('#dialog-icon')
+        icon.className=`dialog-icon ${variant}`
+        icon.textContent=variant==='danger'?'!':variant==='warning'?'!':variant==='success'?'✓':'?'
+        const cancel=$('#dialog-cancel'),confirm=$('#dialog-confirm')
+        cancel.textContent=cancelLabel||'Annuleren'
+        cancel.hidden=!cancelLabel
+        confirm.textContent=confirmLabel
+        confirm.className=`btn ${variant==='danger'?'danger':'primary'}`
+        $('#dialog-backdrop').classList.add('open')
+        setTimeout(()=>confirm.focus(),20)
+        return new Promise(resolve=>{dialogResolve=resolve})
+      }
+      function closeDialog(result=false) {
+        if(!dialogResolve)return
+        const resolve=dialogResolve
+        dialogResolve=null
+        $('#dialog-backdrop').classList.remove('open')
+        resolve(result)
+        if(dialogFocus instanceof HTMLElement)dialogFocus.focus()
+        dialogFocus=null
+      }
+      const showAlert = (message,title='Er ging iets mis',variant='warning') => showDialog({title,message,confirmLabel:'Sluiten',variant})
+      const showConfirm = (message,{title='Weet je het zeker?',confirmLabel='Doorgaan',variant='info'}={}) => showDialog({title,message,confirmLabel,cancelLabel:'Annuleren',variant})
       function renderHelp() { const active=HELP_SECTIONS.find(section=>section.id===helpSection)||HELP_SECTIONS[0];$('#help-nav').innerHTML=HELP_SECTIONS.map(section=>`<button data-action="help-section" data-section="${esc(section.id)}" class="${section.id===active.id?'active':''}">${esc(section.title)}</button>`).join('');$('#help-content').innerHTML=`<div class="help-kicker">Handleiding</div><h3>${esc(active.title)}</h3><p class="help-intro">${esc(active.intro)}</p>${active.steps.map((step,index)=>`<div class="help-step"><b>${index+1}</b><span>${esc(step)}</span></div>`).join('')}` }
       function openHelp() { renderHelp();$('#help-backdrop').classList.add('open') }
       function closeHelp() { $('#help-backdrop').classList.remove('open') }
@@ -539,19 +599,19 @@
           const legacyDates=isLegacyWeek?new Set(Array.from({length:7},(_,index)=>ymd(addDays(start,index)))):null
           const isInPeriod=date=>isMonth?date.startsWith(`${payload.month}-`):legacyDates.has(date)
           const periodLabel=isMonth?start.toLocaleDateString('nl-BE',{month:'long',year:'numeric'}):`${payload.weekStart} t/m ${payload.weekEnd||ymd(addDays(start,6))}`
-          if (!confirm(`De planning van ${periodLabel} vervangen door dit bestand?`)) return
+          if (!await showConfirm(`De planning van ${periodLabel} wordt vervangen door de inhoud van dit bestand. Andere maanden blijven behouden.`,{title:'Maandplanning openen?',confirmLabel:'Maand vervangen'})) return
           const importedIds=new Set(payload.workers.map(worker=>worker.id))
           const workers=[...payload.workers.map(imported=>({...data.workers.find(worker=>worker.id===imported.id),...imported})),...data.workers.filter(worker=>!importedIds.has(worker.id))]
           const presets=[...data.taskPresets]
           ;(payload.taskPresets||[]).forEach(name=>{ if(!presets.some(item=>item.toLocaleLowerCase('nl-BE')===String(name).toLocaleLowerCase('nl-BE'))) presets.push(String(name)) })
           data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
           anchor=start; earningsMonth=ymd(start).slice(0,7); workerFilter='all'; query=''; commit(); toast(isMonth?'Maandbestand geïmporteerd':'Oud weekbestand geïmporteerd')
-        } catch(error) { alert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.') }
+        } catch(error) { await showAlert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.','Bestand niet geopend') }
         finally { $('#json-file').value='' }
       }
 
       function printWindow(body, workSheets = false) {
-        const win=window.open('','_blank'); if(!win){ alert('Sta pop-ups toe om te exporteren.'); return } win.opener=null
+        const win=window.open('','_blank'); if(!win){ showAlert('Sta pop-ups toe voor deze pagina en probeer daarna opnieuw.','Afdrukweergave geblokkeerd'); return } win.opener=null
         win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Afdrukweergave · Weekplanning</title><style>@page{size:${workSheets?'A4 portrait':'A4 landscape'};margin:${workSheets?'8mm':'12mm'}}*{box-sizing:border-box}body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}.preview-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;color:#f9fafb;background:#111827;box-shadow:0 4px 16px rgba(0,0,0,.2)}.preview-toolbar strong{display:block;font-size:14px}.preview-toolbar span{display:block;margin-top:2px;color:#9ca3af;font-size:11px}.preview-actions{display:flex;gap:8px}.preview-actions button{border:1px solid #4b5563;border-radius:8px;padding:9px 14px;color:#f9fafb;background:#1f2937;cursor:pointer;font:bold 12px Arial}.preview-actions .primary{border-color:#4f46e5;background:#4f46e5}.preview-content{width:${workSheets?'210mm':'297mm'};min-height:${workSheets?'297mm':'210mm'};margin:24px auto;padding:${workSheets?'8mm':'12mm'};background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.18)}h1{font-size:20px;margin:0}.head{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:14px}.brand{color:#4f46e5;font-weight:700;text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #374151;padding:6px 5px;text-align:left;vertical-align:top}th{background:#eef2ff}.subh th{background:#f8fafc;font-size:8px}.center{text-align:center}.muted{color:#6b7280}.task{font-weight:700}.notes{display:block;font-size:8px;font-weight:400;margin-top:3px}.line{min-height:12px}.sheet{break-after:page}.sheet:last-child{break-after:auto}.work .date{width:16%}.work .time{width:13%}.work .wage{width:13%}.work .ok{width:9%}.work td{height:34px}body.worksheets{font-size:17px}.worksheets h1{font-size:34px}.worksheets .sheet{display:flex;min-height:280mm;flex-direction:column}.worksheets .head{margin-bottom:14px;padding-bottom:10px}.worksheets .work{flex:1;height:238mm;font-size:17px}.worksheets .work th,.worksheets .work td{padding:11px 9px;vertical-align:middle}.worksheets .work td{height:auto}.worksheets .work .notes{font-size:13px;line-height:1.35}@media(max-width:900px){.preview-content{width:calc(100% - 24px);min-height:0;margin:12px auto;overflow-x:auto}.preview-toolbar{align-items:flex-start;padding:10px 12px}.preview-toolbar span{display:none}.preview-actions button{padding:8px 10px}}@media print{body{background:#fff}.preview-toolbar{display:none}.preview-content{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}}</style></head><body class="${workSheets?'worksheets':'general-export'}"><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>Controleer de planning en open daarna het afdrukvenster.</span></div><div class="preview-actions"><button id="close-preview" type="button">Sluiten</button><button id="start-print" class="primary" type="button">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
         const palette=PRINT_THEMES[data.theme]||PRINT_THEMES.white, printStyle=win.document.createElement('style')
         printStyle.textContent=`.brand{color:${palette.accent}}thead th{color:#111827!important;background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;forced-color-adjust:none}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}thead th{background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}}`
@@ -577,9 +637,11 @@
         printWindow(pages.join(''),true)
       }
 
-      document.addEventListener('click', event => {
+      document.addEventListener('click', async event => {
         const button=event.target.closest('[data-action]'); if(!button)return
         const action=button.dataset.action
+        if(action==='dialog-cancel'){closeDialog(false);return}
+        if(action==='dialog-confirm'){closeDialog(true);return}
         if(action==='settings') openSettings()
         if(action==='help') openHelp()
         if(action==='close-help') closeHelp()
@@ -601,7 +663,7 @@
         if(action==='delete-task') commit({...data,assignments:data.assignments.filter(x=>x.id!==button.dataset.id)})
         if(action==='copy-previous'){const dates=new Set(Array.from({length:7},(_,i)=>ymd(addDays(startOfWeek(anchor),-7+i)))),source=data.assignments.filter(x=>dates.has(x.date));if(!source.length){toast('Geen taken in de vorige week');return}commit({...data,assignments:[...data.assignments,...source.map(x=>({...x,id:uid(),date:ymd(addDays(fromYmd(x.date),7)),done:false}))]});toast(`${source.length} taken gekopieerd`)}
         if(action==='add-worker'){const worker={id:uid(),name:'',color:COLORS[data.workers.length%COLORS.length],monthlyLimit:''};data.workers.push(worker);save();renderSettingsLists();renderEarnings();setTimeout(()=>document.querySelector(`[data-worker-name="${worker.id}"]`)?.focus(),0)}
-        if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&confirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken verwijderen?`)){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
+        if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&await showConfirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken worden definitief verwijderd.`,{title:'Bewoner verwijderen?',confirmLabel:'Verwijderen',variant:'danger'})){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
         if(action==='move-worker-up'||action==='move-worker-down'){const index=data.workers.findIndex(x=>x.id===button.dataset.id),target=index+(action.endsWith('up')?-1:1);if(index>=0&&target>=0&&target<data.workers.length){[data.workers[index],data.workers[target]]=[data.workers[target],data.workers[index]];save();renderSettingsLists();renderEarnings()}}
         if(action==='delete-preset'){data.taskPresets=data.taskPresets.filter(name=>name!==button.dataset.name);save();renderSettingsLists()}
         if(action==='download-json') downloadMonth()
@@ -634,7 +696,8 @@
       $('#matrix').addEventListener('dragover',event=>{const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
       $('#matrix').addEventListener('dragleave',event=>event.target.closest('.day-cell')?.classList.remove('drag-over'))
       $('#matrix').addEventListener('drop',event=>{const cell=event.target.closest('.day-cell');if(!cell)return;event.preventDefault();const id=event.dataTransfer.getData('text/plain'),item=data.assignments.find(x=>x.id===id);if(item){item.date=cell.dataset.date;item.task=cell.dataset.task;commit()}})
-      ;['help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else closeSettings()}}))
+      ;['help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop','dialog-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else if(id==='dialog-backdrop')closeDialog(false);else closeSettings()}}))
+      document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#dialog-backdrop').classList.contains('open')){event.preventDefault();closeDialog(false)}})
       render()
     })()
   </script>
