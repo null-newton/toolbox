@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ExternalLink, Plus, Search, Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
 import { SaveStatus } from '../../components/SaveStatus'
@@ -213,7 +213,7 @@ let lockedScrollY = 0
  * is restored, so the slot the user tapped lines back up where it was.
  */
 function useBodyScrollLock() {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const body = document.body
     if (scrollLockCount === 0) {
       lockedScrollY = window.scrollY
@@ -676,8 +676,31 @@ function SlotPickerPopup({
 }) {
   const t = useT(STR)
   const [query, setQuery] = useState('')
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useBodyScrollLock()
+
+  useLayoutEffect(() => {
+    const viewport = window.visualViewport
+    const updateViewport = () => {
+      if (!viewport || !viewportRef.current) return
+      // Follow the visible area as the mobile keyboard opens or pans the page.
+      viewportRef.current.style.top = `${viewport.offsetTop}px`
+      viewportRef.current.style.height = `${viewport.height}px`
+    }
+
+    updateViewport()
+    viewport?.addEventListener('resize', updateViewport)
+    viewport?.addEventListener('scroll', updateViewport)
+    // Lock the page and position the dialog before focusing the search field.
+    searchRef.current?.focus({ preventScroll: true })
+
+    return () => {
+      viewport?.removeEventListener('resize', updateViewport)
+      viewport?.removeEventListener('scroll', updateViewport)
+    }
+  }, [])
 
   // Close on Escape.
   useEffect(() => {
@@ -705,17 +728,18 @@ function SlotPickerPopup({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      ref={viewportRef}
+      className="fixed inset-x-0 top-0 z-50 flex h-dvh items-start justify-center overflow-hidden bg-black/60 p-4 backdrop-blur-sm sm:items-center"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={t.chooseAria(title)}
     >
       <div
-        className="glass flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-4 shadow-2xl"
+        className="glass flex max-h-full min-h-0 w-full max-w-md flex-col overflow-hidden rounded-2xl p-4 shadow-2xl sm:max-h-[min(80vh,100%)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <p className="text-sm font-semibold text-white">{title}</p>
           <button
             onClick={onClose}
@@ -727,11 +751,11 @@ function SlotPickerPopup({
         </div>
 
         {/* Search */}
-        <div className="relative mt-3">
+        <div className="relative mt-3 shrink-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            autoFocus
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.searchMeals}
@@ -739,76 +763,78 @@ function SlotPickerPopup({
           />
         </div>
 
-        {/* Suggestions */}
-        {suggestions.length > 0 && (
-          <div className="mt-3">
-            <p className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
-              <Sparkles className="size-3" /> {t.suggested}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {suggestions.map((m) => {
-                const n = score(m.id)
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => onPick(m.id)}
-                    title={n === 0 ? t.notPlannedRecently : t.plannedRecently(n)}
-                    className="rounded-lg border border-indigo-400/30 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-200 transition-all hover:border-indigo-400/60 hover:bg-indigo-500/20"
-                  >
-                    {m.name}
-                  </button>
-                )
-              })}
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          {/* Suggestions scroll with results so the search stays visible even on short screens. */}
+          {suggestions.length > 0 && (
+            <div className="mb-3">
+              <p className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                <Sparkles className="size-3" /> {t.suggested}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {suggestions.map((m) => {
+                  const n = score(m.id)
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => onPick(m.id)}
+                      title={n === 0 ? t.notPlannedRecently : t.plannedRecently(n)}
+                      className="rounded-lg border border-indigo-400/30 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-200 transition-all hover:border-indigo-400/60 hover:bg-indigo-500/20"
+                    >
+                      {m.name}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Meal list */}
-        <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-          {canCreate && (
+          {/* Meal list */}
+          <div className="space-y-1">
+            {canCreate && (
+              <button
+                type="button"
+                onClick={() => onCreate(trimmed)}
+                className="flex w-full items-center gap-2 rounded-xl border border-dashed border-indigo-400/40 bg-indigo-500/10 px-3 py-2 text-left text-sm text-indigo-200 transition-colors hover:bg-indigo-500/20"
+              >
+                <Plus className="size-4 shrink-0" />
+                <span className="truncate">{t.addToMeals(trimmed)}</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onCreate(trimmed)}
-              className="flex w-full items-center gap-2 rounded-xl border border-dashed border-indigo-400/40 bg-indigo-500/10 px-3 py-2 text-left text-sm text-indigo-200 transition-colors hover:bg-indigo-500/20"
+              onClick={() => onPick('')}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors ${
+                !value
+                  ? 'bg-indigo-500/15 text-indigo-200'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+              }`}
             >
-              <Plus className="size-4 shrink-0" />
-              <span className="truncate">{t.addToMeals(trimmed)}</span>
+              {t.nothingPlanned}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onPick('')}
-            className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors ${
-              !value
-                ? 'bg-indigo-500/15 text-indigo-200'
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            }`}
-          >
-            {t.nothingPlanned}
-          </button>
-          {filtered.map((m) => {
-            const selected = m.id === value
-            const n = score(m.id)
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => onPick(m.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
-                  selected ? 'bg-indigo-500/15 text-white' : 'text-slate-200 hover:bg-white/5'
-                }`}
-              >
-                <span className="truncate">{m.name}</span>
-                <span className="shrink-0 text-[11px] text-slate-500">
-                  {n === 0 ? t.notLately : t.timesLately(n)}
-                </span>
-              </button>
-            )
-          })}
-          {filtered.length === 0 && !canCreate && (
-            <p className="px-3 py-6 text-center text-sm text-slate-500">{t.noMatch(query)}</p>
-          )}
+            {filtered.map((m) => {
+              const selected = m.id === value
+              const n = score(m.id)
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => onPick(m.id)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                    selected ? 'bg-indigo-500/15 text-white' : 'text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="truncate">{m.name}</span>
+                  <span className="shrink-0 text-[11px] text-slate-500">
+                    {n === 0 ? t.notLately : t.timesLately(n)}
+                  </span>
+                </button>
+              )
+            })}
+            {filtered.length === 0 && !canCreate && (
+              <p className="px-3 py-6 text-center text-sm text-slate-500">{t.noMatch(query)}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>,
