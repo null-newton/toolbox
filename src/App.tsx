@@ -1,6 +1,6 @@
 // HashRouter so deep links survive refresh on GitHub Pages (no rewrite rules there).
 import { lazy, Suspense } from 'react'
-import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { useAuth } from './auth/auth-context'
 import { FavoritesProvider } from './favorites/FavoritesProvider'
@@ -9,6 +9,7 @@ import { Layout } from './components/Layout'
 import { SetupScreen } from './components/SetupScreen'
 import { Home } from './pages/Home'
 import { isSupabaseConfigured } from './lib/supabase'
+import { loginDestination, loginUrl } from './lib/navigation'
 import { getUtility } from './utilities/registry'
 import { useT } from './i18n/LanguageContext'
 import { LanguageProvider } from './i18n/LanguageProvider'
@@ -20,11 +21,12 @@ const FileTransfer = lazy(() =>
 
 function UtilityPage() {
   const { user } = useAuth()
+  const location = useLocation()
   const { utilityId } = useParams()
   const t = useT({ en: { loading: 'Loading tool…' }, nl: { loading: 'Tool laden…' } })
   const utility = utilityId ? getUtility(utilityId) : undefined
   if (!utility) return <Navigate to="/" replace />
-  if (!user && !utility.availableWithoutAccount) return <Navigate to="/login" replace />
+  if (!user && !utility.availableWithoutAccount) return <Navigate to={loginUrl(location)} replace />
   const Component = utility.component
   return (
     <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
@@ -35,6 +37,7 @@ function UtilityPage() {
 
 function AppRoutes() {
   const { user, loading } = useAuth()
+  const location = useLocation()
   const t = useT({ en: { loading: 'Loading…' }, nl: { loading: 'Laden…' } })
 
   if (loading) {
@@ -47,7 +50,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/login" element={user ? <Navigate to={loginDestination(location.search)} replace /> : <AuthPage />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route

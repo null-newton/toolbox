@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { PanelLeft } from 'lucide-react'
 import { useAuth } from '../auth/auth-context'
 import { useFavorites } from '../favorites/favorites-context'
@@ -8,6 +8,7 @@ import { useLang, useT } from '../i18n/LanguageContext'
 import { localizedUtility } from '../i18n/utilities'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { StarButton } from './StarButton'
+import { isSidebarHidden, loginUrl } from '../lib/navigation'
 
 const COLLAPSE_KEY = 'sidebar-collapsed'
 
@@ -42,6 +43,8 @@ const STR = {
 
 export function Layout() {
   const { user, signOut } = useAuth()
+  const location = useLocation()
+  const sidebarHidden = isSidebarHidden(location.search)
   const { isFavorite, toggleFavorite } = useFavorites()
   const t = useT(STR)
   const { lang } = useLang()
@@ -60,7 +63,7 @@ export function Layout() {
   }, [collapsed])
 
   useEffect(() => {
-    if (!navOpen) return
+    if (!navOpen || sidebarHidden) return
 
     const mobileQuery = window.matchMedia('(max-width: 1023px)')
     let unlockScroll: (() => void) | undefined
@@ -106,7 +109,18 @@ export function Layout() {
       mobileQuery.removeEventListener('change', syncScrollLock)
       unlockScroll?.()
     }
-  }, [navOpen])
+  }, [navOpen, sidebarHidden])
+
+  if (sidebarHidden) {
+    if (!user) return <Navigate to={loginUrl(location)} replace />
+    return (
+      <div className="ambient flex min-h-dvh bg-surface text-white lg:h-dvh lg:overflow-hidden">
+        <main className="relative z-10 min-w-0 flex-1 p-5 sm:p-8 lg:overflow-y-auto lg:p-10">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `group flex items-center gap-3 rounded-xl py-2 text-sm font-medium transition-all duration-200 ${

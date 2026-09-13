@@ -20,6 +20,22 @@ npm install
 npm run dev
 ```
 
+### Open a tool without the sidebar
+
+Append `?sidebar=hidden` to a tool's hash route, for example:
+
+```text
+https://your-toolbox-site/#/tools/qr-code?sidebar=hidden
+```
+
+Use `&sidebar=hidden` if the route already has query parameters. The parameter
+goes **after the `#`**, because the app uses hash routing. It hides the desktop
+sidebar and mobile menu bar without changing your saved sidebar preference.
+Visitors who are not logged in see the login page first, including for tools
+that normally allow guest access. After login, they return to the requested
+tool with its query parameters preserved. Removing the parameter restores the
+normal layout.
+
 ### Edge functions
 
 Five utilities call Supabase edge functions (in [supabase/functions/](supabase/functions/)).
