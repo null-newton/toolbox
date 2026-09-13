@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body class="text-slate-100"><div id="root" style="padding: 24px"></div><script type="module">
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import { SongListener } from '/src/utilities/song-listener/SongListener.tsx'
+import { LanguageProvider } from '/src/i18n/LanguageProvider.tsx'
+import '/src/index.css'
+createRoot(document.getElementById('root')).render(React.createElement(LanguageProvider, null, React.createElement(SongListener)))
+</script></body></html>

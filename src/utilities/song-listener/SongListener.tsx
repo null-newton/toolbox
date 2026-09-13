@@ -17,20 +17,9 @@ import {
 import { useT } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
 
-interface Song {
-  id: number
-  title: string
-  artist: string
-  album: string
-  duration: number
-  syncedLyrics: string
-  plainLyrics: string | null
-}
-
-interface LyricLine {
-  time: number
-  text: string
-}
+import { parseLrc } from './lyrics'
+import type { Song } from './lyrics'
+import { SpeechLyricsMode } from './SpeechLyricsMode'
 
 interface AudioRecognition {
   track: Song | null
@@ -116,25 +105,12 @@ function apiHeaders(extra: Record<string, string> = {}) {
   }
 }
 
-function parseLrc(source: string): LyricLine[] {
-  const lines: LyricLine[] = []
-  for (const row of source.split(/\r?\n/)) {
-    const match = row.match(/^\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?]\s*(.*)$/)
-    if (!match) continue
-    const fraction = match[3] ? Number(`0.${match[3].padEnd(3, '0').slice(0, 3)}`) : 0
-    const time = Number(match[1]) * 60 + Number(match[2]) + fraction
-    const text = match[4].trim()
-    if (text) lines.push({ time, text })
-  }
-  return lines.sort((a, b) => a.time - b.time)
-}
-
 function formatTime(seconds: number) {
   const safe = Math.max(0, Math.round(seconds))
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-export function SongListener() {
+function AudioRecognitionMode() {
   const t = useT(STR)
   const [listening, setListening] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -147,6 +123,8 @@ export function SongListener() {
   const [results, setResults] = useState<Song[]>([])
   const [manualSearching, setManualSearching] = useState(false)
 
+  const generationRef = useRef(0)
+  const manualAbortRef = useRef<AbortController | null>(null)
   const listeningRef = useRef(false)
   const cancelledRef = useRef(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -205,6 +183,7 @@ export function SongListener() {
   }, [])
 
   const stopListening = useCallback(() => {
+    generationRef.current += 1
     cancelledRef.current = true
     listeningRef.current = false
     setListening(false)
@@ -219,6 +198,8 @@ export function SongListener() {
   }, [cleanupAudio])
 
   useEffect(() => () => {
+    generationRef.current += 1
+    manualAbortRef.current?.abort()
     cancelledRef.current = true
     listeningRef.current = false
     if (captureTimerRef.current !== null) window.clearTimeout(captureTimerRef.current)
@@ -259,6 +240,8 @@ export function SongListener() {
   }, [])
 
   const startListening = useCallback(async () => {
+    stopListening()
+    const generation = generationRef.current
     setError('')
     setTrack(null)
     setProcessing(false)
@@ -266,10 +249,15 @@ export function SongListener() {
       setError(t.unsupported)
       return
     }
+    setListening(true)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
       })
+      if (generation !== generationRef.current) {
+        stream.getTracks().forEach((mediaTrack) => mediaTrack.stop())
+        return
+      }
       streamRef.current = stream
       cancelledRef.current = false
       listeningRef.current = true
@@ -292,10 +280,12 @@ export function SongListener() {
         if (event.data.size > 0) audioChunksRef.current.push(event.data)
       }
       recorder.onerror = () => {
+        if (generation !== generationRef.current) return
         stopListening()
         setError(t.genericError)
       }
       recorder.onstop = async () => {
+        if (generation !== generationRef.current) return
         mediaRecorderRef.current = null
         listeningRef.current = false
         setListening(false)
@@ -321,6 +311,7 @@ export function SongListener() {
             error?: string
             code?: string
           }
+          if (generation !== generationRef.current || controller.signal.aborted) return
           if (!response.ok) {
             if (body.code === 'catalog_not_ready' || body.code === 'recognizer_not_ready') {
               throw new Error(t.catalogNotReady)
@@ -340,11 +331,14 @@ export function SongListener() {
           const elapsed = (performance.now() - captureStartedRef.current) / 1000
           selectTrack(body.data.track, body.data.offsetSeconds + elapsed)
         } catch (reason) {
+          if (generation !== generationRef.current) return
           if (reason instanceof DOMException && reason.name === 'AbortError') return
           setError(reason instanceof Error ? reason.message : t.genericError)
         } finally {
-          requestAbortRef.current = null
-          setProcessing(false)
+          if (requestAbortRef.current === controller) {
+            requestAbortRef.current = null
+            setProcessing(false)
+          }
         }
       }
       recorder.start(1_000)
@@ -353,6 +347,7 @@ export function SongListener() {
         if (recorder.state !== 'inactive') recorder.stop()
       }, SAMPLE_DURATION_MS)
     } catch {
+      if (generation !== generationRef.current) return
       cleanupAudio()
       listeningRef.current = false
       setListening(false)
@@ -363,18 +358,23 @@ export function SongListener() {
   const searchManually = async (event: FormEvent) => {
     event.preventDefault()
     if (query.trim().length < 2) return
+    manualAbortRef.current?.abort()
+    const controller = new AbortController()
+    manualAbortRef.current = controller
     setManualSearching(true)
     setError('')
     try {
-      const response = await fetch(`${API_URL}?action=search&q=${encodeURIComponent(query.trim())}`, { headers: apiHeaders() })
+      const response = await fetch(`${API_URL}?action=search&q=${encodeURIComponent(query.trim())}`, { headers: apiHeaders(), signal: controller.signal })
       const body = await response.json() as { data?: Song[]; error?: string }
+      if (controller.signal.aborted) return
       if (!response.ok) throw new Error(body.error || t.genericError)
       setResults(body.data ?? [])
       if (!body.data?.length) setError(t.noResults)
     } catch (reason) {
+      if (controller.signal.aborted) return
       setError(reason instanceof Error ? reason.message : t.genericError)
     } finally {
-      setManualSearching(false)
+      if (manualAbortRef.current === controller) setManualSearching(false)
     }
   }
 
@@ -395,6 +395,7 @@ export function SongListener() {
   }
 
   const reset = () => {
+    stopListening()
     setTrack(null)
     setPlaying(false)
     setPosition(0)
@@ -403,16 +404,6 @@ export function SongListener() {
 
   return (
     <div className="mx-auto max-w-6xl animate-fade-up pb-8">
-      <header>
-        <div>
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
-            <Waves className="size-4" /> Audio recognition
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">{t.subtitle}</p>
-        </div>
-      </header>
-
       {track ? (
         <section className="mt-8 grid overflow-hidden rounded-3xl border border-white/10 bg-[#090c14]/90 shadow-2xl shadow-indigo-950/30 lg:h-[720px] lg:grid-cols-[340px_1fr]">
           <aside className="relative flex flex-col overflow-hidden border-b border-white/10 bg-gradient-to-b from-indigo-950/70 via-violet-950/45 to-[#0a0d16] p-6 lg:border-b-0 lg:border-r">
@@ -521,7 +512,7 @@ export function SongListener() {
             </div>
 
             <div className="relative mt-7">
-              {listening ? (
+              {listening || processing ? (
                 <button onClick={stopListening} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-6 py-3 text-sm font-semibold text-white hover:bg-white/15">
                   <Square className="size-4" fill="currentColor" /> {t.stop}
                 </button>
@@ -576,6 +567,41 @@ export function SongListener() {
         </>
       )}
 
+    </div>
+  )
+}
+
+
+const MODE_STR = {
+  en: {
+    title: 'Live Lyrics', subtitle: 'Find the music around you and follow its lyrics in real time.',
+    label: 'Recognition mode', audio: 'Audio recognition', speech: 'Speech to lyrics',
+  },
+  nl: {
+    title: 'Live songtekst', subtitle: 'Herken de muziek om je heen en volg de songtekst in realtime.',
+    label: 'Herkenningsmodus', audio: 'Audioherkenning', speech: 'Spraak naar songtekst',
+  },
+}
+
+export function SongListener() {
+  const t = useT(MODE_STR)
+  const [mode, setMode] = useState<'audio' | 'speech'>('audio')
+  return (
+    <div className="mx-auto max-w-6xl animate-fade-up pb-8">
+      <header>
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+          <Waves className="size-4" /> {mode === 'audio' ? t.audio : t.speech}
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
+        <p className="mt-2 text-sm text-slate-400 sm:text-base">{t.subtitle}</p>
+      </header>
+      <div role="group" aria-label={t.label} className="mt-6 inline-flex max-w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+        {(['audio', 'speech'] as const).map((value) => <button key={value} aria-pressed={mode === value} onClick={() => setMode(value)}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${mode === value ? 'bg-indigo-400/15 text-cyan-100 shadow-sm' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}>
+          {value === 'audio' ? <Waves className="size-4 shrink-0" /> : <Mic className="size-4 shrink-0" />}{t[value]}
+        </button>)}
+      </div>
+      {mode === 'audio' ? <AudioRecognitionMode /> : <SpeechLyricsMode />}
     </div>
   )
 }

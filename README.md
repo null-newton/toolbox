@@ -51,6 +51,26 @@ npx supabase functions deploy morningstar    # Stock Tracker (paid provider)
 
 #### Self-hosted backend (currently in use)
 
+Live Lyrics has two switchable modes: audio fingerprint recognition and
+**Speech to lyrics**. The latter uses browser speech recognition, searches
+[Unison](https://github.com/better-lyrics/unison#search-lyrics) by the detected
+words, retrieves its complete lyrics, and follows matching lines while the
+microphone stays on. It supports plain text, LRC, and TTML. Repeated choruses
+can be anchored by tapping a line. Choose the song language before starting.
+Browser speech support and transcription of singing vary; microphone access
+requires HTTPS or localhost.
+
+Both Unison phrase search and the LRCLIB title/artist fallback are free public
+read APIs, with no API key or paid subscription to configure. Deploy the
+updated backend and frontend together. Unison's community catalog may not
+contain every song, and the service may rate-limit requests; users can correct
+the phrase or select a song by title/artist instead. Unison results display
+its required attribution. Browser speech services may process audio remotely;
+the interface explains where detected text is sent.
+
+Check the lyric parser and phrase alignment with
+`node --test test/lyrics.test.mjs` (Node 22.18+).
+
 These functions also run as a self-hosted backend — a zero-dependency Node
 server that ports the edge functions and additional server-side utilities,
 running on the fileserver machine and exposed via

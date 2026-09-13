@@ -1,10 +1,12 @@
+import { LyricSearchError, searchByLyrics } from '../_shared/lyric-search.mjs'
+
 const LRCLIB_BASE = 'https://lrclib.net/api'
 const CLIENT_ID = 'Toolbox Live Lyrics/1.0 (https://toolbox.zacsvae.com)'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
 function json(body: unknown, status = 200) {
@@ -39,11 +41,11 @@ function normalizeTrack(row: AnyJson) {
   }
 }
 
-async function lrclibSearch(query: string) {
+async function lrclibSearch(query: string, includePlain = false) {
   const rows = await readJson(`${LRCLIB_BASE}/search?q=${encodeURIComponent(query)}`, {
     headers: { 'Lrclib-Client': CLIENT_ID },
   })
-  return (Array.isArray(rows) ? rows : []).filter((row) => row.syncedLyrics).slice(0, 8).map(normalizeTrack)
+  return (Array.isArray(rows) ? rows : []).filter((row) => row.syncedLyrics || (includePlain && row.plainLyrics)).slice(0, 8).map(normalizeTrack)
 }
 
 Deno.serve(async (req) => {
@@ -51,16 +53,25 @@ Deno.serve(async (req) => {
   const url = new URL(req.url)
   const action = url.searchParams.get('action')
   try {
+    if (action === 'search-lyrics') {
+      if (req.method !== 'POST') return json({ error: 'Lyrics-text search requires POST.' }, 405)
+      let input
+      try { input = await req.json() } catch {
+        return json({ error: 'Send a JSON object with a text field.' }, 400)
+      }
+      return json({ data: await searchByLyrics(input?.text) })
+    }
     if (action === 'recognize') {
       return json({ error: 'Audio fingerprinting is available only on the self-hosted Toolbox backend.' }, 501)
     }
     if (action === 'search') {
       const query = (url.searchParams.get('q') || '').trim()
       if (query.length < 2) return json({ error: 'Enter a song title or artist.' }, 400)
-      return json({ data: await lrclibSearch(query) })
+      return json({ data: await lrclibSearch(query, url.searchParams.get('plain') === '1') })
     }
     return json({ error: `Unknown action: ${action}` }, 400)
   } catch (error) {
+    if (error instanceof LyricSearchError) return json({ error: error.message, code: error.code }, error.status)
     return json({ error: error instanceof Error ? error.message : 'Song lookup failed.' }, 502)
   }
 })
