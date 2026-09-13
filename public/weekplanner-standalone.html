@@ -252,6 +252,12 @@
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.today { background: color-mix(in srgb, var(--indigo) 8%, transparent); }
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-head.weekend,
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.weekend { background: color-mix(in srgb, var(--violet) 4%, transparent); }
+    .catalog-scroll { overflow-x:auto; }
+    .catalog-table { width:100%; min-width:600px; border-collapse:collapse; }
+    .catalog-table th,.catalog-table td { border:1px solid var(--line); padding:10px; text-align:center; }
+    .catalog-table th:first-child { width:40%; text-align:left; }
+    .catalog-table small { display:block; margin-top:5px; color:var(--muted); font-weight:400; }
+    .catalog-table input { width:20px; height:20px; accent-color:var(--indigo); cursor:pointer; }
     @media (max-width: 900px) { .app { padding: 20px; } .top, .overview, .toolbar { align-items: stretch; flex-direction: column; } .actions { justify-content: start; } .stats { overflow-x: auto; } .filters { width: 100%; } .search { max-width: none; } }
     @media (max-width: 560px) { .app { padding: 14px; } .sub { margin-left: 0; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .worker-setting { flex-wrap: wrap; } .help-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .help-nav { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .help-nav button { width: auto; flex: none; margin: 0; } .help-content { padding: 24px 20px; } }
   </style>
@@ -260,7 +266,7 @@
   <main class="app">
     <header class="top">
       <div>
-        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Weekplanning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
+        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Klussenlijst/ Algemene planning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
         <p class="sub">Plan een volledige werkweek, bewaar alles in deze browser en neem afzonderlijke maanden mee als bestand.</p>
       </div>
       <div class="actions">
@@ -273,8 +279,8 @@
         <button class="btn" id="earnings-toggle" data-action="toggle-earnings" aria-expanded="false">€ Maandverdiensten</button>
         <button class="btn" data-action="settings">⚙ Instellingen</button>
         <button class="btn" data-action="print-general">Algemene planning</button>
-        <select id="sheet-worker" class="control" title="Werkfiche kiezen"></select>
-        <button class="btn primary" data-action="print-sheets" title="Bekijk de werkfiches en druk ze daarna af">Werkfiche(s)</button>
+        <select id="sheet-worker" class="control" title="Klussenkaart kiezen"></select>
+        <button class="btn primary" data-action="print-sheets" title="Bekijk de klussenkaarten en druk ze daarna af">Klussenkaart(s)</button>
       </div>
     </header>
 
@@ -300,7 +306,7 @@
         <input id="search" class="control search" type="search" placeholder="Zoek taak, bewoner of notitie…">
         <select id="worker-filter" class="control"></select>
       </div>
-      <div class="actions"><button class="btn" data-action="new-task">+ Taak toevoegen</button><button class="btn" data-action="copy-previous">⧉ Vorige week kopiëren</button></div>
+      <div class="actions"><button class="btn primary" data-action="task-catalog">Klussen kiezen</button><button class="btn" data-action="new-task">+ Taak toevoegen</button><button class="btn" data-action="copy-previous">⧉ Vorige week kopiëren</button></div>
     </section>
 
     <section class="matrix-shell"><div class="matrix" id="matrix"></div></section>
@@ -332,8 +338,8 @@
           <div class="field"><label for="task-worker">Bewoner</label><select id="task-worker" class="input" required></select></div>
           <div class="field"><label for="task-date">Datum</label><input id="task-date" class="input" type="date" required></div>
           <div class="field"><label for="task-time">Uur</label><input id="task-time" class="input" type="time" value="09:00"></div>
-          <div class="field"><label for="task-price">Loon (optioneel)</label><input id="task-price" class="input" inputmode="decimal" placeholder="€"></div>
-          <div class="field full hint">Dit uur en loon gelden voor iedere bewoner die aan deze taak wordt toegewezen.</div>
+          <div class="field"><label for="task-price">Prijs (optioneel)</label><input id="task-price" class="input" inputmode="decimal" placeholder="€"></div>
+          <div class="field full hint">Dit uur en deze prijs gelden voor iedere bewoner die aan deze taak wordt toegewezen.</div>
           <div class="field full"><label for="task-notes">Notitie (optioneel)</label><textarea id="task-notes" class="input" placeholder="Adres, materiaal of extra instructie…"></textarea></div>
         </div>
         <div class="modal-footer"><button type="button" class="btn" data-action="close-task">Annuleren</button><button type="submit" class="btn primary">Taak bewaren</button></div>
@@ -348,10 +354,21 @@
         <div class="form-grid">
           <div class="field full"><label for="definition-name">Taaknaam</label><input id="definition-name" class="input" required></div>
           <div class="field"><label for="definition-time">Uur</label><input id="definition-time" class="input" type="time" required></div>
-          <div class="field"><label for="definition-wage">Loon (optioneel)</label><input id="definition-wage" class="input" inputmode="decimal" placeholder="€"></div>
+          <div class="field"><label for="definition-wage">Prijs (optioneel)</label><input id="definition-wage" class="input" inputmode="decimal" placeholder="€"></div>
           <div class="field full hint" id="task-definition-hint">Wijzigingen gelden voor alle bewoners en dagen van deze taak.</div>
         </div>
         <div class="modal-footer"><button type="button" class="btn" data-action="close-task-definition">Annuleren</button><button type="submit" class="btn primary">Taak bewaren</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="catalog-backdrop">
+    <section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="catalog-title">
+      <div class="modal-head"><div><h2 id="catalog-title">Klussen kiezen</h2><p id="catalog-range" class="hint"></p></div><button class="btn icon" data-action="close-catalog" aria-label="Sluiten">×</button></div>
+      <p class="hint" style="margin-bottom:16px">Vink per klus de dagen aan waarop deze nodig is. Alle klussen en extra klussen blijven hier beschikbaar. Alleen gekozen of toegewezen klussen komen op de weeklijst; toegewezen bewoners krijgen ze op hun klussenkaart.</p>
+      <form id="catalog-form">
+        <div class="catalog-scroll"><table class="catalog-table"><thead><tr id="catalog-head"></tr></thead><tbody id="catalog-body"></tbody></table></div>
+        <div class="modal-footer"><button type="button" class="btn" data-action="close-catalog">Annuleren</button><button type="submit" class="btn primary">Weekselectie bewaren</button></div>
       </form>
     </section>
   </div>
@@ -366,7 +383,7 @@
       </div>
       <div class="section-head"><div><h3>Bewoners</h3><p class="hint">Deze volgorde wordt gebruikt in de planner en exports.</p></div><button class="btn small" data-action="add-worker">+ Bewoner</button></div>
       <div id="worker-settings"></div>
-      <div class="section-head"><div><h3>Taakpresets</h3><p class="hint">Presets bevatten uitsluitend een taaknaam.</p></div></div>
+      <div class="section-head"><div><h3>Taakpresets</h3><p class="hint">Alle klussen blijven hier bewaard met hun uur en prijs. Kies de gewenste dagen via Klussen kiezen.</p></div></div>
       <div class="preset-list" id="preset-settings"></div>
       <div class="modal-footer"><button class="btn primary" data-action="close-settings">Sluiten</button></div>
     </section>
@@ -403,13 +420,13 @@
         {id:'start',title:'Snel starten',intro:'Van een lege planner naar een bruikbare weekplanning.',steps:['Open Instellingen en vul de algemene gegevens in.','Voeg bewoners toe en controleer hun volgorde en maandmaximum.','Maak de nodige taken aan.','Wijs bewoners per dag toe in de weekmatrix.','Controleer de maandverdiensten en exporteer de documenten.']},
         {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies bovenaan een kleurenthema; je keuze wordt automatisch in deze browser opgeslagen.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
         {id:'residents',title:'Bewoners',intro:'Beheer namen, volgorde, kleuren en persoonlijke limieten.',steps:['Klik bij Instellingen op Bewoner toevoegen.','Gebruik de pijlen om de vaste volgorde te bepalen.','Kies een herkenbare kleur.','Laat Eigen maximum leeg voor het standaardbedrag, of vul een afwijkend bedrag in.','Bij verwijderen verdwijnen ook de gekoppelde toewijzingen.']},
-        {id:'tasks',title:'Taken en loon',intro:'Een taak heeft een naam, uur en loon; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Taak toevoegen en vul de taakgegevens in.','De taak verschijnt als een aparte rij.','Gebruik het potlood naast de taak om ze later te bewerken.','Taakpresets blijven beschikbaar voor toekomstig gebruik.','Het taakloon telt per ingeplande bewoner mee in de maandverdiensten.']},
-        {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Vorige week kopiëren neemt alle toewijzingen over.']},
-        {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Maandverdiensten via de vaste knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt het taakloon één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
+        {id:'tasks',title:'Taken en prijs',intro:'Een taak heeft een naam, uur en prijs; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Taak toevoegen en vul de taakgegevens in.','Een nieuwe taak verschijnt in de huidige week. Via Klussen kiezen vink je de gewenste dagen aan.','Gebruik het potlood naast de taak om ze later te bewerken.','Klussen kiezen toont alle klussen en extra klussen. Niet gekozen klussen blijven bewaard voor later.','De taakprijs telt per ingeplande bewoner mee in de maandverdiensten.']},
+        {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Vorige week kopiëren neemt de gekozen klussen en toewijzingen over. Via Klussen kiezen kun je dagen weer uitvinken.']},
+        {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Maandverdiensten via de vaste knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt de taakprijs één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
         {id:'json',title:'Maandbestand JSON',intro:'Gebruik een maandbestand als lokale back-up of om gegevens naar een andere browser te verplaatsen.',steps:['Kies eerst de juiste maand in Maandverdiensten.','Klik op Maand als JSON om alleen die maand te downloaden.','JSON uploaden vervangt uitsluitend de maand uit het bestand.','Andere maanden blijven behouden.','Oude weekbestanden kunnen nog steeds worden geïmporteerd.']},
-        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en werkfiches hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of werkfiches.','Controleer de inhoud en klik bovenaan op Afdrukken.','De algemene planning en werkfiches worden op A4 liggend geëxporteerd.','Op iedere werkfichepagina staan maximaal twee bewonersfiches naast elkaar.','Kies daarna een printer of Bewaar als PDF.']},
+        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en klussenkaarten hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of klussenkaarten.','Controleer de inhoud en klik bovenaan op Afdrukken.','De klussenlijst past op één liggend A4 per week. Klussenkaarten staan per twee op liggend A4, met rasterruimte voor extra klussen.','Op iedere klussenkaartpagina staan maximaal twee bewonersfiches naast elkaar.','Kies daarna een printer of Bewaar als PDF.']},
       ]
-      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', theme: 'white', workers: [], taskPresets: [], taskDefaults: {}, assignments: [] })
+      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', theme: 'white', workers: [], taskPresets: [], taskDefaults: {}, plannedTasks: [], assignments: [] })
       let data = loadData()
       let anchor = new Date()
       let query = ''
@@ -439,7 +456,7 @@
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
           if (!saved || typeof saved !== 'object') return emptyData()
-          return { ...emptyData(), ...saved, theme: THEMES.includes(saved.theme) ? saved.theme : 'white', workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
+          return { ...emptyData(), ...saved, theme: THEMES.includes(saved.theme) ? saved.theme : 'white', workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, plannedTasks: Array.isArray(saved.plannedTasks) ? saved.plannedTasks.filter(item=>typeof item.task==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(item.date)) : [], assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
         } catch { return emptyData() }
       }
       function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
@@ -507,7 +524,7 @@
         $('#stats').innerHTML = stat('▣',allWeek.length,'Taken deze week') + stat('♙',new Set(allWeek.map(item => item.workerId)).size,'Bewoners') + stat('✓',allWeek.filter(item => item.done).length,'Afgevinkt')
         $('#search').value = query
         $('#worker-filter').innerHTML = `<option value="all">Alle bewoners</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${workerFilter===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
-        $('#sheet-worker').innerHTML = `<option value="all">Alle werkfiches</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${sheetWorker===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        $('#sheet-worker').innerHTML = `<option value="all">Alle klussenkaarten</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${sheetWorker===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
         renderEarnings()
         renderMatrix()
       }
@@ -520,14 +537,33 @@
       }
       const stat = (icon,value,label) => `<div class="stat"><div class="stat-icon">${icon}</div><div><b>${value}</b><span>${label}</span></div></div>`
 
+      function allTasks() {
+        return [...data.taskPresets,...data.plannedTasks.map(item=>item.task),...data.assignments.map(item=>item.task)]
+          .filter((task,index,list)=>taskKey(task)&&list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index)
+      }
+      function tasksForWeek() {
+        const dates=weekSet(), selected=new Set([...data.plannedTasks,...data.assignments].filter(item=>dates.has(item.date)).map(item=>taskKey(item.task)))
+        return allTasks().filter(task=>selected.has(taskKey(task)))
+      }
+      function openCatalog() {
+        const days=weekDays(), selected=new Set([...data.plannedTasks,...data.assignments].map(item=>JSON.stringify([taskKey(item.task),item.date])))
+        $('#catalog-range').textContent=formatRange()
+        $('#catalog-head').innerHTML='<th>Alle klussen / extra klussen</th>'+days.map(day=>`<th>${SHORT_DAYS[day.getDay()]}<br>${day.getDate()}/${day.getMonth()+1}</th>`).join('')
+        $('#catalog-body').innerHTML=allTasks().map(task=>`<tr><th scope="row">${esc(task)}<small>${esc(timeLabel(taskDefaultTime(task)))} · Prijs: €${esc(taskDefaultWage(task)||'0')}</small></th>${days.map(day=>`<td><input type="checkbox" data-plan-task="${esc(task)}" data-plan-date="${ymd(day)}" aria-label="${esc(task)} op ${ymd(day)}" ${selected.has(JSON.stringify([taskKey(task),ymd(day)]))?'checked':''}></td>`).join('')}</tr>`).join('')||'<tr><td colspan="8">Nog geen klussen. Voeg eerst een taak toe.</td></tr>'
+        $('#catalog-backdrop').classList.add('open')
+      }
+      function closeCatalog() { $('#catalog-backdrop').classList.remove('open') }
+      function workerColor(worker) { return /^#[0-9a-f]{6}$/i.test(worker?.color) ? worker.color : COLORS[Math.max(0,data.workers.indexOf(worker))%COLORS.length] }
+      function workerBadge(worker) { return `<span class="resident" style="--resident-color:${workerColor(worker)}">${esc(worker?.name||'—')}</span>` }
+
       function renderMatrix() {
         const days = weekDays(), dates = new Set(days.map(ymd)), today = ymd(new Date())
         const map = workerMap(), needle = query.trim().toLocaleLowerCase('nl-BE')
         const assignments = sortAssignments(data.assignments.filter(item => dates.has(item.date)).filter(item => workerFilter==='all'||item.workerId===workerFilter))
-        const tasks = [...data.taskPresets,...data.assignments.map(item=>item.task)].filter((task,index,list)=>task.trim()&&list.findIndex(candidate=>candidate.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE'))===index)
+        const tasks = tasksForWeek()
         const visibleTasks = tasks.filter(task=>!needle||task.toLocaleLowerCase('nl-BE').includes(needle)||assignments.some(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)))
         const head = `<div class="matrix-grid matrix-head"><div class="corner">Taken</div>${days.map(day => { const date=ymd(day), weekend=[0,6].includes(day.getDay()); return `<div class="day-head ${date===today?'today':''} ${weekend?'weekend':''}"><div class="day-name"><span>${SHORT_DAYS[day.getDay()]}</span>${weekend?'<em>weekend</em>':''}</div><div class="day-date">${day.getDate()} <span>${day.toLocaleDateString('nl-BE',{month:'short'})}</span></div></div>` }).join('')}</div>`
-        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Voeg een taak toe om de weekmatrix te gebruiken.</p><button class="btn primary" data-action="new-task">Taak toevoegen</button>${data.workers.length?'':' <button class="btn" data-action="settings">Bewoner toevoegen</button>'}</div></div>`; return }
+        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Kies de klussen die deze week nodig zijn.</p><button class="btn primary" data-action="task-catalog">Klussen kiezen</button>${data.workers.length?'':' <button class="btn" data-action="settings">Bewoner toevoegen</button>'}</div></div>`; return }
         const rows = visibleTasks.map(task => {
           const total = data.assignments.filter(item => dates.has(item.date) && item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')).length
           const cells = days.map(day => {
@@ -540,7 +576,7 @@
       }
       function taskCard(item) {
         const worker=workerMap().get(item.workerId)
-        return `<article class="task-card ${item.done?'done':''}" draggable="true" data-task-id="${esc(item.id)}"><div class="task-main"><span class="grip">⠿</span><button class="task-title" data-action="edit-task" data-id="${esc(item.id)}"><span class="worker-dot" style="display:inline-block;background:${esc(worker?.color||'#64748b')};margin:0 5px 0 0"></span>${esc(worker?.name||'Naam bewoner')}</button></div>${item.notes?`<div class="task-meta"><div>${esc(item.notes)}</div></div>`:''}<div class="task-tools"><button class="mini" data-action="done-task" data-id="${esc(item.id)}" title="OK">✓</button><button class="mini" data-action="edit-task" data-id="${esc(item.id)}" title="Bewerken">✎</button><button class="mini" data-action="duplicate-task" data-id="${esc(item.id)}" title="Dupliceren">⧉</button><button class="mini danger" data-action="delete-task" data-id="${esc(item.id)}" title="Verwijderen">⌫</button></div></article>`
+        return `<article style="border-left:4px solid ${workerColor(worker)}" class="task-card ${item.done?'done':''}" draggable="true" data-task-id="${esc(item.id)}"><div class="task-main"><span class="grip">⠿</span><button class="task-title" data-action="edit-task" data-id="${esc(item.id)}"><span class="worker-dot" style="display:inline-block;background:${esc(worker?.color||'#64748b')};margin:0 5px 0 0"></span>${esc(worker?.name||'Naam bewoner')}</button></div>${item.notes?`<div class="task-meta"><div>${esc(item.notes)}</div></div>`:''}<div class="task-tools"><button class="mini" data-action="done-task" data-id="${esc(item.id)}" title="OK">✓</button><button class="mini" data-action="edit-task" data-id="${esc(item.id)}" title="Bewerken">✎</button><button class="mini" data-action="duplicate-task" data-id="${esc(item.id)}" title="Dupliceren">⧉</button><button class="mini danger" data-action="delete-task" data-id="${esc(item.id)}" title="Verwijderen">⌫</button></div></article>`
       }
 
       function openTask(date, workerId, taskName = '', item = null) {
@@ -577,7 +613,7 @@
       function closeSettings() { $('#settings-backdrop').classList.remove('open'); render() }
       function renderSettingsLists() {
         $('#worker-settings').innerHTML = data.workers.length ? data.workers.map((worker,index) => `<div class="worker-setting" style="flex-wrap:wrap"><input class="color" type="color" value="${esc(worker.color)}" data-worker-color="${esc(worker.id)}" title="Kleur"><input class="input" style="min-width:160px;flex:1" value="${esc(worker.name)}" data-worker-name="${esc(worker.id)}" placeholder="Naam bewoner"><label style="display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap" title="Leeg = standaardbedrag">Eigen maximum € <input class="input" style="width:82px" inputmode="decimal" value="${esc(worker.monthlyLimit??'')}" placeholder="${esc(data.defaultMonthlyLimit||'285')}" data-worker-limit="${esc(worker.id)}"></label><button class="mini" data-action="move-worker-up" data-id="${esc(worker.id)}" ${index===0?'disabled':''}>↑</button><button class="mini" data-action="move-worker-down" data-id="${esc(worker.id)}" ${index===data.workers.length-1?'disabled':''}>↓</button><button class="mini danger" data-action="delete-worker" data-id="${esc(worker.id)}">⌫</button></div>`).join('') : '<p class="hint">Nog geen bewoners.</p>'
-        $('#preset-settings').innerHTML = data.taskPresets.length ? data.taskPresets.map(name => `<div class="preset" style="width:100%;flex-wrap:wrap"><b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Loon € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label><button class="mini danger" data-action="delete-preset" data-name="${esc(name)}">×</button></div>`).join('') : '<p class="hint">Maak een preset tijdens het invoeren van een taak.</p>'
+        $('#preset-settings').innerHTML = data.taskPresets.length ? data.taskPresets.map(name => `<div class="preset" style="width:100%;flex-wrap:wrap"><b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Prijs € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label><button class="mini danger" data-action="delete-preset" data-name="${esc(name)}">×</button></div>`).join('') : '<p class="hint">Maak een preset tijdens het invoeren van een taak.</p>'
       }
       function updateTaskDefault(task, patch) { const key=taskKey(task),current=data.taskDefaults[key]||{time:taskDefaultTime(task),wage:taskDefaultWage(task)},next={...current,...patch};data.taskDefaults[key]=next;data.assignments=data.assignments.map(item=>taskKey(item.task)===key?{...item,time:next.time,price:next.wage}:item);save() }
       function openTaskDefinition(task = '') { const editing=Boolean(task);editingTaskName=task||null;$('#task-definition-title').textContent=editing?'Taak bewerken':'Taak aanmaken';$('#task-definition-hint').textContent=editing?'Wijzigingen gelden voor alle bewoners en dagen van deze taak.':'Je hoeft nu nog geen bewoner te kiezen. Die wijs je later toe via de dropdown van de juiste dag.';$('#definition-name').value=task;$('#definition-time').value=editing?taskDefaultTime(task):'09:00';$('#definition-wage').value=editing?taskDefaultWage(task):'';$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
@@ -585,7 +621,7 @@
 
       function downloadMonth() {
         const month=/^\d{4}-\d{2}$/.test(earningsMonth)?earningsMonth:ymd(new Date()).slice(0,7), assignments=data.assignments.filter(item=>item.date.startsWith(`${month}-`))
-        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit,theme:data.theme}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, assignments }
+        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit,theme:data.theme}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, plannedTasks:data.plannedTasks.filter(item=>item.date.startsWith(`${month}-`)), assignments }
         const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob), link=document.createElement('a')
         link.href=url; link.download=`maandplanning-${month}.json`; link.click(); URL.revokeObjectURL(url)
       }
@@ -604,37 +640,119 @@
           const workers=[...payload.workers.map(imported=>({...data.workers.find(worker=>worker.id===imported.id),...imported})),...data.workers.filter(worker=>!importedIds.has(worker.id))]
           const presets=[...data.taskPresets]
           ;(payload.taskPresets||[]).forEach(name=>{ if(!presets.some(item=>item.toLocaleLowerCase('nl-BE')===String(name).toLocaleLowerCase('nl-BE'))) presets.push(String(name)) })
-          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
+          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, plannedTasks:[...data.plannedTasks.filter(item=>!isInPeriod(item.date)),...(Array.isArray(payload.plannedTasks)?payload.plannedTasks:[]).filter(item=>typeof item.task==='string'&&typeof item.date==='string'&&isInPeriod(item.date))], assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
           anchor=start; earningsMonth=ymd(start).slice(0,7); workerFilter='all'; query=''; commit(); toast(isMonth?'Maandbestand geïmporteerd':'Oud weekbestand geïmporteerd')
         } catch(error) { await showAlert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.','Bestand niet geopend') }
         finally { $('#json-file').value='' }
       }
 
       function printWindow(body, workSheets = false) {
-        const win=window.open('','_blank'); if(!win){ showAlert('Sta pop-ups toe voor deze pagina en probeer daarna opnieuw.','Afdrukweergave geblokkeerd'); return } win.opener=null
-        win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Afdrukweergave · Weekplanning</title><style>@page{size:${workSheets?'A4 portrait':'A4 landscape'};margin:${workSheets?'8mm':'12mm'}}*{box-sizing:border-box}body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}.preview-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;color:#f9fafb;background:#111827;box-shadow:0 4px 16px rgba(0,0,0,.2)}.preview-toolbar strong{display:block;font-size:14px}.preview-toolbar span{display:block;margin-top:2px;color:#9ca3af;font-size:11px}.preview-actions{display:flex;gap:8px}.preview-actions button{border:1px solid #4b5563;border-radius:8px;padding:9px 14px;color:#f9fafb;background:#1f2937;cursor:pointer;font:bold 12px Arial}.preview-actions .primary{border-color:#4f46e5;background:#4f46e5}.preview-content{width:${workSheets?'210mm':'297mm'};min-height:${workSheets?'297mm':'210mm'};margin:24px auto;padding:${workSheets?'8mm':'12mm'};background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.18)}h1{font-size:20px;margin:0}.head{display:flex;justify-content:space-between;align-items:end;border-bottom:2px solid #111827;padding-bottom:8px;margin-bottom:14px}.brand{color:#4f46e5;font-weight:700;text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #374151;padding:6px 5px;text-align:left;vertical-align:top}th{background:#eef2ff}.subh th{background:#f8fafc;font-size:8px}.center{text-align:center}.muted{color:#6b7280}.task{font-weight:700}.notes{display:block;font-size:8px;font-weight:400;margin-top:3px}.line{min-height:12px}.sheet{break-after:page}.sheet:last-child{break-after:auto}.work .date{width:16%}.work .time{width:13%}.work .wage{width:13%}.work .ok{width:9%}.work td{height:34px}body.worksheets{font-size:17px}.worksheets h1{font-size:34px}.worksheets .sheet{display:flex;min-height:280mm;flex-direction:column}.worksheets .head{margin-bottom:14px;padding-bottom:10px}.worksheets .work{flex:1;height:238mm;font-size:17px}.worksheets .work th,.worksheets .work td{padding:11px 9px;vertical-align:middle}.worksheets .work td{height:auto}.worksheets .work .notes{font-size:13px;line-height:1.35}@media(max-width:900px){.preview-content{width:calc(100% - 24px);min-height:0;margin:12px auto;overflow-x:auto}.preview-toolbar{align-items:flex-start;padding:10px 12px}.preview-toolbar span{display:none}.preview-actions button{padding:8px 10px}}@media print{body{background:#fff}.preview-toolbar{display:none}.preview-content{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}}</style></head><body class="${workSheets?'worksheets':'general-export'}"><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>Controleer de planning en open daarna het afdrukvenster.</span></div><div class="preview-actions"><button id="close-preview" type="button">Sluiten</button><button id="start-print" class="primary" type="button">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
-        const palette=PRINT_THEMES[data.theme]||PRINT_THEMES.white, printStyle=win.document.createElement('style')
-        printStyle.textContent=`.brand{color:${palette.accent}}thead th{color:#111827!important;background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;forced-color-adjust:none}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}thead th{background:${palette.heading}!important;background-image:linear-gradient(${palette.heading},${palette.heading})!important;box-shadow:inset 0 0 0 1000px ${palette.heading}!important}.subh th{background:${palette.subheading}!important;background-image:linear-gradient(${palette.subheading},${palette.subheading})!important;box-shadow:inset 0 0 0 1000px ${palette.subheading}!important}}`
-        win.document.head.append(printStyle)
-        if(workSheets){const style=win.document.createElement('style');style.textContent='@page{size:A4 landscape;margin:0}.worksheets{font-size:10px}.worksheets .preview-content{width:297mm;min-height:210mm;padding:0}.worksheets .sheet-page{display:grid;width:297mm;height:210mm;grid-template-columns:repeat(2,148.5mm);break-after:page;page-break-after:always}.worksheets .sheet-page:last-child{break-after:auto;page-break-after:auto}.worksheets .sheet{display:flex;width:148.5mm;height:210mm;min-width:0;min-height:0;padding:8mm;flex-direction:column;break-after:auto;break-inside:avoid}.worksheets h1{font-size:20px}.worksheets .head{margin-bottom:5px;padding-bottom:4px}.worksheets .work{height:auto;min-height:0;flex:1;font-size:10px}.worksheets .work th,.worksheets .work td{height:auto;padding:3px 5px;vertical-align:middle}.worksheets .work .notes{font-size:8px;line-height:1.2}@media print{.worksheets .preview-content{width:auto;min-height:0;margin:0;padding:0}.worksheets .sheet-page{width:297mm;height:210mm}}';win.document.head.append(style)}
+        const win=window.open('','_blank')
+        if(!win){showAlert('Sta pop-ups toe voor deze pagina en probeer daarna opnieuw.','Afdrukweergave geblokkeerd');return}
+        win.opener=null
+        const palette=PRINT_THEMES[data.theme]||PRINT_THEMES.white
+        win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Klussenlijst/ Algemene planning · ${esc(formatRange())}</title><style>
+          @page{size:A4 landscape;margin:${workSheets?'0':'12mm'}}
+          *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}
+          .preview-toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;color:white;background:#111827}
+          .preview-toolbar strong{display:block;font-size:14px}.preview-toolbar span{display:block;margin-top:3px;font-size:11px}
+          .preview-actions{display:flex;gap:8px}.preview-actions button{border:1px solid #64748b;border-radius:8px;padding:9px 14px;color:white;background:#1f2937;cursor:pointer}.preview-actions .primary{background:#4f46e5}
+          .preview-content{width:297mm;margin:24px auto;background:white;padding:${workSheets?'0':'12mm'};box-shadow:0 8px 30px #0003}
+          h1{font-size:20px;margin:0;overflow-wrap:anywhere}.head{display:flex;justify-content:space-between;align-items:start;gap:8px;border-bottom:2px solid #111827;padding-bottom:5px;margin-bottom:8px}
+          .brand{color:${palette.accent};font-weight:bold;text-transform:uppercase;letter-spacing:.08em;overflow-wrap:anywhere}
+          table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #374151;padding:4px 2px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+          th{background:${palette.heading}}.subh th{background:${palette.subheading};font-size:8px}.center{text-align:center}.muted{color:#4b5563}.task{font-weight:bold}.notes{display:block;font-size:.85em;font-weight:normal;margin-top:2px;white-space:pre-wrap}
+          .resident{display:block;border-left:3px solid var(--resident-color);background:color-mix(in srgb,var(--resident-color) 30%,white);color:#111827;padding:2px 3px;font-weight:bold;line-height:1.2;min-height:1.2em;margin-bottom:2px}
+          .general-page{height:185.5mm;overflow:hidden}.general-table{font-size:10px}.general-table .line{min-height:1.2em;padding:2px 0;margin-bottom:2px}.general-table .narrow{font-size:.9em}
+          .sheet-page{display:grid;width:297mm;height:210mm;grid-template-columns:repeat(2,148.5mm);break-after:page;page-break-after:always}.sheet-page:last-child{break-after:auto;page-break-after:auto}
+          .sheet{width:148.5mm;height:210mm;padding:8mm;min-width:0;break-inside:avoid}.sheet h1{font-size:19px}.sheet .head{min-height:15mm}.sheet .head>div{min-width:0}.sheet .head>div:last-child{max-width:48%;text-align:right}
+          .work{font-size:10px}.work th,.work td{padding:1mm;vertical-align:top;text-align:center}.work .task{text-align:center}.work .entry{line-height:1.2}.work .blank td{height:7mm}.work .extra-label{font-size:8px;color:#4b5563}
+          @media print{body{background:white}.preview-toolbar{display:none}.preview-content{width:auto;margin:0;padding:0;box-shadow:none}}
+        </style></head><body><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>${workSheets?'Klussenkaarten met ruimte om extra klussen bij te schrijven.':'Eén pagina voor deze week. Druk af op 100% voor de opgegeven kolombreedtes.'}</span></div><div class="preview-actions"><button id="close-preview">Sluiten</button><button id="start-print" class="primary">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
         win.document.close()
+        if(workSheets) layoutSheets(win)
+        else {
+          const page=win.document.querySelector('.general-page'), table=page.querySelector('table'), head=page.querySelector('.head')
+          const available=page.clientHeight-head.getBoundingClientRect().height-8
+          const alignChecks=()=>table.querySelectorAll('tbody tr').forEach(row=>{
+            for(let column=3;column<row.cells.length;column+=2){
+              const names=row.cells[column].querySelectorAll('.resident'), checks=row.cells[column+1]?.querySelectorAll('.line')||[]
+              names.forEach((name,index)=>{if(checks[index])checks[index].style.height=`${name.getBoundingClientRect().height}px`})
+            }
+          })
+          alignChecks()
+          let size=10
+          while(table.getBoundingClientRect().height>available&&size>6){size-=.5;table.style.fontSize=`${size}px`;table.querySelectorAll('td,th').forEach(cell=>cell.style.padding=`${Math.max(.5,size-7)}px 2px`);alignChecks()}
+          if(table.getBoundingClientRect().height>available){table.style.transformOrigin='top left';table.style.transform=`scaleY(${available/table.getBoundingClientRect().height})`}
+        }
         win.document.querySelector('#start-print').addEventListener('click',()=>win.print())
         win.document.querySelector('#close-preview').addEventListener('click',()=>win.close())
         win.focus()
       }
+      function layoutSheets(win) {
+        const doc=win.document, main=doc.querySelector('main'), originals=[...main.querySelectorAll('.sheet')], sheets=[]
+        const mm=96/25.4
+        // Measure real text before pagination so long instructions are never clipped.
+        for(const original of originals){
+          const source=[...original.querySelectorAll('tbody tr')], template=original.cloneNode(true)
+          template.querySelector('tbody').replaceChildren()
+          let sheet=template.cloneNode(true)
+          main.append(sheet)
+          let tbody=sheet.querySelector('tbody'), table=sheet.querySelector('table')
+          const fits=()=>table.getBoundingClientRect().bottom<=sheet.getBoundingClientRect().bottom-8*mm-1
+          const finish=()=>{
+            let first=true
+            while(true){const row=doc.createElement('tr');row.className='blank';row.innerHTML=`<td></td><td></td><td class="extra-label">${first?'Extra / vervanging':''}</td><td></td><td></td>`;tbody.append(row);if(!fits()){row.remove();break}first=false}
+            sheets.push(sheet)
+          }
+          for(const sourceRow of source){
+            const entry=sourceRow.querySelector('.entry'), words=(entry?.innerText||'').split(/\s+/).filter(Boolean)
+            const parts=[]
+            if(entry){
+              const measure=sourceRow.cloneNode(true), content=measure.querySelector('.entry')
+              tbody.append(measure);content.textContent=''
+              let chunk=[]
+              for(const word of words){content.textContent=[...chunk,word].join(' ');if(content.getBoundingClientRect().height>12*mm&&chunk.length){parts.push(chunk.join(' '));chunk=[word]}else chunk.push(word)}
+              if(chunk.length)parts.push(chunk.join(' '))
+              measure.remove()
+            }
+            for(let index=0;index<Math.max(1,parts.length);index++){
+              const row=sourceRow.cloneNode(true)
+              if(parts.length>1){row.querySelector('.entry').textContent=parts[index];if(index>0){row.cells[1].textContent='';row.cells[3].textContent='';row.cells[4].textContent=''}}
+              tbody.append(row)
+              if(!fits()&&tbody.rows.length>1){row.remove();finish();sheet=template.cloneNode(true);sheet.querySelector('h1').append(' (vervolg)');main.append(sheet);tbody=sheet.querySelector('tbody');table=sheet.querySelector('table');tbody.append(row)}
+            }
+          }
+          finish()
+        }
+        main.replaceChildren()
+        for(let index=0;index<sheets.length;index+=2){const page=doc.createElement('div');page.className='sheet-page';page.append(...sheets.slice(index,index+2));main.append(page)}
+      }
       function printGeneral() {
-        const days=weekDays(), dates=new Set(days.map(ymd)), map=workerMap(), all=sortAssignments(data.assignments.filter(item=>dates.has(item.date))), tasks=[...data.taskPresets,...data.assignments.map(item=>item.task)].filter((task,index,list)=>task.trim()&&list.findIndex(candidate=>candidate.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE'))===index)
-        const dayHeads=days.map(day=>`<th colspan="2">${esc(DAYS[day.getDay()])}<br><span class="muted">${day.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'})}</span></th>`).join(''), sub=days.map(()=>'<th>Bewoner</th><th class="center">OK</th>').join('')
-        const rows=tasks.map(task=>{ const items=all.filter(item=>item.task.trim().toLocaleLowerCase('nl-BE')===task.trim().toLocaleLowerCase('nl-BE')),wage=taskDefaultWage(task),time=timeLabel(taskDefaultTime(task)),notes=[...new Set(items.map(x=>x.notes?.trim()).filter(Boolean))],cells=days.map(day=>{ const found=items.filter(x=>x.date===ymd(day)); if(!found.length)return'<td></td><td></td>'; return `<td>${found.map(x=>`<div class="line">${esc(map.get(x.workerId)?.name||'—')}</div>`).join('')}</td><td class="center">${found.map(x=>`<div class="line">${x.done?'✓':'&nbsp;'}</div>`).join('')}</td>` }).join(''); return `<tr><td class="task">${esc(task)}${notes.map(note=>`<span class="notes">${esc(note)}</span>`).join('')}</td><td class="center">${esc(wage)}</td><td class="center">${esc(time)}</td>${cells}</tr>` }).join('')||'<tr><td colspan="17" class="center muted">Nog niets gepland</td></tr>'
-        printWindow(`<div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table><thead><tr><th rowspan="2">Taak</th><th rowspan="2" class="center">€</th><th rowspan="2" class="center">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table>`)
+        const days=weekDays(), dates=weekSet(), map=workerMap(), all=sortAssignments(data.assignments.filter(item=>dates.has(item.date))), tasks=tasksForWeek()
+        const dayHeads=days.map(day=>`<th colspan="2">${esc(DAYS[day.getDay()])}<br><span class="muted">${day.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'})}</span></th>`).join('')
+        const sub=days.map(()=>'<th>Bewoner</th><th class="center">OK</th>').join('')
+        const rows=tasks.map(task=>{
+          const items=all.filter(item=>taskKey(item.task)===taskKey(task)), notes=[...new Set(items.map(x=>x.notes?.trim()).filter(Boolean))]
+          const cells=days.map(day=>{
+            const found=items.filter(x=>x.date===ymd(day))
+            if(!found.length)return `<td>${data.plannedTasks.some(item=>taskKey(item.task)===taskKey(task)&&item.date===ymd(day))?'<span class="muted">Nog toe te wijzen</span>':''}</td><td></td>`
+            return `<td>${found.map(x=>workerBadge(map.get(x.workerId))).join('')}</td><td class="center">${found.map(x=>`<div class="line">${x.done?'✓':'&nbsp;'}</div>`).join('')}</td>`
+          }).join('')
+          return `<tr><td class="task">${esc(task)}${notes.map(note=>`<span class="notes">${esc(note)}</span>`).join('')}</td><td class="center narrow">${esc(taskDefaultWage(task))}</td><td class="center narrow">${esc(timeLabel(taskDefaultTime(task)))}</td>${cells}</tr>`
+        }).join('')||'<tr><td colspan="17" class="center muted">Geen klussen gepland voor deze week</td></tr>'
+        printWindow(`<section class="general-page"><div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Klussenlijst/ Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table class="general-table"><colgroup><col style="width:55mm"><col style="width:10mm"><col style="width:10mm">${days.map(()=>'<col><col style="width:10mm">').join('')}</colgroup><thead><tr><th rowspan="2">TAAK</th><th rowspan="2" class="center narrow">Prijs<br>€</th><th rowspan="2" class="center narrow">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table></section>`)
       }
       function printSheets() {
         const selectedWorkers=sheetWorker==='all'?data.workers:data.workers.filter(worker=>worker.id===sheetWorker)
-        if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return} const days=weekDays()
-        const sheets=selectedWorkers.map(worker=>{ const rows=days.map(day=>{ const items=data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))); if(!items.length)return`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td></td><td></td><td></td><td></td></tr>`; return items.map((item,index)=>`<tr>${index===0?`<td rowspan="${items.length}">${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td>`:''}<td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</td><td>${assignmentWage(item)?`€${esc(assignmentWage(item))}`:''}</td><td class="center">${item.done?'✓':''}</td></tr>`).join('') }).join(''); return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Werkfiche')}</div><h1>${esc(worker.name||'Bewoner')}</h1></div><div><b>Werkfiche</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><thead><tr><th class="date">Datum</th><th class="time">Uur</th><th>Taak</th><th class="wage">Loon</th><th class="ok center">OK</th></tr></thead><tbody>${rows}</tbody></table></section>` })
-        const pages=[]
-        for(let index=0;index<sheets.length;index+=2)pages.push(`<div class="sheet-page">${sheets.slice(index,index+2).join('')}</div>`)
-        printWindow(pages.join(''),true)
+        if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return}
+        const days=weekDays()
+        const sheets=selectedWorkers.map(worker=>{
+          const rows=days.flatMap(day=>data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))).map(item=>`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task"><div class="entry">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</div></td><td>${esc(assignmentWage(item))}</td><td>${item.done?'✓':''}</td></tr>`)).join('')
+          return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Klussenkaart')}</div><h1 style="border-left:4px solid ${workerColor(worker)};padding-left:5px">${esc(worker.name||'Bewoner')}</h1></div><div><b>Klussenkaart</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><colgroup><col><col style="width:10mm"><col style="width:55mm"><col style="width:10mm"><col style="width:10mm"></colgroup><thead><tr><th>Datum</th><th>Uur</th><th>TAAK</th><th>Prijs<br>€</th><th>OK</th></tr></thead><tbody>${rows}</tbody></table></section>`
+        })
+        printWindow(sheets.join(''),true)
       }
 
       document.addEventListener('click', async event => {
@@ -642,6 +760,8 @@
         const action=button.dataset.action
         if(action==='dialog-cancel'){closeDialog(false);return}
         if(action==='dialog-confirm'){closeDialog(true);return}
+        if(action==='task-catalog') openCatalog()
+        if(action==='close-catalog') closeCatalog()
         if(action==='settings') openSettings()
         if(action==='help') openHelp()
         if(action==='close-help') closeHelp()
@@ -661,7 +781,15 @@
         if(action==='done-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item){item.done=!item.done;commit()}}
         if(action==='duplicate-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item)commit({...data,assignments:[...data.assignments,{...item,id:uid(),done:false}]})}
         if(action==='delete-task') commit({...data,assignments:data.assignments.filter(x=>x.id!==button.dataset.id)})
-        if(action==='copy-previous'){const dates=new Set(Array.from({length:7},(_,i)=>ymd(addDays(startOfWeek(anchor),-7+i)))),source=data.assignments.filter(x=>dates.has(x.date));if(!source.length){toast('Geen taken in de vorige week');return}commit({...data,assignments:[...data.assignments,...source.map(x=>({...x,id:uid(),date:ymd(addDays(fromYmd(x.date),7)),done:false}))]});toast(`${source.length} taken gekopieerd`)}
+        if(action==='copy-previous'){
+          const dates=new Set(Array.from({length:7},(_,i)=>ymd(addDays(startOfWeek(anchor),-7+i))))
+          const source=data.assignments.filter(x=>dates.has(x.date)), planned=data.plannedTasks.filter(x=>dates.has(x.date))
+          if(!source.length&&!planned.length){toast('Geen taken in de vorige week');return}
+          const shifted=item=>({...item,date:ymd(addDays(fromYmd(item.date),7))})
+          const assignments=source.map(shifted).filter(item=>!data.assignments.some(x=>x.date===item.date&&taskKey(x.task)===taskKey(item.task)&&x.workerId===item.workerId)).map(item=>({...item,id:uid(),done:false}))
+          const selections=planned.map(shifted).filter(item=>!data.plannedTasks.some(x=>x.date===item.date&&taskKey(x.task)===taskKey(item.task)))
+          commit({...data,assignments:[...data.assignments,...assignments],plannedTasks:[...data.plannedTasks,...selections]});toast('Vorige week gekopieerd')
+        }
         if(action==='add-worker'){const worker={id:uid(),name:'',color:COLORS[data.workers.length%COLORS.length],monthlyLimit:''};data.workers.push(worker);save();renderSettingsLists();renderEarnings();setTimeout(()=>document.querySelector(`[data-worker-name="${worker.id}"]`)?.focus(),0)}
         if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&await showConfirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken worden definitief verwijderd.`,{title:'Bewoner verwijderen?',confirmLabel:'Verwijderen',variant:'danger'})){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
         if(action==='move-worker-up'||action==='move-worker-down'){const index=data.workers.findIndex(x=>x.id===button.dataset.id),target=index+(action.endsWith('up')?-1:1);if(index>=0&&target>=0&&target<data.workers.length){[data.workers[index],data.workers[target]]=[data.workers[target],data.workers[index]];save();renderSettingsLists();renderEarnings()}}
@@ -690,13 +818,24 @@
       $('#week-starts').addEventListener('change',event=>{data.weekStartsOn=Number(event.target.value);save();render()})
       $('#create-preset').addEventListener('click',()=>{const name=$('#task-name').value.trim();if(name&&!data.taskPresets.some(x=>x.toLocaleLowerCase('nl-BE')===name.toLocaleLowerCase('nl-BE'))){data.taskPresets.push(name);save();$('#task-presets').innerHTML=data.taskPresets.map(x=>`<option value="${esc(x)}"></option>`).join('');updatePresetButton();toast(`Preset “${name}” aangemaakt`)}})
       $('#task-form').addEventListener('submit',event=>{event.preventDefault();const previous=data.assignments.find(x=>x.id===editingId),workerId=$('#task-worker').value,task=$('#task-name').value.trim(),time=$('#task-time').value||'09:00',wage=$('#task-price').value.trim(),item={id:editingId||uid(),task,workerId,date:$('#task-date').value,time,price:wage,notes:$('#task-notes').value.trim(),done:previous?.done||false};if(!item.task||!item.workerId)return;const key=taskKey(task);data.taskDefaults[key]={time,wage};data.assignments=data.assignments.map(existing=>taskKey(existing.task)===key?{...existing,time,price:wage}:existing);data.assignments=editingId?data.assignments.map(existing=>existing.id===editingId?item:existing):[...data.assignments,item];closeTask();commit()})
-      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);closeTaskDefinition();commit()})
+      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);data.plannedTasks=data.plannedTasks.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name}:item);if(!originalName)data.plannedTasks.push({task:name,date:ymd(weekDays()[0])});closeTaskDefinition();commit()})
+      $('#catalog-form').addEventListener('submit',async event=>{
+        event.preventDefault()
+        const planned=[...document.querySelectorAll('[data-plan-task]:checked')].map(input=>({task:input.dataset.planTask,date:input.dataset.planDate}))
+        const dates=weekSet(), selected=new Set(planned.map(item=>JSON.stringify([taskKey(item.task),item.date])))
+        const keep=item=>!dates.has(item.date)||selected.has(JSON.stringify([taskKey(item.task),item.date]))
+        const removed=data.assignments.filter(item=>!keep(item))
+        if(removed.length&&!await showConfirm(`${removed.length} toewijzing(en) worden uit deze week verwijderd omdat de klus op die dag niet meer nodig is. De klus blijft beschikbaar in de volledige klussenlijst.`,{title:'Weekselectie aanpassen?',confirmLabel:'Selectie bewaren'}))return
+        data.plannedTasks=[...data.plannedTasks.filter(item=>!dates.has(item.date)),...planned]
+        data.assignments=data.assignments.filter(keep)
+        closeCatalog();commit();toast('Klussen voor deze week bewaard')
+      })
       $('#json-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)importPlannerFile(file)})
       $('#matrix').addEventListener('dragstart',event=>{const card=event.target.closest('[data-task-id]');if(card){event.dataTransfer.setData('text/plain',card.dataset.taskId);event.dataTransfer.effectAllowed='move'}})
       $('#matrix').addEventListener('dragover',event=>{const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
       $('#matrix').addEventListener('dragleave',event=>event.target.closest('.day-cell')?.classList.remove('drag-over'))
       $('#matrix').addEventListener('drop',event=>{const cell=event.target.closest('.day-cell');if(!cell)return;event.preventDefault();const id=event.dataTransfer.getData('text/plain'),item=data.assignments.find(x=>x.id===id);if(item){item.date=cell.dataset.date;item.task=cell.dataset.task;commit()}})
-      ;['help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop','dialog-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else if(id==='dialog-backdrop')closeDialog(false);else closeSettings()}}))
+      ;['catalog-backdrop','help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop','dialog-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='catalog-backdrop')closeCatalog();else if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else if(id==='dialog-backdrop')closeDialog(false);else closeSettings()}}))
       document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#dialog-backdrop').classList.contains('open')){event.preventDefault();closeDialog(false)}})
       render()
     })()
