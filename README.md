@@ -180,3 +180,11 @@ setConfig({ favoriteFormat: 'yaml' })
 
 See [src/utilities/text-case/TextCaseConverter.tsx](src/utilities/text-case/TextCaseConverter.tsx)
 for a complete example.
+
+### Wishlist
+
+The Wishlist MVP adds private collections, URL products with editable automatic
+Amazon/bol details, tags/sorting, revocable share links and anonymous gift
+reservations. Apply the new Wishlist SQL migration and **deploy the backend**
+with its Supabase Auth configuration before deploying the frontend. See the
+[Wishlist setup, privacy model and tests](src/utilities/wishlist/README.md).

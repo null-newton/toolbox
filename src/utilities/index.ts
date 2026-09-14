@@ -1,6 +1,7 @@
 import { lazy } from 'react'
 import { registerUtility } from './registry'
 import {
+  wishlistIcon,
   // textCaseIcon,
   routeIcon,
   downloadIcon,
@@ -224,3 +225,12 @@ registerUtility({
 //     import('./movies/Movies').then((m) => ({ default: m.Movies }))
 //   ),
 // })
+
+registerUtility({
+  id: 'wishlist',
+  name: 'Wishlist',
+  description: 'Collect gift ideas, add product links and share a list with anonymous gift reservations.',
+  icon: wishlistIcon,
+  availableWithoutAccount: false,
+  component: lazy(() => import('./wishlist/Wishlist').then(m => ({ default: m.Wishlist }))),
+})

@@ -10,6 +10,7 @@
  * sizing. Reference it from src/utilities/index.ts.
  */
 import {
+  Gift,
   CaseSensitive,
   Route,
   Download,
@@ -48,3 +49,5 @@ export const imageUpscalerIcon = <Maximize2 className="size-5" />
 export const backgroundRemoverIcon = <ScanLine className="size-5" />
 export const weatherIcon = <CloudSun className="size-5" />
 export const songListenerIcon = <MicVocal className="size-5" />
+
+export const wishlistIcon = <Gift className="size-5" />

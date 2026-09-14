@@ -19,6 +19,8 @@ const FileTransfer = lazy(() =>
   import('./utilities/file-transfer/FileTransfer').then((module) => ({ default: module.FileTransfer }))
 )
 
+const SharedWishlist = lazy(() => import('./utilities/wishlist/SharedWishlist').then(m => ({ default: m.SharedWishlist })))
+
 function UtilityPage() {
   const { user } = useAuth()
   const location = useLocation()
@@ -61,6 +63,11 @@ function AppRoutes() {
             </Suspense>
           }
         />
+        <Route path="/wishlist/:token" element={
+          <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
+            <SharedWishlist />
+          </Suspense>
+        } />
         <Route path="/tools/:utilityId" element={<UtilityPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

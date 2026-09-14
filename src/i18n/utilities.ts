@@ -9,6 +9,10 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  wishlist: {
+    en: { name: 'Wishlist', description: 'Collect gift ideas, add product links and share a list with anonymous gift reservations.' },
+    nl: { name: 'Verlanglijstjes', description: 'Verzamel cadeau-ideeën, voeg productlinks toe en deel een lijst met anonieme cadeaureserveringen.' },
+  },
   'song-listener': {
     en: {
       name: 'Live Lyrics',
