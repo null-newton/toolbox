@@ -32,3 +32,30 @@ test('validates external database rows and rejects unsafe shared item URLs', () 
   assert.equal(parseItems([row])[0].title, row.title)
   for (const patch of [{ url: 'javascript:alert(1)' }, { reserved: 'false' }, { price: '12' }, { currency: 'invalid' }, { tags: [null] }]) assert.throws(() => parseItems([{ ...row, ...patch }]))
 })
+
+test('recognizes Belgian product URLs and strips per-visit bol tracking for duplicates', () => {
+  assert.equal(normalizeUrl('https://www.amazon.com.be/-/nl/dp/B09QKC16K8/?coliid=example&colid=example&ref_=list_c_wl_lv_ov_lig_dp_it&th=1'), 'https://amazon.com.be/dp/B09QKC16K8')
+  const bol = 'https://www.bol.com/be/nl/p/motor-telefoonhouder/9300000251079620/'
+  assert.equal(normalizeUrl(`${bol}?cid=1789403550929-6599467557444`), normalizeUrl(`${bol}?cid=another-visit`))
+})
+
+test('distinguishes full Amazon/bol wishlists from product and unrelated shop links', async () => {
+  const { isWishlistUrl } = await import('../src/utilities/wishlist/model.ts')
+  for (const url of [
+    'https://www.amazon.com.be/hz/wishlist/ls/EXAMPLE?ref_=wl_share',
+    'https://www.bol.com/be/nl/verlanglijstje/11111111-1111-4111-8111-111111111111/?referrer=mail',
+  ]) assert.equal(isWishlistUrl(url), true)
+  for (const url of ['https://www.amazon.com.be/-/nl/dp/B09QKC16K8/', 'https://www.bol.com/be/nl/p/motor-telefoonhouder/9300000251079620/', 'https://shop.example/wishlist/book', 'https://www.bol.com/be/nl/p/wishlist/9300000251079620/', 'invalid']) assert.equal(isWishlistUrl(url), false)
+})
+
+test('explains undeployed backends, missing configuration, retailer blocks and auth separately', async () => {
+  const { metadataError } = await import('../src/utilities/wishlist/model.ts')
+  assert.equal(metadataError(404), 'metadataBackend')
+  assert.equal(metadataError(503, 'not_configured'), 'metadataBackend')
+  assert.equal(metadataError(502, 'shop_blocked'), 'metadataBlocked')
+  assert.equal(metadataError(401), 'metadataAuth')
+  assert.equal(metadataError(429), 'metadataRateLimit')
+  assert.equal(metadataError(400, 'wishlist_url'), 'metadataWishlist')
+  assert.equal(metadataError(400, 'unsupported_shop'), 'metadataUnsupported')
+  assert.equal(metadataError(502, 'some private error text'), 'metadataFailed')
+})

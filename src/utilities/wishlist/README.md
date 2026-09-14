@@ -81,3 +81,21 @@ must be enforced independently of private user configuration.
 External wishlist synchronization/mapping, browser share-target registration,
 public discovery, selected-item sharing, co-management, drag ordering,
 recommendations and price/stock alerts are intentionally outside this MVP.
+
+## Product import troubleshooting
+
+The input takes an individual product URL, not an Amazon `/hz/wishlist/ls/…`
+link or bol `/be/nl/verlanglijstje/…` link. Whole-list URLs are detected before
+fetching or saving, with instructions to open the list and copy a product link.
+External list import remains outside the MVP.
+
+An undeployed/misconfigured backend, expired login, rate limiting and a shop's
+access block now have distinct Dutch/English messages. Retailer blocks require
+manual entry; the tool does not bypass them. Fetching preserves the submitted
+shop URL's language path. Missing price or availability data does not overwrite
+manual values. The Amazon parser can read its main product title and buying
+price; the bounded HTML download limit is 4 MB. Bol's `cid` and `referrer`
+tracking parameters no longer distinguish otherwise identical products.
+
+Deploy both frontend and backend for these fixes; no new SQL migration or
+runtime dependency is required.

@@ -16,6 +16,10 @@ export function normalizeUrl(value: string): string {
   if (url.protocol !== 'https:' || url.username || url.password || url.port || !url.hostname.includes('.')) throw new Error('invalid')
   url.hash = ''
   for (const key of [...url.searchParams.keys()]) if (/^(utm_.*|ref|ref_|tag|linkCode|psc|fbclid|gclid)$/i.test(key)) url.searchParams.delete(key)
+  if (/^(www\.)?bol\.com$/.test(url.hostname)) {
+    url.searchParams.delete('cid')
+    url.searchParams.delete('referrer')
+  }
   // Amazon paths encode the same ASIN in several formats, often with a title.
   if (/^(www\.)?amazon\.(com|nl|de|fr|co\.uk|com\.be)$/.test(url.hostname)) {
     const asin = url.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:\/|$)/i)?.[1]
@@ -26,6 +30,27 @@ export function normalizeUrl(value: string): string {
   url.searchParams.sort()
   return url.href
 }
+/** A wishlist is not a product, even though it is hosted by a supported shop. */
+export function isWishlistUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim())
+    const host = url.hostname.replace(/^www\./, '')
+    return (/^amazon\.(com|nl|de|fr|co\.uk|com\.be)$/.test(host) && /^\/(?:hz\/wishlist|gp\/registry\/wishlist)(?:\/|$)/i.test(url.pathname)) ||
+      (host === 'bol.com' && /^\/(?:[a-z]{2}\/){0,2}(?:verlanglijstje|wishlist)(?:\/|$)/i.test(url.pathname))
+  } catch { return false }
+}
+
+export type MetadataError = 'metadataBackend' | 'metadataAuth' | 'metadataRateLimit' | 'metadataBlocked' | 'metadataUnsupported' | 'metadataWishlist' | 'metadataFailed'
+export function metadataError(status: number, code?: unknown): MetadataError {
+  if (code === 'wishlist_url') return 'metadataWishlist'
+  if (code === 'unsupported_shop') return 'metadataUnsupported'
+  if (code === 'shop_blocked') return 'metadataBlocked'
+  if (code === 'not_configured' || status === 404) return 'metadataBackend'
+  if (status === 401) return 'metadataAuth'
+  if (status === 429) return 'metadataRateLimit'
+  return 'metadataFailed'
+}
+
 export function draftPayload(draft: Draft) {
   const tags = [...new Set(draft.tags.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean))]
   const price = draft.price.trim() === '' ? null : Number(draft.price.replace(',', '.'))

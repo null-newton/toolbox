@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { ExternalLink, Gift } from 'lucide-react'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { functionsBase, supabase } from '../../lib/supabase'
-import { availabilityValues, emptyDraft, normalizeUrl, object } from './model'
+import { availabilityValues, emptyDraft, isWishlistUrl, metadataError, normalizeUrl, object } from './model'
 import type { Draft, Item } from './model'
 import { STR } from './strings'
 
@@ -31,34 +31,47 @@ export function ProductForm({ item, busy, onSave, onCancel }: { item?: Item; bus
   const [fetching, setFetching] = useState(false)
   const [notice, setNotice] = useState('')
   const disabled = busy || fetching
+  const wishlistLink = isWishlistUrl(draft.url)
   const change = (patch: Partial<Draft>) => setDraft(prev => ({ ...prev, ...patch }))
   async function metadata() {
     setFetching(true); setNotice('')
     try {
-      const url = normalizeUrl(draft.url)
+      if (wishlistLink) { setNotice(t.metadataWishlist); return }
+      normalizeUrl(draft.url) // Validate without removing the shop's language path for fetching.
+      const url = draft.url.trim()
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error()
+      if (!session) { setNotice(t.metadataAuth); return }
       const response = await fetch(`${functionsBase}/wishlist-metadata`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ url }), signal: AbortSignal.timeout(20000),
       })
-      if (!response.ok) throw new Error()
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null)
+        const code = body && typeof body === 'object' && 'error' in body ? body.error : undefined
+        setNotice(t[metadataError(response.status, code)])
+        return
+      }
       const data = object(await response.json())
       if (typeof data.title !== 'string' || typeof data.currency !== 'string' || !/^[A-Z]{3}$/.test(data.currency) ||
         typeof data.availability !== 'string' || !availabilityValues.includes(data.availability as Draft['availability']) ||
         (data.price !== null && (typeof data.price !== 'number' || !Number.isFinite(data.price) || data.price < 0 || data.price >= 1e10))) throw new Error()
-      change({ title: data.title || draft.title, price: data.price === null ? '' : String(data.price), currency: data.currency, availability: data.availability as Draft['availability'] })
+      change({
+        ...(data.title ? { title: data.title } : {}),
+        ...(data.price !== null ? { price: String(data.price), currency: data.currency } : {}),
+        ...(data.availability !== 'unknown' ? { availability: data.availability as Draft['availability'] } : {}),
+      })
       setNotice(data.title ? t.metadataDone : t.metadataFailed)
     } catch { setNotice(t.metadataFailed) }
     finally { setFetching(false) }
   }
-  return <form className="glass mt-5 rounded-2xl p-5" onSubmit={e => { e.preventDefault(); onSave(draft) }}>
+  return <form className="glass mt-5 rounded-2xl p-5" onSubmit={e => { e.preventDefault(); if (wishlistLink) { setNotice(t.metadataWishlist); return } onSave(draft) }}>
     <h2 className="mb-4 text-lg font-semibold">{item ? t.edit : t.add}</h2>
     <fieldset disabled={disabled} className="space-y-4">
       <Field label={t.url}><input autoFocus required type="url" maxLength={2048} value={draft.url} onChange={e => change({ url: e.target.value })} className={inputClass} placeholder="https://…" /></Field>
-      <button type="button" onClick={() => void metadata()} className={buttonClass}>{fetching ? t.working : t.fetch}</button>
+      <button type="button" disabled={wishlistLink} onClick={() => void metadata()} className={buttonClass}>{fetching ? t.working : t.fetch}</button>
       <p className="text-xs text-slate-400">{t.metadataHint}</p>
-      {notice && <p role="status" className="text-sm text-amber-200">{notice}</p>}
+      {wishlistLink && <p role="status" className="text-sm text-amber-200">{t.metadataWishlist}</p>}
+      {notice && !wishlistLink && <p role="status" className="text-sm text-amber-200">{notice}</p>}
       <Field label={t.productTitle}><input required maxLength={300} value={draft.title} onChange={e => change({ title: e.target.value })} className={inputClass} /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.price}><input inputMode="decimal" value={draft.price} onChange={e => change({ price: e.target.value })} className={inputClass} /></Field>
@@ -67,7 +80,7 @@ export function ProductForm({ item, busy, onSave, onCancel }: { item?: Item; bus
         <Field label={t.availability}><select value={draft.availability} onChange={e => change({ availability: e.target.value as Draft['availability'] })} className={inputClass}>{availabilityValues.map(value => <option key={value} value={value}>{t[value]}</option>)}</select></Field>
       </div>
       <Field label={t.tags}><input maxLength={620} value={draft.tags} onChange={e => change({ tags: e.target.value })} className={inputClass} /></Field>
-      <div className="flex gap-2"><button className={primaryClass}>{busy ? t.working : t.save}</button><button type="button" className={buttonClass} onClick={onCancel}>{t.cancel}</button></div>
+      <div className="flex gap-2"><button disabled={wishlistLink} className={primaryClass}>{busy ? t.working : t.save}</button><button type="button" className={buttonClass} onClick={onCancel}>{t.cancel}</button></div>
     </fieldset>
   </form>
 }
