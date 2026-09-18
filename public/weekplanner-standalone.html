@@ -266,7 +266,7 @@
   <main class="app">
     <header class="top">
       <div>
-        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Klussenlijst/ Algemene planning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
+        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Klussenlijst / Algemene planning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
         <p class="sub">Plan een volledige werkweek, bewaar alles in deze browser en neem afzonderlijke maanden mee als bestand.</p>
       </div>
       <div class="actions">
@@ -651,7 +651,7 @@
         if(!win){showAlert('Sta pop-ups toe voor deze pagina en probeer daarna opnieuw.','Afdrukweergave geblokkeerd');return}
         win.opener=null
         const palette=PRINT_THEMES[data.theme]||PRINT_THEMES.white
-        win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Klussenlijst/ Algemene planning · ${esc(formatRange())}</title><style>
+        win.document.write(`<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Klussenlijst / Algemene planning · ${esc(formatRange())}</title><style>
           @page{size:A4 landscape;margin:${workSheets?'0':'12mm'}}
           *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
           body{font:10px Arial;color:#111827;margin:0;background:#e5e7eb}
@@ -667,7 +667,7 @@
           .general-page{height:185.5mm;overflow:hidden}.general-table{font-size:10px}.general-table .line{min-height:1.2em;padding:2px 0;margin-bottom:2px}.general-table .narrow{font-size:.9em}
           .sheet-page{display:grid;width:297mm;height:210mm;grid-template-columns:repeat(2,148.5mm);break-after:page;page-break-after:always}.sheet-page:last-child{break-after:auto;page-break-after:auto}
           .sheet{width:148.5mm;height:210mm;padding:8mm;min-width:0;break-inside:avoid}.sheet h1{font-size:19px}.sheet .head{min-height:15mm}.sheet .head>div{min-width:0}.sheet .head>div:last-child{max-width:48%;text-align:right}
-          .work{font-size:10px}.work th,.work td{padding:1mm;vertical-align:top;text-align:center}.work .task{text-align:center}.work .entry{line-height:1.2}.work .blank td{height:7mm}.work .extra-label{font-size:8px;color:#4b5563}
+          .work{font-size:12px}.work th,.work td{padding:1mm;vertical-align:middle;text-align:center;white-space:nowrap}.work tbody tr,.work tbody td{height:14mm}.work tbody td{font-size:16px}.work .task{text-align:center}.work .cell-content{line-height:1.2;overflow:hidden;white-space:nowrap}
           @media print{body{background:white}.preview-toolbar{display:none}.preview-content{width:auto;margin:0;padding:0;box-shadow:none}}
         </style></head><body><header class="preview-toolbar"><div><strong>Afdrukweergave</strong><span>${workSheets?'Klussenkaarten met ruimte om extra klussen bij te schrijven.':'Eén pagina voor deze week. Druk af op 100% voor de opgegeven kolombreedtes.'}</span></div><div class="preview-actions"><button id="close-preview">Sluiten</button><button id="start-print" class="primary">Afdrukken</button></div></header><main class="preview-content">${body}</main></body></html>`)
         win.document.close()
@@ -693,8 +693,18 @@
       function layoutSheets(win) {
         const doc=win.document, main=doc.querySelector('main'), originals=[...main.querySelectorAll('.sheet')], sheets=[]
         const mm=96/25.4
-        // Measure real text before pagination so long instructions are never clipped.
+        const fitRow=(row,maxSize)=>[...row.cells].forEach((cell,index)=>{
+          const content=doc.createElement('div')
+          content.className='cell-content'
+          while(cell.firstChild)content.append(cell.firstChild)
+          cell.append(content)
+          let size=maxSize
+          content.style.fontSize=`${size}px`
+          if(row.parentElement.tagName==='TBODY'&&index<2)return
+          while(content.scrollWidth>content.clientWidth+1&&size>1){size=Math.max(1,size-.25);content.style.fontSize=`${size}px`}
+        })
         for(const original of originals){
+          original.querySelectorAll('thead tr').forEach(row=>fitRow(row,12))
           const source=[...original.querySelectorAll('tbody tr')], template=original.cloneNode(true)
           template.querySelector('tbody').replaceChildren()
           let sheet=template.cloneNode(true)
@@ -702,27 +712,14 @@
           let tbody=sheet.querySelector('tbody'), table=sheet.querySelector('table')
           const fits=()=>table.getBoundingClientRect().bottom<=sheet.getBoundingClientRect().bottom-8*mm-1
           const finish=()=>{
-            let first=true
-            while(true){const row=doc.createElement('tr');row.className='blank';row.innerHTML=`<td></td><td></td><td class="extra-label">${first?'Extra / vervanging':''}</td><td></td><td></td>`;tbody.append(row);if(!fits()){row.remove();break}first=false}
+            while(true){const row=doc.createElement('tr');row.className='blank';row.innerHTML='<td></td><td></td><td></td><td></td><td></td>';tbody.append(row);if(!fits()){row.remove();break}}
             sheets.push(sheet)
           }
           for(const sourceRow of source){
-            const entry=sourceRow.querySelector('.entry'), words=(entry?.innerText||'').split(/\s+/).filter(Boolean)
-            const parts=[]
-            if(entry){
-              const measure=sourceRow.cloneNode(true), content=measure.querySelector('.entry')
-              tbody.append(measure);content.textContent=''
-              let chunk=[]
-              for(const word of words){content.textContent=[...chunk,word].join(' ');if(content.getBoundingClientRect().height>12*mm&&chunk.length){parts.push(chunk.join(' '));chunk=[word]}else chunk.push(word)}
-              if(chunk.length)parts.push(chunk.join(' '))
-              measure.remove()
-            }
-            for(let index=0;index<Math.max(1,parts.length);index++){
-              const row=sourceRow.cloneNode(true)
-              if(parts.length>1){row.querySelector('.entry').textContent=parts[index];if(index>0){row.cells[1].textContent='';row.cells[3].textContent='';row.cells[4].textContent=''}}
-              tbody.append(row)
-              if(!fits()&&tbody.rows.length>1){row.remove();finish();sheet=template.cloneNode(true);sheet.querySelector('h1').append(' (vervolg)');main.append(sheet);tbody=sheet.querySelector('tbody');table=sheet.querySelector('table');tbody.append(row)}
-            }
+            const row=sourceRow.cloneNode(true)
+            tbody.append(row)
+            fitRow(row,16)
+            if(!fits()&&tbody.rows.length>1){row.remove();finish();sheet=template.cloneNode(true);sheet.querySelector('h1').append(' (vervolg)');main.append(sheet);tbody=sheet.querySelector('tbody');table=sheet.querySelector('table');tbody.append(row)}
           }
           finish()
         }
@@ -742,15 +739,15 @@
           }).join('')
           return `<tr><td class="task">${esc(task)}${notes.map(note=>`<span class="notes">${esc(note)}</span>`).join('')}</td><td class="center narrow">${esc(taskDefaultWage(task))}</td><td class="center narrow">${esc(timeLabel(taskDefaultTime(task)))}</td>${cells}</tr>`
         }).join('')||'<tr><td colspan="17" class="center muted">Geen klussen gepland voor deze week</td></tr>'
-        printWindow(`<section class="general-page"><div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Klussenlijst/ Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table class="general-table"><colgroup><col style="width:55mm"><col style="width:10mm"><col style="width:10mm">${days.map(()=>'<col><col style="width:10mm">').join('')}</colgroup><thead><tr><th rowspan="2">TAAK</th><th rowspan="2" class="center narrow">Prijs<br>€</th><th rowspan="2" class="center narrow">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table></section>`)
+        printWindow(`<section class="general-page"><div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Klussenlijst / Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table class="general-table"><colgroup><col style="width:55mm"><col style="width:10mm"><col style="width:10mm">${days.map(()=>'<col><col style="width:10mm">').join('')}</colgroup><thead><tr><th rowspan="2">TAAK</th><th rowspan="2" class="center narrow">Prijs<br>€</th><th rowspan="2" class="center narrow">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table></section>`)
       }
       function printSheets() {
         const selectedWorkers=sheetWorker==='all'?data.workers:data.workers.filter(worker=>worker.id===sheetWorker)
         if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return}
         const days=weekDays()
         const sheets=selectedWorkers.map(worker=>{
-          const rows=days.flatMap(day=>data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))).map(item=>`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task"><div class="entry">${esc(item.task)}${item.notes?`<span class="notes">${esc(item.notes)}</span>`:''}</div></td><td>${esc(assignmentWage(item))}</td><td>${item.done?'✓':''}</td></tr>`)).join('')
-          return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Klussenkaart')}</div><h1 style="border-left:4px solid ${workerColor(worker)};padding-left:5px">${esc(worker.name||'Bewoner')}</h1></div><div><b>Klussenkaart</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><colgroup><col><col style="width:10mm"><col style="width:55mm"><col style="width:10mm"><col style="width:10mm"></colgroup><thead><tr><th>Datum</th><th>Uur</th><th>TAAK</th><th>Prijs<br>€</th><th>OK</th></tr></thead><tbody>${rows}</tbody></table></section>`
+          const rows=days.flatMap(day=>data.assignments.filter(x=>x.workerId===worker.id&&x.date===ymd(day)).sort((a,b)=>assignmentTime(a).localeCompare(assignmentTime(b))).map(item=>`<tr><td>${day.toLocaleDateString('nl-BE',{weekday:'short',day:'2-digit',month:'2-digit'})}</td><td>${esc(timeLabel(assignmentTime(item)))}</td><td class="task">${esc([item.task,item.notes].filter(Boolean).join(' — ').replace(/\s+/g,' '))}</td><td>${esc(assignmentWage(item))}</td><td>${item.done?'✓':''}</td></tr>`)).join('')
+          return `<section class="sheet"><div class="head"><div><div class="brand">${esc(data.companyName||'Klussenkaart')}</div><h1 style="border-left:4px solid ${workerColor(worker)};padding-left:5px">${esc(worker.name||'Bewoner')}</h1></div><div><b>Klussenkaart</b><br><span class="muted">${esc(formatRange())}</span></div></div><table class="work"><colgroup><col style="width:26.75mm"><col style="width:26.75mm"><col style="width:55mm"><col style="width:10mm"><col style="width:14mm"></colgroup><thead><tr><th>Datum</th><th>Uur</th><th>TAAK</th><th>Prijs €</th><th>OK</th></tr></thead><tbody>${rows}</tbody></table></section>`
         })
         printWindow(sheets.join(''),true)
       }
