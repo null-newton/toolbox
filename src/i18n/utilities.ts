@@ -33,6 +33,16 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'Huidig weer, verwachtingen, bewaarde steden en historische mediane maxima en minima.',
     },
   },
+  'image-toolbox': {
+    en: {
+      name: 'Image Toolbox',
+      description: 'Resize, compress and convert images while removing metadata — entirely in your browser.',
+    },
+    nl: {
+      name: 'Afbeeldingstoolbox',
+      description: 'Verklein, comprimeer en converteer afbeeldingen en verwijder metadata — volledig in je browser.',
+    },
+  },
   'image-upscaler': {
     en: {
       name: 'AI Image Upscaler',

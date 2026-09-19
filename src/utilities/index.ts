@@ -20,6 +20,7 @@ import {
   backgroundRemoverIcon,
   weatherIcon,
   songListenerIcon,
+  imageToolboxIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -59,10 +60,23 @@ registerUtility({
 // })
 
 registerUtility({
+  id: 'image-toolbox',
+  name: 'Image Toolbox',
+  description: 'Resize, compress and convert images while removing metadata — entirely in your browser.',
+  icon: imageToolboxIcon,
+  category: 'media',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./image-toolbox/ImageToolbox').then((m) => ({ default: m.ImageToolbox }))
+  ),
+})
+
+registerUtility({
   id: 'background-remover',
   name: 'Background Remover',
   description: 'Remove image and video backgrounds locally with open-source AI.',
   icon: backgroundRemoverIcon,
+  category: 'media',
   availableWithoutAccount: true,
   component: lazy(() =>
     import('./background-remover/BackgroundRemover').then((m) => ({ default: m.BackgroundRemover }))
@@ -74,6 +88,7 @@ registerUtility({
   name: 'AI Image Upscaler',
   description: 'Enlarge photos and illustrations by 2×, 3× or 4× with self-hosted AI.',
   icon: imageUpscalerIcon,
+  category: 'media',
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./image-upscaler/ImageUpscaler').then((m) => ({ default: m.ImageUpscaler }))

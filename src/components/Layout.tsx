@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { PanelLeft } from 'lucide-react'
+import { ChevronDown, Images, PanelLeft } from 'lucide-react'
 import { useAuth } from '../auth/auth-context'
 import { useFavorites } from '../favorites/favorites-context'
 import { getUtilities } from '../utilities/registry'
@@ -25,6 +25,7 @@ const STR = {
     logOut: 'Log out',
     logIn: 'Log in',
     signInPrompt: 'Sign in to save your settings.',
+    media: 'Media',
   },
   nl: {
     utilities: 'Hulpmiddelen',
@@ -38,6 +39,7 @@ const STR = {
     logOut: 'Afmelden',
     logIn: 'Aanmelden',
     signInPrompt: 'Meld je aan om je instellingen te bewaren.',
+    media: 'Media',
   },
 }
 
@@ -51,7 +53,10 @@ export function Layout() {
   const utilities = getUtilities().filter((u) => user || u.availableWithoutAccount)
   const favourites = utilities.filter((u) => isFavorite(u.id))
   const nonFavourites = utilities.filter((u) => !isFavorite(u.id))
+  const mediaUtilities = nonFavourites.filter((u) => u.category === 'media')
+  const generalUtilities = nonFavourites.filter((u) => !u.category)
   const [navOpen, setNavOpen] = useState(false)
+  const [mediaOpen, setMediaOpen] = useState(true)
   // Desktop-only rail collapse, remembered across sessions.
   const [collapsed, setCollapsed] = useState(
     () => typeof localStorage !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1'
@@ -236,7 +241,33 @@ export function Layout() {
               >
                 {t.utilities}
               </p>
-              {nonFavourites.map((u) => renderItem(u))}
+              {generalUtilities.map((u) => renderItem(u))}
+              {mediaUtilities.length > 0 && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setMediaOpen((open) => !open)}
+                    aria-expanded={mediaOpen}
+                    title={collapsed ? t.media : undefined}
+                    className={`no-glow flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white ${
+                      collapsed ? 'lg:justify-center lg:px-2' : ''
+                    }`}
+                  >
+                    <Images className="size-5 shrink-0 text-slate-400" />
+                    <span className={`flex-1 text-left ${collapsed ? 'lg:hidden' : ''}`}>{t.media}</span>
+                    <ChevronDown
+                      className={`size-4 text-slate-500 transition-transform ${mediaOpen ? '' : '-rotate-90'} ${
+                        collapsed ? 'lg:hidden' : ''
+                      }`}
+                    />
+                  </button>
+                  {mediaOpen && (
+                    <div className={`space-y-1 ${collapsed ? '' : 'ml-5 border-l border-white/10 pl-2'}`}>
+                      {mediaUtilities.map((u) => renderItem(u, 'media-'))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </nav>

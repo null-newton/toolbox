@@ -18,6 +18,8 @@ export interface Utility {
    * surrounding text color via `stroke="currentColor"`.
    */
   icon: ReactNode
+  /** Optional sidebar group for closely related tools. */
+  category?: 'media'
   /**
    * When true, the utility can be used without logging in — saving
    * (configs, saved items) still requires an account. Defaults to false:
