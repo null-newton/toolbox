@@ -1563,7 +1563,7 @@ function Heatmap({
         </div>
         <Marker x={xFor(optimal.azimuth)} y={yFor(optimal.tilt)} label="★" color="#fde047" />
         {faces.map((f, i) => (
-          <Marker key={f.id} x={xFor(clampX(f.azimuth))} y={yFor(clampY(f.tilt))} label={`${i + 1}`} color="#818cf8" />
+          <Marker key={f.id} x={xFor(clampX(f.azimuth))} y={yFor(clampY(f.tilt))} label={`${i + 1}`} color="#c8ff3d" />
         ))}
       </div>
       <div className="mt-1.5 flex justify-between text-[10px] text-slate-500">

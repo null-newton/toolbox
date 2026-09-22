@@ -1,12 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
 
-  --color-surface: #07090f;
-  --color-panel: #0d111c;
+  --color-surface: #071013;
+  --color-panel: #0d181c;
+
+  /* Portfolio-derived neutrals and accents. Existing utility colour classes
+     inherit the new palette, so every tool participates in the restyle. */
+  --color-slate-950: #071013;
+  --color-slate-900: #0d181c;
+  --color-slate-800: #111f24;
+  --color-slate-700: #24373c;
+  --color-slate-600: #526568;
+  --color-slate-500: #7e918f;
+  --color-slate-400: #9baba8;
+  --color-slate-300: #bdc9c6;
+  --color-slate-200: #d8e2df;
+  --color-slate-100: #eef5f2;
+
+  --color-indigo-50: #f8ffe6;
+  --color-indigo-100: #efffc4;
+  --color-indigo-200: #dfff86;
+  --color-indigo-300: #c8ff3d;
+  --color-indigo-400: #a5d52f;
+  --color-indigo-500: #66871c;
+  --color-indigo-600: #506b16;
+  --color-indigo-700: #3c5015;
+  --color-indigo-800: #303f17;
+  --color-indigo-900: #293617;
+  --color-indigo-950: #141d08;
+
+  --color-violet-100: #d6fffc;
+  --color-violet-300: #83f1ed;
+  --color-violet-400: #4ee6e0;
+  --color-violet-500: #168f8c;
+  --color-violet-950: #062a2b;
+
+  --color-cyan-100: #d6fffc;
+  --color-cyan-200: #adfaf6;
+  --color-cyan-300: #83f1ed;
+  --color-cyan-400: #4ee6e0;
+  --color-cyan-500: #18aaa6;
+
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
 
   --animate-fade-up: fade-up 0.5s ease-out both;
 
@@ -24,11 +67,12 @@
 
 body {
   background-color: var(--color-surface);
+  color: #eef5f2;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Fixed ambient glow behind everything — soft radial blobs. */
+/* The portfolio uses a drafting-grid backdrop with one restrained cyan bloom. */
 .ambient::before {
   content: '';
   position: fixed;
@@ -36,15 +80,15 @@ body {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(600px circle at 15% -10%, rgb(99 102 241 / 0.18), transparent 60%),
-    radial-gradient(700px circle at 90% 110%, rgb(34 211 238 / 0.1), transparent 60%),
-    radial-gradient(500px circle at 70% 20%, rgb(168 85 247 / 0.08), transparent 60%);
+    radial-gradient(circle at 84% 5%, rgb(78 230 224 / 0.11), transparent 28rem),
+    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
+  background-size: auto, 48px 48px, 48px 48px;
 }
 
 @utility glass {
-  background-color: rgb(255 255 255 / 0.04);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgb(255 255 255 / 0.08);
+  background-color: rgb(13 24 28 / 0.94);
+  border: 1px solid #24373c;
 }
 
 /* Structural chrome (top bar, sidebar). Unlike the airy `glass` cards, these
@@ -52,15 +96,13 @@ body {
    through a 4%-white fill and washes the edges out into the background. A
    semi-opaque dark backing keeps them as distinct, crisply-bordered panels. */
 @utility glass-strong {
-  background-color: rgb(13 17 28 / 0.8);
+  background-color: rgb(7 16 19 / 0.9);
   backdrop-filter: blur(16px);
-  border: 1px solid rgb(255 255 255 / 0.12);
+  border: 1px solid #24373c;
 }
 
 @utility text-gradient {
-  background-image: linear-gradient(to right, #818cf8, #c084fc, #22d3ee);
-  background-clip: text;
-  -webkit-background-clip: text;
+  -webkit-text-stroke: 1px #eef5f2;
   color: transparent;
 }
 
@@ -84,7 +126,7 @@ button::after,
   transition: opacity var(--glow-fade, 0.3s) ease;
   background: radial-gradient(
     100px circle at var(--x, 50%) var(--y, 50%),
-    rgb(255 255 255 / 0.18),
+    rgb(200 255 61 / 0.16),
     transparent 70%
   );
 }
@@ -114,8 +156,8 @@ button:active:not(:disabled):not(.no-glow) {
   transition: opacity var(--glow-fade, 0.4s) ease;
   background: radial-gradient(
     280px circle at var(--x, 50%) var(--y, 50%),
-    rgb(129 140 248 / 0.16),
-    rgb(34 211 238 / 0.05) 50%,
+    rgb(200 255 61 / 0.12),
+    rgb(78 230 224 / 0.05) 50%,
     transparent 75%
   );
 }
@@ -127,7 +169,8 @@ button:active:not(:disabled):not(.no-glow) {
 }
 
 ::selection {
-  background-color: rgb(129 140 248 / 0.35);
+  background-color: rgb(200 255 61 / 0.35);
+  color: #071013;
 }
 
 /* Mobile browsers auto-zoom when focusing a form control whose text is under
@@ -146,19 +189,18 @@ button:active:not(:disabled):not(.no-glow) {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: rgb(255 255 255 / 0.1);
-  border-radius: 9999px;
+  background-color: #24373c;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(255 255 255 / 0.2);
+  background-color: #4ee6e0;
 }
 
 /* Shared dense form treatment used by the weekly planner dialogs. */
 .form-input {
   width: 100%;
   border: 1px solid rgb(255 255 255 / 0.1);
-  border-radius: 0.75rem;
-  background-color: rgb(255 255 255 / 0.05);
+  border-radius: 2px;
+  background-color: #0d181c;
   padding: 0.625rem 0.75rem;
   color: white;
   font-size: 0.875rem;
@@ -167,10 +209,50 @@ button:active:not(:disabled):not(.no-glow) {
 }
 
 .form-input:focus {
-  border-color: rgb(129 140 248 / 0.55);
-  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.12);
+  border-color: rgb(200 255 61 / 0.7);
+  box-shadow: 0 0 0 3px rgb(200 255 61 / 0.1);
 }
 
 .form-input::placeholder {
-  color: rgb(71 85 105);
+  color: #526568;
+}
+
+:focus-visible {
+  outline: 2px solid #c8ff3d;
+  outline-offset: 3px;
+}
+
+/* Small reusable pieces shared by the shell and landing page. */
+.tech-label {
+  color: #c8ff3d;
+  font: 500 0.72rem/1.4 'DM Mono', ui-monospace, monospace;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.tech-label::before {
+  content: '';
+  display: inline-block;
+  width: 2rem;
+  height: 2px;
+  margin-right: 0.65rem;
+  vertical-align: middle;
+  background: #c8ff3d;
+}
+
+.brand-mark {
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.acid-button {
+  border: 1px solid #c8ff3d;
+  background: #c8ff3d;
+  color: #071013;
+  box-shadow: none;
+}
+
+.acid-button:hover {
+  background: #d7ff70;
 }

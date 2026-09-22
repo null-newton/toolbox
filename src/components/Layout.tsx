@@ -182,16 +182,16 @@ export function Layout() {
             onClick={closeNav}
             className={`group flex items-center gap-3 px-5 py-5 ${collapsed ? 'lg:px-0 lg:py-1' : ''}`}
           >
-            <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-400 shadow-lg shadow-indigo-500/30 transition-transform duration-200 group-hover:scale-105">
-              <svg className="size-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="grid size-10 place-items-center rounded-xl border border-indigo-300 bg-panel text-indigo-300 transition-transform duration-200 group-hover:-translate-y-0.5">
+              <svg className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z" />
                 <path d="M8 9V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v3" />
                 <path d="M3 13h6m6 0h6" />
                 <path d="M9 11v4m6-4v4" />
               </svg>
             </span>
-            <span className={`text-lg font-bold tracking-tight ${collapsed ? 'lg:hidden' : ''}`}>
-              Toolbox
+            <span className={`brand-mark text-[0.95rem] ${collapsed ? 'lg:hidden' : ''}`}>
+              TOOL<span className="text-indigo-300">_</span>BOX
             </span>
           </NavLink>
           {/* Desktop rail collapse/expand toggle. */}
@@ -304,7 +304,7 @@ export function Layout() {
                 to="/login"
                 onClick={closeNav}
                 title={t.logIn}
-                className={`mt-3 block w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-1.5 text-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:brightness-110 ${
+                className={`acid-button mt-3 block w-full rounded-xl py-1.5 text-center text-sm font-bold transition-all duration-200 ${
                   collapsed ? 'lg:px-0' : 'px-3'
                 }`}
               >
@@ -329,15 +329,15 @@ export function Layout() {
             </svg>
           </button>
           <Link to="/" className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-400 shadow-lg shadow-indigo-500/30">
-              <svg className="size-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="grid size-8 place-items-center rounded-lg border border-indigo-300 bg-panel text-indigo-300">
+              <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z" />
                 <path d="M8 9V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v3" />
                 <path d="M3 13h6m6 0h6" />
                 <path d="M9 11v4m6-4v4" />
               </svg>
             </span>
-            <span className="font-bold tracking-tight">Toolbox</span>
+            <span className="brand-mark text-sm">TOOL<span className="text-indigo-300">_</span>BOX</span>
           </Link>
         </header>
 

@@ -585,7 +585,7 @@ export function VideoEditor() {
       y: 0,
       w: 1,
       h: 1,
-      color: '#4f46e5',
+      color: '#4ee6e0',
       opacity: 1,
     }
     setOverlays((prev) => [...prev, o])

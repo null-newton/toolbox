@@ -264,7 +264,7 @@ export const SlippyMap = forwardRef<SlippyMapHandle, Props>(function SlippyMap(
       ctx.fillStyle = face.active ? 'rgba(99,102,241,0.30)' : 'rgba(56,189,248,0.18)'
       ctx.fill()
       ctx.lineWidth = face.active ? 3 : 2
-      ctx.strokeStyle = face.active ? '#818cf8' : '#38bdf8'
+      ctx.strokeStyle = face.active ? '#c8ff3d' : '#4ee6e0'
       ctx.stroke()
       for (const p of pts) dot(ctx, p.x, p.y, face.active ? '#c7d2fe' : '#7dd3fc')
       if (face.points.length >= 3) drawArrow(ctx, pts, face.azimuth, face.active)

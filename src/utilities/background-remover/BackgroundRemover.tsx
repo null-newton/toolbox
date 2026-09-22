@@ -167,7 +167,7 @@ const backgroundChoices: { value: VideoBackground; color: string }[] = [
   { value: 'white', color: '#fff' },
   { value: 'black', color: '#050505' },
   { value: 'green', color: '#00e676' },
-  { value: 'custom', color: 'linear-gradient(135deg,#818cf8,#22d3ee)' },
+  { value: 'custom', color: 'linear-gradient(135deg,#c8ff3d,#4ee6e0)' },
 ]
 
 export function BackgroundRemover() {
@@ -187,7 +187,7 @@ export function BackgroundRemover() {
   const [progress, setProgress] = useState(0)
   const [quality, setQuality] = useState<ImageQuality>('balanced')
   const [background, setBackground] = useState<VideoBackground>('transparent')
-  const [customColor, setCustomColor] = useState('#7c3aed')
+  const [customColor, setCustomColor] = useState('#4ee6e0')
   const [feather, setFeather] = useState(0.45)
   const [view, setView] = useState<'original' | 'result'>('result')
   const [dragging, setDragging] = useState(false)

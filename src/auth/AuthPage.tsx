@@ -95,9 +95,8 @@ export function AuthPage() {
           <svg className="mx-auto size-16" viewBox="0 0 24 24" fill="none" stroke="url(#toolbox-grad)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
             <defs>
               <linearGradient id="toolbox-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#6366f1" />
-                <stop offset="50%" stopColor="#8b5cf6" />
-                <stop offset="100%" stopColor="#22d3ee" />
+                <stop offset="0%" stopColor="#c8ff3d" />
+                <stop offset="100%" stopColor="#4ee6e0" />
               </linearGradient>
             </defs>
             <path d="M3 9h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z" />
@@ -105,8 +104,8 @@ export function AuthPage() {
             <path d="M3 13h6m6 0h6" />
             <path d="M9 11v4m6-4v4" />
           </svg>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">
-            <span className="text-gradient">Toolbox</span>
+          <h1 className="brand-mark mt-4 text-2xl text-white">
+            TOOL<span className="text-indigo-300">_</span>BOX
           </h1>
           <p className="mt-1.5 text-sm text-slate-400">
             {mode === 'login' ? t.loginSubtitle : t.registerSubtitle}
@@ -183,7 +182,7 @@ export function AuthPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:shadow-indigo-500/40 hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100"
+            className="acid-button w-full rounded-xl px-4 py-2.5 font-bold transition-all duration-200 disabled:opacity-50"
           >
             {submitting ? t.pleaseWait : mode === 'login' ? t.logIn : t.register}
           </button>

@@ -465,7 +465,7 @@ export function QRCodeGenerator() {
     dotsType: 'rounded' as DotType,
     cornersSquareType: 'extra-rounded' as CornerSquareType,
     cornersDotType: 'dot' as CornerDotType,
-    fgColor: '#6366f1',
+    fgColor: '#071013',
     bgColor: '#ffffff',
     transparentBg: false,
     size: 300,
