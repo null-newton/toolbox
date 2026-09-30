@@ -21,6 +21,7 @@ import {
   weatherIcon,
   songListenerIcon,
   imageToolboxIcon,
+  subtitleStudioIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -137,6 +138,18 @@ registerUtility({
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./yt-dlp/YtDlpCommand').then((m) => ({ default: m.YtDlpCommand }))
+  ),
+})
+
+registerUtility({
+  id: 'subtitle-studio',
+  name: 'Subtitle Studio',
+  description: 'Download or upload a video, transcribe it, edit subtitles, and export SRT or a captioned video.',
+  icon: subtitleStudioIcon,
+  category: 'media',
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./subtitle-studio/SubtitleStudio').then((m) => ({ default: m.SubtitleStudio }))
   ),
 })
 
