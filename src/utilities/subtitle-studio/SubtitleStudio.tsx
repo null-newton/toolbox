@@ -41,6 +41,11 @@ const LANGUAGES = [
   ['de', 'German'], ['es', 'Spanish'], ['it', 'Italian'], ['pt', 'Portuguese'],
 ]
 
+const TARGET_LANGUAGES = [
+  ['original', 'Original language'], ['en', 'English'], ['nl', 'Dutch'], ['fr', 'French'],
+  ['de', 'German'], ['es', 'Spanish'], ['it', 'Italian'], ['pt', 'Portuguese'],
+]
+
 export function SubtitleStudio() {
   const inputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -52,6 +57,7 @@ export function SubtitleStudio() {
   const [progress, setProgress] = useState(0)
   const [jobId, setJobId] = useState('')
   const [language, setLanguage] = useState('auto')
+  const [targetLanguage, setTargetLanguage] = useState('original')
   const [model, setModel] = useState('base')
   const [cues, setCues] = useState<Cue[]>([])
   const [activeCue, setActiveCue] = useState(0)
@@ -121,13 +127,13 @@ export function SubtitleStudio() {
       setProgress(id ? 48 : 20)
       const data = await parseResponse(await fetch(`${api}?action=transcribe`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: id || undefined, url: tab === 'url' ? url.trim() : undefined, language, model }),
+        body: JSON.stringify({ jobId: id || undefined, url: tab === 'url' ? url.trim() : undefined, language, targetLanguage, model }),
       }))
       setJobId(data.jobId)
       setCues(data.cues)
       setVideoUrl(`${api}?action=file&job=${encodeURIComponent(data.jobId)}&kind=source`)
       setProgress(100)
-      setStatus('Transcript ready')
+      setStatus(data.translated ? `Translated subtitles ready in ${TARGET_LANGUAGES.find(([code]) => code === data.targetLanguage)?.[1] || data.targetLanguage}` : 'Transcript ready')
       setPhase('editing')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Transcription failed.')
@@ -205,8 +211,9 @@ export function SubtitleStudio() {
               </div>
             )}
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
               <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><Languages className="size-4 text-cyan-300" /> Spoken language</span><span className="relative block"><select value={language} onChange={e => setLanguage(e.target.value)} className="form-input h-11 appearance-none">{LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-slate-500" /></span></label>
+              <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><Languages className="size-4 text-indigo-300" /> Subtitle language</span><span className="relative block"><select value={targetLanguage} onChange={e => setTargetLanguage(e.target.value)} className="form-input h-11 appearance-none">{TARGET_LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-slate-500" /></span><span className="mt-2 block text-[11px] leading-4 text-slate-500">Translate before editing and export</span></label>
               <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><Sparkles className="size-4 text-cyan-300" /> Accuracy model</span><span className="relative block"><select value={model} onChange={e => setModel(e.target.value)} className="form-input h-11 appearance-none"><option value="tiny">Tiny · fastest</option><option value="base">Base · balanced</option><option value="small">Small · accurate</option><option value="medium">Medium · best</option></select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-slate-500" /></span></label>
             </div>
             {error && <p className="mt-5 border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}
@@ -215,7 +222,7 @@ export function SubtitleStudio() {
 
           <aside className="glass flex flex-col p-6">
             <p className="font-mono text-[10px] uppercase tracking-[.22em] text-slate-500">Workflow</p>
-            <div className="mt-5 space-y-1">{[['01','Add a video','Paste a link or upload from your device'],['02','AI transcription','Whisper detects speech and timings'],['03','Review & style','Edit every line and choose its look'],['04','Export','Download SRT or captioned MP4']].map(([n,title,desc], i) => <div key={n} className={`flex gap-4 border-l p-4 ${i === 0 ? 'border-indigo-300 bg-indigo-300/[.04]' : 'border-slate-700'}`}><span className={`font-mono text-xs ${i === 0 ? 'text-indigo-300' : 'text-slate-600'}`}>{n}</span><div><p className="text-sm font-semibold text-slate-200">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{desc}</p></div></div>)}</div>
+            <div className="mt-5 space-y-1">{[['01','Add a video','Paste a link or upload from your device'],['02','Transcribe & translate','Choose the spoken and subtitle languages'],['03','Review & style','Edit every line and choose its look'],['04','Export','Download SRT or captioned MP4']].map(([n,title,desc], i) => <div key={n} className={`flex gap-4 border-l p-4 ${i === 0 ? 'border-indigo-300 bg-indigo-300/[.04]' : 'border-slate-700'}`}><span className={`font-mono text-xs ${i === 0 ? 'text-indigo-300' : 'text-slate-600'}`}>{n}</span><div><p className="text-sm font-semibold text-slate-200">{title}</p><p className="mt-1 text-xs leading-5 text-slate-500">{desc}</p></div></div>)}</div>
             <div className="mt-auto border-t border-slate-700 pt-5 text-xs leading-5 text-slate-500"><span className="text-slate-300">Private by design.</span> Temporary media is automatically cleared by the server after two hours.</div>
           </aside>
         </div>
@@ -245,7 +252,7 @@ export function SubtitleStudio() {
           </section>
         </div>
       )}
-      <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[.15em] text-slate-600"><span className="flex items-center gap-2"><Captions className="size-3.5" /> Whisper transcription · FFmpeg rendering</span><span className="flex items-center gap-2"><Download className="size-3.5" /> SRT + MP4 export</span></footer>
+      <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[.15em] text-slate-600"><span className="flex items-center gap-2"><Captions className="size-3.5" /> Whisper transcription · Argos translation · FFmpeg rendering</span><span className="flex items-center gap-2"><Download className="size-3.5" /> SRT + MP4 export</span></footer>
     </div>
   )
 }
