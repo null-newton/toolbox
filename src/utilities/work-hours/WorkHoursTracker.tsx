@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Clock } from 'lucide-react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
@@ -56,8 +57,9 @@ const STR = {
     target: (h: string) => `${h} h target`,
     workedField: 'Worked',
     holidayTitle: (name: string) => `${name} — public holiday`,
-    dayOffTitle: 'Day off — click to edit',
-    workDayTitle: 'Work day — click to edit time off',
+    dayOffTitle: 'Day off — click to mark as worked',
+    workDayTitle: 'Work day — click to mark as off',
+    editHolidayHours: 'Edit holiday hours',
     holidayHours: 'Holiday hours',
     holidayPosition: 'When',
     startOfDay: 'Beginning of the day',
@@ -68,8 +70,8 @@ const STR = {
     holidayBadge: (h: string, position: HolidayHours['position']) => `${h} h · ${position === 'start' ? 'start' : 'end'}`,
     tip: (notation: ReactNode, ex1: ReactNode, ex2: ReactNode) => (
       <>
-        Tip: click a work day to enter holiday hours at the beginning or end of the day, or mark
-        the whole day off (vacation, sick). Time off reduces the required hours. Public holidays
+        Tip: click a work day to mark it as off (vacation, sick). Click the clock on a day off to
+        enter holiday hours at the beginning or end of the day. Time off reduces the required hours. Public holidays
         (violet) are excluded automatically for the country you pick. Enter
         hours as a decimal ({notation}) or as hours-minutes ({ex1} / {ex2}). Each week's “still to
         work” rolls any surplus or shortfall over from earlier weeks.
@@ -112,8 +114,9 @@ const STR = {
     target: (h: string) => `${h} u doel`,
     workedField: 'Gewerkt',
     holidayTitle: (name: string) => `${name} — feestdag`,
-    dayOffTitle: 'Vrije dag — klik om te bewerken',
-    workDayTitle: 'Werkdag — klik om verlof te bewerken',
+    dayOffTitle: 'Vrije dag — klik om als gewerkt te markeren',
+    workDayTitle: 'Werkdag — klik om als vrij te markeren',
+    editHolidayHours: 'Verlofuren bewerken',
     holidayHours: 'Verlofuren',
     holidayPosition: 'Wanneer',
     startOfDay: 'Begin van de dag',
@@ -124,8 +127,8 @@ const STR = {
     holidayBadge: (h: string, position: HolidayHours['position']) => `${h} u · ${position === 'start' ? 'begin' : 'einde'}`,
     tip: (notation: ReactNode, ex1: ReactNode, ex2: ReactNode) => (
       <>
-        Tip: klik op een werkdag om verlofuren aan het begin of einde van de dag in te vullen, of
-        de hele dag vrij te nemen (verlof, ziekte). Verlof vermindert de vereiste uren.
+        Tip: klik op een werkdag om hem als vrij te markeren (verlof, ziekte). Klik op het klokje
+        op een vrije dag om verlofuren aan het begin of einde van de dag in te vullen. Verlof vermindert de vereiste uren.
         Feestdagen (violet) worden automatisch uitgesloten voor het land dat je
         kiest. Geef uren op als decimaal ({notation}) of als uren-minuten ({ex1} / {ex2}). Het “nog
         te werken” van elke week neemt elk overschot of tekort van eerdere weken mee.
@@ -325,9 +328,9 @@ export function WorkHoursTracker() {
   function toggleOff(date: Date) {
     const d = ymd(date)
     updateMonth((m) => {
-      const has = m.offDays.includes(d)
+      const has = m.offDays.includes(d) || (m.holidayHours?.[d]?.hours ?? 0) > 0
       const holidayHours = { ...m.holidayHours }
-      if (!has) delete holidayHours[d]
+      delete holidayHours[d]
       return {
         ...m,
         holidayHours,
@@ -633,22 +636,26 @@ export function WorkHoursTracker() {
                   const interactive = inMonth && workday && !isHol
                   const personalHoliday = monthData.holidayHours?.[ymd(d)]
                   const holidayHours = hoursForDay(d).holiday
+                  const hasPersonalHoliday = isOff || holidayHours > 0
                   return (
+                    <div key={ymd(d)} className="relative flex min-w-0">
                     <button
-                      key={ymd(d)}
                       disabled={!interactive}
-                      onClick={() => interactive && setSelectedDay(selectedDay === ymd(d) ? null : ymd(d))}
-                      aria-expanded={interactive ? selectedDay === ymd(d) : undefined}
+                      onClick={() => {
+                        if (!interactive) return
+                        toggleOff(d)
+                        if (selectedDay === ymd(d)) setSelectedDay(null)
+                      }}
                       title={
                         isHol
                           ? t.holidayTitle(holidayName)
                           : interactive
-                            ? isOff
+                            ? hasPersonalHoliday
                               ? t.dayOffTitle
                               : t.workDayTitle
                             : undefined
                       }
-                      className={`flex flex-col items-center rounded-lg py-1.5 text-xs transition-all duration-200 ${
+                      className={`flex w-full flex-col items-center rounded-lg py-1.5 text-xs transition-all duration-200 ${interactive && hasPersonalHoliday ? 'pr-6' : ''} ${
                         !inMonth
                           ? 'opacity-25'
                           : !workday
@@ -672,6 +679,19 @@ export function WorkHoursTracker() {
                         </span>
                       )}
                     </button>
+                    {interactive && hasPersonalHoliday && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay(selectedDay === ymd(d) ? null : ymd(d))}
+                        aria-label={`${t.editHolidayHours} — ${d.toLocaleDateString(locale)}`}
+                        aria-expanded={selectedDay === ymd(d)}
+                        title={t.editHolidayHours}
+                        className="absolute inset-y-0 right-0 flex w-6 items-center justify-center rounded-r-lg text-amber-300 hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                      >
+                        <Clock size={14} aria-hidden="true" />
+                      </button>
+                    )}
+                    </div>
                   )
                 })}
               </div>
@@ -692,8 +712,8 @@ export function WorkHoursTracker() {
                     <label className="flex flex-col gap-1.5 text-xs text-slate-400">
                       {t.holidayHours}
                       <HoursInput
-                        key={`${selectedDay}-${offSet.has(selectedDay)}`}
-                        value={Math.min(config.hoursPerDay, monthData.holidayHours?.[selectedDay]?.hours ?? 0)}
+                        key={selectedDay}
+                        value={Math.min(config.hoursPerDay, monthData.holidayHours?.[selectedDay]?.hours ?? (offSet.has(selectedDay) ? config.hoursPerDay : 0))}
                         max={config.hoursPerDay}
                         placeholder="0"
                         onChange={(hours) => setHolidayHours(selectedDay, {
@@ -707,7 +727,7 @@ export function WorkHoursTracker() {
                       <select
                         value={monthData.holidayHours?.[selectedDay]?.position ?? 'start'}
                         onChange={(e) => setHolidayHours(selectedDay, {
-                          hours: monthData.holidayHours?.[selectedDay]?.hours ?? 0,
+                          hours: monthData.holidayHours?.[selectedDay]?.hours ?? (offSet.has(selectedDay) ? config.hoursPerDay : 0),
                           position: e.target.value as HolidayHours['position'],
                         })}
                         className="glass rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/30"

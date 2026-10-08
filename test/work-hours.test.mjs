@@ -40,3 +40,9 @@ test('position can be selected before hours and clearing hours restores the work
   assert.deepEqual(dayHours(8, month.holidayHours['2026-10-05'], false), { holiday: 0, required: 8 })
   assert.deepEqual(month.holidayHours['2026-10-06'], { hours: 1, position: 'start' })
 })
+
+test('clearing holiday hours on a whole day off restores the work target', () => {
+  const month = updateHolidayHours({ offDays: ['2026-10-05'], weekHours: {} }, '2026-10-05', { hours: 0, position: 'start' })
+  assert.deepEqual(month.offDays, [])
+  assert.deepEqual(dayHours(8, month.holidayHours['2026-10-05'], false), { holiday: 0, required: 8 })
+})

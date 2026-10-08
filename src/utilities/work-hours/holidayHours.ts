@@ -22,6 +22,6 @@ export function updateHolidayHours(month: MonthData, date: string, holiday: Holi
   return {
     ...month,
     holidayHours,
-    offDays: holiday.hours > 0 ? month.offDays.filter((d) => d !== date) : month.offDays,
+    offDays: month.offDays.filter((d) => d !== date),
   }
 }
