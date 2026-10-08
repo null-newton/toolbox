@@ -86,3 +86,10 @@ test('validates import previews and deduplicates canonical product links', () =>
   }
   assert.throws(() => parseImport({ ...input, items: Array(201).fill(item) }))
 })
+
+test('removes MKC Moto ad tracking while preserving product variant parameters', () => {
+  const url = 'https://www.mkcmoto.com/be-nl/quad-lock-poncho-wp-voor-iphone-16/'
+  assert.equal(normalizeUrl(`${url}?bg_source=ga&bg_campaign=123&bg_kw=ad&bg_source_id=`), normalizeUrl(url))
+  assert.equal(normalizeUrl(`${url}?bg_source=ga&variant=blue`), `${normalizeUrl(url)}?variant=blue`)
+  assert.equal(normalizeUrl('https://other.example/product?bg_source=value'), 'https://other.example/product?bg_source=value')
+})

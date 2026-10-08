@@ -27,6 +27,9 @@ export function normalizeUrl(value: string): string {
     url.searchParams.delete('cid')
     url.searchParams.delete('referrer')
   }
+  if (/^(www\.)?mkcmoto\.com$/.test(url.hostname)) {
+    for (const key of [...url.searchParams.keys()]) if (/^bg_/i.test(key)) url.searchParams.delete(key)
+  }
   // Amazon paths encode the same ASIN in several formats, often with a title.
   if (/^(www\.)?amazon\.(com|nl|de|fr|co\.uk|com\.be)$/.test(url.hostname)) {
     const asin = url.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:\/|$)/i)?.[1]

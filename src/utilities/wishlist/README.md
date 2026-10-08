@@ -4,7 +4,11 @@ Owner route: `#/tools/wishlist` (existing Toolbox account required).
 Recipient route: `#/wishlist/<random-uuid>` (works without an account).
 
 Create, rename and delete collections; add/edit/delete HTTPS product links;
-fetch basic details from supported Amazon stores and bol; edit any missing or
+fetch basic details from supported Amazon stores and bol. MKC Moto individual
+product pages are also supported, using
+schema.org title, price, stock status and direct image metadata; its `bg_*`
+advertising parameters are removed for duplicate detection. The user confirmed
+MKC Moto has no shareable wishlist, so it has no list importer. Edit any missing or
 incorrect fields; assign priority, availability, price/currency and tags. Search
 and filter by tag, and sort by priority, price, date, shop or availability.
 Price sorting groups currencies instead of implying an exchange rate.
