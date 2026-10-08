@@ -155,7 +155,6 @@ function OwnerWishlist() {
         </div>
         {itemsLoading ? <p className="animate-pulse">{t.loading}</p> : !filtered.length ? <p className="glass rounded-2xl p-8 text-slate-300">{items.length ? t.noMatch : t.empty}</p> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map(item => <ItemCard key={item.id} item={item}>
           <button disabled={busy || editor !== null || importOpen} className={buttonClass} onClick={() => setEditor(item)}>{t.edit}</button><button disabled={busy} className={buttonClass} onClick={() => {
-            if (!window.confirm(t.confirmItem)) return
             void action(async () => { const { error, data } = await supabase.from('wishlist_items').delete().eq('id', item.id).eq('collection_id', selected).select('id').single(); if (error || !data) throw error || new Error(); if (editor !== 'new' && editor?.id === item.id) setEditor(null) })
           }}>{t.remove}</button>
         </ItemCard>)}</div>}

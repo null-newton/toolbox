@@ -9,7 +9,7 @@ export const STR = {
 
     title: 'Wishlist', intro: 'Keep your gift ideas together. Make a collection, add something special and share it when you’re ready.',
     collections: 'Collections', collectionName: 'Collection name', create: 'Create collection', rename: 'Rename', deleteCollection: 'Delete collection',
-    confirmCollection: 'Delete this collection and all its products? This cannot be undone.', confirmItem: 'Delete this product?',
+    confirmCollection: 'Delete this collection and all its products? This cannot be undone.',
     emptyCollections: 'Your first wish starts here. Create a collection such as Birthday, Home or Books.',
     empty: 'No products yet. Add a product link to start this collection.', noMatch: 'No products match your filters.',
     add: 'Add product', edit: 'Edit', remove: 'Delete', url: 'Product URL (HTTPS)', fetch: 'Fetch details',
@@ -49,7 +49,7 @@ export const STR = {
 
     title: 'Verlanglijstjes', intro: 'Bewaar je cadeau-ideeën bij elkaar. Maak een collectie, voeg iets bijzonders toe en deel ze wanneer je wilt.',
     collections: 'Collecties', collectionName: 'Naam van de collectie', create: 'Collectie maken', rename: 'Hernoemen', deleteCollection: 'Collectie verwijderen',
-    confirmCollection: 'Deze collectie en alle producten verwijderen? Dit kan niet ongedaan worden gemaakt.', confirmItem: 'Dit product verwijderen?',
+    confirmCollection: 'Deze collectie en alle producten verwijderen? Dit kan niet ongedaan worden gemaakt.',
     emptyCollections: 'Je eerste wens begint hier. Maak een collectie zoals Verjaardag, Huis of Boeken.',
     empty: 'Nog geen producten. Voeg een productlink toe om deze collectie te beginnen.', noMatch: 'Geen producten gevonden met deze filters.',
     add: 'Product toevoegen', edit: 'Bewerken', remove: 'Verwijderen', url: 'Product-URL (HTTPS)', fetch: 'Gegevens ophalen',
