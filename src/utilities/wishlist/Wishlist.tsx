@@ -8,6 +8,7 @@ import { draftPayload, parseCollections, parseItems, sortValues, visibleItems } 
 import type { Collection, Draft, Item, Sort } from './model'
 import { buttonClass, Field, inputClass, ItemCard, primaryClass, ProductForm } from './components'
 import { STR } from './strings'
+import { ListImport } from './ListImport'
 
 export function Wishlist() {
   const { user } = useAuth()
@@ -23,6 +24,7 @@ function OwnerWishlist() {
   const [search, setSearch] = useState('')
   const [tag, setTag] = useState('')
   const [editor, setEditor] = useState<Item | 'new' | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [itemsLoading, setItemsLoading] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -58,13 +60,14 @@ function OwnerWishlist() {
     return () => { cancelled = true }
   }, [selected, revision, t.failed])
   function select(id: string) {
+    setImportOpen(false)
     setSelected(id); setItems([]); setItemsLoading(true); setEditor(null); setTag(''); setSearch(''); setError(''); setNotice('')
   }
   async function action(work: () => Promise<void>) {
-    if (busy) return
+    if (busy) return false
     setBusy(true); setError(''); setNotice('')
-    try { await work(); setNotice(t.saved); setRevision(v => v + 1) }
-    catch (e) { setError(e instanceof Error && ['invalid', 'duplicate'].includes(e.message) ? t[e.message as 'invalid' | 'duplicate'] : t.failed) }
+    try { await work(); setNotice(t.saved); setRevision(v => v + 1); return true }
+    catch (e) { setError(e instanceof Error && ['invalid', 'duplicate'].includes(e.message) ? t[e.message as 'invalid' | 'duplicate'] : t.failed); return false }
     finally { setBusy(false) }
   }
   async function save(draft: Draft) {
@@ -89,6 +92,19 @@ function OwnerWishlist() {
     })
   }
   const filtered = visibleItems(items, sort, search, tag)
+  async function importList(drafts: Draft[]) {
+    if (!collection || !drafts.length || drafts.length > 200) return false
+    return action(async () => {
+      const payloads = [...new Map(drafts.map(draft => {
+        const payload = draftPayload(draft)
+        return [payload.url, { ...payload, collection_id: selected }] as const
+      })).values()]
+      // One atomic insert; conflicts are skipped even if another tab added an
+      // item since preview. Existing products and reservations remain intact.
+      const { error } = await supabase.from('wishlist_items').upsert(payloads, { onConflict: 'collection_id,url', ignoreDuplicates: true })
+      if (error) throw error
+    })
+  }
   return <div className="animate-fade-up mx-auto max-w-6xl">
     <div className="flex items-center justify-between gap-3"><h1 className="text-3xl font-bold tracking-tight">{t.title}</h1><SaveStatus saving={saving} /></div>
     <p className="mt-2 max-w-2xl text-slate-400">{t.intro}</p>
@@ -129,14 +145,16 @@ function OwnerWishlist() {
           {shareUrl && <input aria-label={t.shared} readOnly value={shareUrl} onFocus={e => e.target.select()} className={`${inputClass} mt-3`} />}
           <p className="mt-3 text-xs text-slate-400">{t.shareHint}</p>
         </div>
-        {editor ? <ProductForm key={editor === 'new' ? 'new' : editor.id} item={editor === 'new' ? undefined : editor} busy={busy} onSave={draft => void save(draft)} onCancel={() => setEditor(null)} /> : <button disabled={busy || itemsLoading} className={`${primaryClass} mt-5`} onClick={() => setEditor('new')}>+ {t.add}</button>}
+        {editor ? <ProductForm key={editor === 'new' ? 'new' : editor.id} item={editor === 'new' ? undefined : editor} busy={busy} onSave={draft => void save(draft)} onCancel={() => setEditor(null)} /> : <button disabled={busy || itemsLoading || importOpen} className={`${primaryClass} mt-5`} onClick={() => setEditor('new')}>+ {t.add}</button>}
+        <button disabled={busy || itemsLoading || editor !== null || importOpen} className={`${buttonClass} mt-5 ml-3`} onClick={() => setImportOpen(true)}>{t.importList}</button>
+        {importOpen && <ListImport key={selected} items={items} busy={busy} onSave={importList} onCancel={() => setImportOpen(false)} />}
         <div className="my-5 grid gap-3 sm:grid-cols-3">
           <Field label={t.search}><input type="search" value={search} onChange={e => setSearch(e.target.value)} className={inputClass} /></Field>
           <Field label={t.tagFilter}><select value={tag} onChange={e => setTag(e.target.value)} className={inputClass}><option value="">{t.allTags}</option>{[...new Set(items.flatMap(i => i.tags))].sort().map(tag => <option key={tag}>{tag}</option>)}</select></Field>
           <Field label={t.sort}><select value={sort} onChange={e => setConfig({ sort: e.target.value as Sort })} className={inputClass}>{sortValues.map(value => <option key={value} value={value}>{value === 'price' ? t.priceSort : t[value]}</option>)}</select></Field>
         </div>
         {itemsLoading ? <p className="animate-pulse">{t.loading}</p> : !filtered.length ? <p className="glass rounded-2xl p-8 text-slate-300">{items.length ? t.noMatch : t.empty}</p> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map(item => <ItemCard key={item.id} item={item}>
-          <button disabled={busy || editor !== null} className={buttonClass} onClick={() => setEditor(item)}>{t.edit}</button><button disabled={busy} className={buttonClass} onClick={() => {
+          <button disabled={busy || editor !== null || importOpen} className={buttonClass} onClick={() => setEditor(item)}>{t.edit}</button><button disabled={busy} className={buttonClass} onClick={() => {
             if (!window.confirm(t.confirmItem)) return
             void action(async () => { const { error, data } = await supabase.from('wishlist_items').delete().eq('id', item.id).eq('collection_id', selected).select('id').single(); if (error || !data) throw error || new Error(); if (editor !== 'new' && editor?.id === item.id) setEditor(null) })
           }}>{t.remove}</button>

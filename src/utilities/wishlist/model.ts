@@ -42,7 +42,7 @@ export function isWishlistUrl(value: string): boolean {
   try {
     const url = new URL(value.trim())
     const host = url.hostname.replace(/^www\./, '')
-    return (/^amazon\.(com|nl|de|fr|co\.uk|com\.be)$/.test(host) && /^\/(?:hz\/wishlist|gp\/registry\/wishlist)(?:\/|$)/i.test(url.pathname)) ||
+    return (/^amazon\.(com|nl|de|fr|co\.uk|com\.be)$/.test(host) && /^\/(?:-\/[a-z]{2}\/)?(?:hz\/wishlist|gp\/registry\/wishlist)(?:\/|$)/i.test(url.pathname)) ||
       (host === 'bol.com' && /^\/(?:[a-z]{2}\/){0,2}(?:verlanglijstje|wishlist)(?:\/|$)/i.test(url.pathname))
   } catch { return false }
 }
@@ -67,6 +67,22 @@ export function draftPayload(draft: Draft) {
     (price !== null && (!Number.isFinite(price) || price < 0 || price >= 1e10 || !/^\d+(?:[.,]\d{1,2})?$/.test(draft.price.trim()))) ||
     !availabilityValues.includes(draft.availability) || ![1, 2, 3].includes(draft.priority)) throw new Error('invalid')
   return { title, url: normalizeUrl(draft.url), image_url: imageUrl(draft.image_url), price, currency: draft.currency, availability: draft.availability, priority: draft.priority, tags }
+}
+export function parseImport(value: unknown): { name: string; drafts: Draft[]; partial: boolean } {
+  const response = object(value)
+  if (typeof response.name !== 'string' || typeof response.partial !== 'boolean' || !Array.isArray(response.items) || response.items.length > 200) throw new Error('invalid_response')
+  const unique = new Map<string, Draft>()
+  for (const raw of response.items) {
+    const item = object(raw)
+    if (typeof item.title !== 'string' || typeof item.url !== 'string' || typeof item.currency !== 'string' ||
+      (item.image_url !== null && typeof item.image_url !== 'string') ||
+      (item.price !== null && typeof item.price !== 'number') || typeof item.availability !== 'string') throw new Error('invalid_response')
+    const draft: Draft = { ...emptyDraft, title: item.title, url: item.url, image_url: item.image_url ?? '',
+      price: item.price === null ? '' : String(item.price), currency: item.currency, availability: item.availability as Availability }
+    const validated = draftPayload(draft)
+    unique.set(validated.url, { ...draft, url: validated.url })
+  }
+  return { name: response.name.slice(0, 100), drafts: [...unique.values()], partial: response.partial }
 }
 export function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_response')

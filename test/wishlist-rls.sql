@@ -11,6 +11,10 @@ insert into public.wishlist_items(id,collection_id,title,url,image_url) values
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Book','https://bol.com/book','https://media.s-bol.com/book.jpg');
 do $$ begin
   if (select count(*) from public.wishlist_items) <> 1 then raise exception 'owner cannot read items'; end if;
+  insert into public.wishlist_items(collection_id,title,url,image_url) values
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Import duplicate','https://bol.com/book','https://media.s-bol.com/other.jpg')
+    on conflict (collection_id,url) do nothing;
+  if (select title from public.wishlist_items where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc') <> 'Book' then raise exception 'import overwrote existing product'; end if;
   begin
     perform public.wishlist_shared('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
     raise exception 'owner saw reservations';

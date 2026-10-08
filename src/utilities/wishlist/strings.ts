@@ -1,5 +1,12 @@
 export const STR = {
   en: {
+    importList: 'Import wishlist', importHint: 'Paste a public Amazon or bol wishlist link. Review the products and add the selected items to this collection.',
+    importUrl: 'Shared wishlist URL', importPreview: 'Preview list', importProducts: 'products', importSelect: 'Import this product', importSave: 'Add selected products',
+    importDuplicate: 'Already in this collection', importDuplicatesHint: 'Existing products are skipped and keep their details.',
+    importPartial: 'Some items could not be retrieved. This preview is incomplete; you can import the shown items or retry. Each import supports up to 200 products.',
+    importEmpty: 'This list contains no importable products.', importInvalid: 'Paste a shared Amazon or bol wishlist link, rather than a product link.',
+    importUnavailable: 'This list is private, unavailable, or could not be read. Make it public or shared and copy its share link.',
+
     title: 'Wishlist', intro: 'Keep your gift ideas together. Make a collection, add something special and share it when you’re ready.',
     collections: 'Collections', collectionName: 'Collection name', create: 'Create collection', rename: 'Rename', deleteCollection: 'Delete collection',
     confirmCollection: 'Delete this collection and all its products? This cannot be undone.', confirmItem: 'Delete this product?',
@@ -12,7 +19,7 @@ export const STR = {
     metadataRateLimit: 'Too many import requests. Wait a minute and try again.',
     metadataBlocked: 'The shop blocked automatic access. Open the product in the shop and enter its details manually.',
     metadataUnsupported: 'Automatic details are supported for Amazon and bol product pages. Enter other shops manually.',
-    metadataWishlist: 'This is a whole wishlist. Importing external wishlists is not supported yet. Open the list and paste an individual product link.',
+    metadataWishlist: 'This is a whole wishlist. Use Import wishlist to add its products to this collection.',
     metadataFailed: 'Could not fetch details. Check the link and fill in the fields manually.', metadataDone: 'Details retrieved. Review them before saving.',
     imageUrl: 'Image URL (HTTPS, optional)', productTitle: 'Product name', price: 'Price (optional)', currency: 'Currency', tags: 'Tags (comma-separated)', priority: 'Priority',
     availability: 'Availability', unknown: 'Unknown', in_stock: 'In stock', out_of_stock: 'Out of stock', preorder: 'Preorder',
@@ -33,6 +40,13 @@ export const STR = {
     refresh: 'Refresh list', open: 'View in shop', preferencesError: 'Your display preferences could not be saved or loaded.',
   },
   nl: {
+    importList: 'Verlanglijstje importeren', importHint: 'Plak de link naar een openbaar Amazon- of bol-verlanglijstje. Controleer de producten en voeg je selectie toe aan deze collectie.',
+    importUrl: 'Link naar gedeeld verlanglijstje', importPreview: 'Lijst bekijken', importProducts: 'producten', importSelect: 'Dit product importeren', importSave: 'Geselecteerde producten toevoegen',
+    importDuplicate: 'Staat al in deze collectie', importDuplicatesHint: 'Bestaande producten worden overgeslagen en behouden hun gegevens.',
+    importPartial: 'Niet alle producten konden worden opgehaald. Dit overzicht is onvolledig; importeer de getoonde producten of probeer opnieuw. Per import worden maximaal 200 producten ondersteund.',
+    importEmpty: 'Deze lijst bevat geen producten die ge?mporteerd kunnen worden.', importInvalid: 'Plak een gedeelde Amazon- of bol-verlanglijstlink, geen productlink.',
+    importUnavailable: 'Deze lijst is priv?, niet beschikbaar of kon niet worden gelezen. Maak de lijst openbaar of gedeeld en kopieer de deellink.',
+
     title: 'Verlanglijstjes', intro: 'Bewaar je cadeau-ideeën bij elkaar. Maak een collectie, voeg iets bijzonders toe en deel ze wanneer je wilt.',
     collections: 'Collecties', collectionName: 'Naam van de collectie', create: 'Collectie maken', rename: 'Hernoemen', deleteCollection: 'Collectie verwijderen',
     confirmCollection: 'Deze collectie en alle producten verwijderen? Dit kan niet ongedaan worden gemaakt.', confirmItem: 'Dit product verwijderen?',
@@ -45,7 +59,7 @@ export const STR = {
     metadataRateLimit: 'Te veel importverzoeken. Wacht een minuut en probeer opnieuw.',
     metadataBlocked: 'De winkel blokkeert automatische toegang. Open het product bij de winkel en vul de gegevens handmatig in.',
     metadataUnsupported: 'Automatische gegevens werken voor productpagina’s van Amazon en bol. Voer andere winkels handmatig in.',
-    metadataWishlist: 'Dit is een volledig verlanglijstje. Externe verlanglijstjes importeren wordt nog niet ondersteund. Open de lijst en plak de link naar een afzonderlijk product.',
+    metadataWishlist: 'Dit is een volledig verlanglijstje. Gebruik Verlanglijstje importeren om de producten aan deze collectie toe te voegen.',
     metadataFailed: 'Gegevens ophalen is niet gelukt. Controleer de link en vul de velden handmatig in.', metadataDone: 'Gegevens opgehaald. Controleer ze voordat je opslaat.',
     imageUrl: 'Afbeeldings-URL (HTTPS, optioneel)', productTitle: 'Productnaam', price: 'Prijs (optioneel)', currency: 'Valuta', tags: 'Tags (gescheiden door komma’s)', priority: 'Prioriteit',
     availability: 'Beschikbaarheid', unknown: 'Onbekend', in_stock: 'Op voorraad', out_of_stock: 'Niet op voorraad', preorder: 'Voorbestelling',

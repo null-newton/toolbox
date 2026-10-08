@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { draftPayload, emptyDraft, normalizeUrl, parseItems, visibleItems } from '../src/utilities/wishlist/model.ts'
+import { draftPayload, emptyDraft, normalizeUrl, parseImport, parseItems, visibleItems } from '../src/utilities/wishlist/model.ts'
 
 test('canonicalizes tracking links and Amazon ASIN variants for duplicate detection', () => {
   assert.equal(normalizeUrl('https://www.amazon.nl/Book/dp/B012345678/ref=abc?tag=affiliate#part'), 'https://amazon.nl/dp/B012345678')
@@ -71,4 +71,18 @@ test('stores direct image URLs without altering CDN parameters and permits clear
   assert.equal(parseItems([row])[0].image_url, null)
   assert.equal(parseItems([{ ...row, image_url: draft.image_url }])[0].image_url, draft.image_url)
   assert.throws(() => parseItems([{ ...row, image_url: 'javascript:alert(1)' }]))
+})
+
+test('validates import previews and deduplicates canonical product links', () => {
+  const item = { title: 'Book', url: 'https://www.amazon.com.be/title/dp/B012345678/?ref_=list', image_url: 'https://cdn.example/book.jpg', price: 19.59, currency: 'EUR', availability: 'unknown' }
+  const input = { name: 'Books', items: [item, { ...item, url: 'https://amazon.com.be/dp/B012345678' }], partial: false }
+  const preview = parseImport(input)
+  assert.equal(preview.drafts.length, 1)
+  assert.equal(preview.drafts[0].price, '19.59')
+  assert.equal(preview.drafts[0].url, 'https://amazon.com.be/dp/B012345678')
+  assert.equal(parseImport({ ...input, partial: true }).partial, true)
+  for (const patch of [{ url: 'javascript:alert(1)' }, { image_url: 'data:image/png;base64,x' }, { price: '19.59' }, { currency: 'invalid' }, { availability: 'available' }]) {
+    assert.throws(() => parseImport({ ...input, items: [{ ...item, ...patch }] }))
+  }
+  assert.throws(() => parseImport({ ...input, items: Array(201).fill(item) }))
 })

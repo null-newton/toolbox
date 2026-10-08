@@ -85,16 +85,30 @@ must be enforced independently of private user configuration.
 
 ## Follow-up scope
 
-External wishlist synchronization/mapping, browser share-target registration,
+Ongoing external wishlist synchronization, browser share-target registration,
 public discovery, selected-item sharing, co-management, drag ordering,
 recommendations and price/stock alerts are intentionally outside this MVP.
 
 ## Product import troubleshooting
 
-The input takes an individual product URL, not an Amazon `/hz/wishlist/ls/…`
-link or bol `/be/nl/verlanglijstje/…` link. Whole-list URLs are detected before
-fetching or saving, with instructions to open the list and copy a product link.
-External list import remains outside the MVP.
+The product editor takes an individual product URL. For an Amazon
+`/hz/wishlist/ls/…` or bol `/be/nl/verlanglijstje/…` link, use **Import wishlist**
+in the selected collection. The list must be public or accessible by its share
+link. Preview the products, deselect any you do not want, and add the selection.
+Existing products are skipped without replacing their details or reservations;
+the batch uses one atomic insert with conflict handling for concurrent imports.
+
+`POST /functions/v1/wishlist-import` verifies the same Supabase user token as
+single-product imports. Amazon uses item rows and continuation links. Bol uses
+the public page's structured state and its anonymous public-list pagination
+operation. No retailer login, private list access, or continuous sync is used.
+Each request is bounded to 20 pages, 200 products and 45 seconds. Incomplete
+responses are clearly marked before saving. List images are stored as direct
+URLs; missing prices/availability remain unknown for review in the editor.
+
+When adding another shop, ask the user for both a product link and a shared
+list link. Ask for a list example even if only product support was requested;
+the user can confirm the shop has no lists. Verify both flows when available.
 
 An undeployed/misconfigured backend, expired login, rate limiting and a shop's
 access block now have distinct Dutch/English messages. Retailer blocks require
