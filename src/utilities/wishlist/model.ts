@@ -2,11 +2,18 @@ export type Availability = 'unknown' | 'in_stock' | 'out_of_stock' | 'preorder'
 export type Sort = 'priority' | 'price' | 'date' | 'store' | 'availability'
 export interface Collection { id: string; name: string; share_token: string | null }
 export interface Item {
-  id: string; title: string; url: string; price: number | null; currency: string
+  id: string; title: string; url: string; image_url: string | null; price: number | null; currency: string
   availability: Availability; priority: number; tags: string[]; created_at: string; reserved?: boolean
 }
-export interface Draft { title: string; url: string; price: string; currency: string; availability: Availability; priority: number; tags: string }
-export const emptyDraft: Draft = { title: '', url: '', price: '', currency: 'EUR', availability: 'unknown', priority: 2, tags: '' }
+export interface Draft { title: string; url: string; image_url: string; price: string; currency: string; availability: Availability; priority: number; tags: string }
+export const emptyDraft: Draft = { title: '', url: '', image_url: '', price: '', currency: 'EUR', availability: 'unknown', priority: 2, tags: '' }
+export function imageUrl(value: string): string | null {
+  if (!value.trim()) return null
+  if (value.length > 2048) throw new Error('invalid')
+  const url = new URL(value.trim())
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || !url.hostname.includes('.')) throw new Error('invalid')
+  return url.href
+}
 export const uuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 export const availabilityValues: Availability[] = ['unknown', 'in_stock', 'out_of_stock', 'preorder']
 export const sortValues: Sort[] = ['priority', 'price', 'date', 'store', 'availability']
@@ -59,7 +66,7 @@ export function draftPayload(draft: Draft) {
     tags.some(tag => tag.length > 30) || !/^[A-Z]{3}$/.test(draft.currency) ||
     (price !== null && (!Number.isFinite(price) || price < 0 || price >= 1e10 || !/^\d+(?:[.,]\d{1,2})?$/.test(draft.price.trim()))) ||
     !availabilityValues.includes(draft.availability) || ![1, 2, 3].includes(draft.priority)) throw new Error('invalid')
-  return { title, url: normalizeUrl(draft.url), price, currency: draft.currency, availability: draft.availability, priority: draft.priority, tags }
+  return { title, url: normalizeUrl(draft.url), image_url: imageUrl(draft.image_url), price, currency: draft.currency, availability: draft.availability, priority: draft.priority, tags }
 }
 export function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_response')
@@ -75,7 +82,8 @@ export function parseItems(value: unknown): Item[] {
       typeof row.priority !== 'number' || !Array.isArray(row.tags) || !row.tags.every(t => typeof t === 'string') ||
       typeof row.created_at !== 'string' || Number.isNaN(Date.parse(row.created_at)) ||
       (row.price !== null && typeof row.price !== 'number') || (row.reserved !== undefined && typeof row.reserved !== 'boolean')) throw new Error('invalid_response')
-    const validated = draftPayload({ title: row.title, url: row.url, currency: row.currency, price: row.price === null ? '' : String(row.price), tags: row.tags.join(','), availability: row.availability as Availability, priority: row.priority })
+    if (row.image_url != null && typeof row.image_url !== 'string') throw new Error('invalid_response')
+    const validated = draftPayload({ title: row.title, url: row.url, image_url: typeof row.image_url === 'string' ? row.image_url : '', currency: row.currency, price: row.price === null ? '' : String(row.price), tags: row.tags.join(','), availability: row.availability as Availability, priority: row.priority })
     return { ...validated, id: row.id, created_at: row.created_at, reserved: row.reserved as boolean | undefined }
   })
 }

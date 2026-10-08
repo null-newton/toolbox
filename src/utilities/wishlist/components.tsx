@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { ExternalLink, Gift } from 'lucide-react'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { functionsBase, supabase } from '../../lib/supabase'
-import { availabilityValues, emptyDraft, isWishlistUrl, metadataError, normalizeUrl, object } from './model'
+import { availabilityValues, emptyDraft, imageUrl, isWishlistUrl, metadataError, normalizeUrl, object } from './model'
 import type { Draft, Item } from './model'
 import { STR } from './strings'
 
@@ -17,6 +17,7 @@ export function ItemCard({ item, children }: { item: Item; children?: ReactNode 
   const t = useT(STR)
   const { locale } = useLang()
   return <article className="glass flex min-w-0 flex-col rounded-2xl p-5">
+    <ProductImage key={item.image_url} url={item.image_url} title={item.title} />
     <div className="flex items-start gap-3"><span className="rounded-xl bg-indigo-500/15 p-3 text-indigo-300"><Gift size={22} aria-hidden="true" /></span>
       <div className="min-w-0"><p className="truncate text-xs text-slate-400">{new URL(item.url).hostname}</p><h3 className="mt-1 break-words text-lg font-semibold">{item.title}</h3></div></div>
     <p className="mt-5 text-xl font-semibold">{item.price === null ? '—' : new Intl.NumberFormat(locale, { style: 'currency', currency: item.currency }).format(item.price)}</p>
@@ -25,9 +26,16 @@ export function ItemCard({ item, children }: { item: Item; children?: ReactNode 
     <div className="mt-auto flex flex-wrap items-center gap-2"><a href={item.url} target="_blank" rel="noopener noreferrer" className={buttonClass}>{t.open} <ExternalLink size={13} className="inline" aria-hidden="true" /></a>{children}</div>
   </article>
 }
+function ProductImage({ url, title }: { url: string | null; title: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!url || failed) return null
+  return <div className="mb-4 flex h-48 items-center justify-center rounded-xl bg-white p-3">
+    <img src={url} alt={title} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="h-full w-full object-contain" />
+  </div>
+}
 export function ProductForm({ item, busy, onSave, onCancel }: { item?: Item; busy: boolean; onSave: (draft: Draft) => void; onCancel: () => void }) {
   const t = useT(STR)
-  const [draft, setDraft] = useState<Draft>(item ? { ...item, price: item.price === null ? '' : String(item.price), tags: item.tags.join(', ') } : { ...emptyDraft })
+  const [draft, setDraft] = useState<Draft>(item ? { ...item, image_url: item.image_url ?? '', price: item.price === null ? '' : String(item.price), tags: item.tags.join(', ') } : { ...emptyDraft })
   const [fetching, setFetching] = useState(false)
   const [notice, setNotice] = useState('')
   const disabled = busy || fetching
@@ -52,11 +60,13 @@ export function ProductForm({ item, busy, onSave, onCancel }: { item?: Item; bus
         return
       }
       const data = object(await response.json())
+      const image = typeof data.image_url === 'string' ? imageUrl(data.image_url) : null
       if (typeof data.title !== 'string' || typeof data.currency !== 'string' || !/^[A-Z]{3}$/.test(data.currency) ||
         typeof data.availability !== 'string' || !availabilityValues.includes(data.availability as Draft['availability']) ||
         (data.price !== null && (typeof data.price !== 'number' || !Number.isFinite(data.price) || data.price < 0 || data.price >= 1e10))) throw new Error()
       change({
         ...(data.title ? { title: data.title } : {}),
+        ...(image ? { image_url: image } : {}),
         ...(data.price !== null ? { price: String(data.price), currency: data.currency } : {}),
         ...(data.availability !== 'unknown' ? { availability: data.availability as Draft['availability'] } : {}),
       })
@@ -73,6 +83,7 @@ export function ProductForm({ item, busy, onSave, onCancel }: { item?: Item; bus
       {wishlistLink && <p role="status" className="text-sm text-amber-200">{t.metadataWishlist}</p>}
       {notice && !wishlistLink && <p role="status" className="text-sm text-amber-200">{notice}</p>}
       <Field label={t.productTitle}><input required maxLength={300} value={draft.title} onChange={e => change({ title: e.target.value })} className={inputClass} /></Field>
+      <Field label={t.imageUrl}><input type="url" maxLength={2048} value={draft.image_url} onChange={e => change({ image_url: e.target.value })} className={inputClass} placeholder="https://…" /></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t.price}><input inputMode="decimal" value={draft.price} onChange={e => change({ price: e.target.value })} className={inputClass} /></Field>
         <Field label={t.currency}><input required pattern="[A-Z]{3}" maxLength={3} value={draft.currency} onChange={e => change({ currency: e.target.value.toUpperCase() })} className={inputClass} /></Field>

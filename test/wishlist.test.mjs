@@ -59,3 +59,16 @@ test('explains undeployed backends, missing configuration, retailer blocks and a
   assert.equal(metadataError(400, 'unsupported_shop'), 'metadataUnsupported')
   assert.equal(metadataError(502, 'some private error text'), 'metadataFailed')
 })
+
+test('stores direct image URLs without altering CDN parameters and permits clearing images', () => {
+  const draft = { ...emptyDraft, title: 'Book', url: 'https://shop.example/book', image_url: 'https://cdn.example/book.jpg?width=600&tag=image' }
+  assert.equal(draftPayload(draft).image_url, draft.image_url)
+  assert.equal(draftPayload({ ...draft, image_url: '' }).image_url, null)
+  for (const image_url of ['javascript:alert(1)', 'data:image/png;base64,xxx', 'http://cdn.example/book.jpg', 'https://user:pass@cdn.example/book.jpg']) {
+    assert.throws(() => draftPayload({ ...draft, image_url }))
+  }
+  const row = make('12345678-1234-1234-1234-123456789abc', 12)
+  assert.equal(parseItems([row])[0].image_url, null)
+  assert.equal(parseItems([{ ...row, image_url: draft.image_url }])[0].image_url, draft.image_url)
+  assert.throws(() => parseItems([{ ...row, image_url: 'javascript:alert(1)' }]))
+})

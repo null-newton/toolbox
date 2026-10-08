@@ -1,4 +1,4 @@
--- Run against a LOCAL/test Supabase database after the Wishlist migration.
+-- Run against a LOCAL/test Supabase database after both Wishlist migrations.
 -- All fixture rows are rolled back. psql: \set ON_ERROR_STOP on
 begin;
 insert into auth.users(id) values
@@ -7,8 +7,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 insert into public.wishlist_collections(id,name,share_token) values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Birthday','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
-insert into public.wishlist_items(id,collection_id,title,url) values
- ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Book','https://bol.com/book');
+insert into public.wishlist_items(id,collection_id,title,url,image_url) values
+ ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Book','https://bol.com/book','https://media.s-bol.com/book.jpg');
 do $$ begin
   if (select count(*) from public.wishlist_items) <> 1 then raise exception 'owner cannot read items'; end if;
   begin
@@ -65,6 +65,7 @@ do $$ declare payload jsonb; begin
     raise exception 'anonymous table access';
   exception when insufficient_privilege then null; end;
   payload := public.wishlist_shared('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+  if payload->'items'->0->>'image_url' <> 'https://media.s-bol.com/book.jpg' then raise exception 'shared image missing'; end if;
   if payload->>'name' <> 'Birthday' or jsonb_array_length(payload->'items') <> 1 or payload->'items'->0->>'reserved' <> 'false' then raise exception 'wrong shared payload'; end if;
   if payload::text like '%user_id%' or payload::text like '%cancel_token%' then raise exception 'private field leak'; end if;
   if not public.wishlist_reserve('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','cccccccc-cccc-4ccc-8ccc-cccccccccccc','dddddddd-dddd-4ddd-8ddd-dddddddddddd') then raise exception 'reservation failed'; end if;

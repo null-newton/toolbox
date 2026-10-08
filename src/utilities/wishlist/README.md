@@ -21,6 +21,8 @@ preserves reservations. Deleting an item/collection deletes its reservations.
 
 1. Apply `supabase/migrations/202609140001_wishlist.sql` once in Supabase SQL
    Editor (also required for new installs after `supabase/schema.sql`).
+   Then apply `supabase/migrations/202610080001_wishlist_images.sql` for image
+   URLs in private and shared lists before deploying the updated frontend.
 2. In **toolbox-backend**, configure `SUPABASE_URL` and `SUPABASE_ANON_KEY`
    for the frontend's project. Deploy the backend with its `deploy.sh` on the
    fileserver. This registers `POST /functions/v1/wishlist-metadata`.
@@ -29,6 +31,11 @@ preserves reservations. Deleting an item/collection deletes its reservations.
    Function is provided. Manual entry and sharing still work if metadata fails.
 
 No new npm runtime dependencies, service-role secret or disk storage are needed.
+Product images are direct HTTPS URLs stored in `wishlist_items.image_url`, not
+image uploads or Supabase Storage objects. Imports read Product JSON-LD,
+Open Graph or Amazon's main image; the editor also accepts a manual image URL
+and allows clearing it. Existing products need Fetch details and Save to add
+an image. Cards load images directly with no referrer and hide broken images.
 Preferences use `utility_configs` through `useUtilityConfig('wishlist', …)`;
 collections/items use relational tables because sharing and reservation access
 must be enforced independently of private user configuration.
@@ -99,3 +106,8 @@ tracking parameters no longer distinguish otherwise identical products.
 
 Deploy both frontend and backend for these fixes; no new SQL migration or
 runtime dependency is required.
+
+Product image support additionally requires the image migration above. The
+backend accepts gzip, deflate and Brotli HTML responses, including bol pages,
+while retaining public-address pinning, redirect checks, deadlines and a 4 MB
+limit on both compressed and decompressed data.
