@@ -2,12 +2,13 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
+import { dayHours, updateHolidayHours, type HolidayHours, type MonthData } from './holidayHours'
 
 /**
  * Work Hours tracker. Answers one question per month: "how many hours do I
  * still need to work?"
  *
- *   required = (scheduled work days − days off) × hours per day
+ *   required = (scheduled work days − days off) × hours per day − holiday hours
  *   worked   = sum of the hours you logged for each week
  *   left     = required − worked   (negative ⇒ overtime)
  *
@@ -55,12 +56,21 @@ const STR = {
     target: (h: string) => `${h} h target`,
     workedField: 'Worked',
     holidayTitle: (name: string) => `${name} — public holiday`,
-    dayOffTitle: 'Day off — click to mark as worked',
-    workDayTitle: 'Work day — click to mark as off',
+    dayOffTitle: 'Day off — click to edit',
+    workDayTitle: 'Work day — click to edit time off',
+    holidayHours: 'Holiday hours',
+    holidayPosition: 'When',
+    startOfDay: 'Beginning of the day',
+    endOfDay: 'End of the day',
+    fullDayOff: 'Whole day off',
+    closeDay: 'Done',
+    holidayDeduction: (h: string) => `${h} h of holiday deducted from your target.`,
+    holidayBadge: (h: string, position: HolidayHours['position']) => `${h} h · ${position === 'start' ? 'start' : 'end'}`,
     tip: (notation: ReactNode, ex1: ReactNode, ex2: ReactNode) => (
       <>
-        Tip: click a work day to mark it as off (vacation, sick) — it drops out of the required
-        hours. Public holidays (violet) are excluded automatically for the country you pick. Enter
+        Tip: click a work day to enter holiday hours at the beginning or end of the day, or mark
+        the whole day off (vacation, sick). Time off reduces the required hours. Public holidays
+        (violet) are excluded automatically for the country you pick. Enter
         hours as a decimal ({notation}) or as hours-minutes ({ex1} / {ex2}). Each week's “still to
         work” rolls any surplus or shortfall over from earlier weeks.
       </>
@@ -102,12 +112,21 @@ const STR = {
     target: (h: string) => `${h} u doel`,
     workedField: 'Gewerkt',
     holidayTitle: (name: string) => `${name} — feestdag`,
-    dayOffTitle: 'Vrije dag — klik om als gewerkt te markeren',
-    workDayTitle: 'Werkdag — klik om als vrij te markeren',
+    dayOffTitle: 'Vrije dag — klik om te bewerken',
+    workDayTitle: 'Werkdag — klik om verlof te bewerken',
+    holidayHours: 'Verlofuren',
+    holidayPosition: 'Wanneer',
+    startOfDay: 'Begin van de dag',
+    endOfDay: 'Einde van de dag',
+    fullDayOff: 'Hele dag vrij',
+    closeDay: 'Klaar',
+    holidayDeduction: (h: string) => `${h} u verlof afgetrokken van je doel.`,
+    holidayBadge: (h: string, position: HolidayHours['position']) => `${h} u · ${position === 'start' ? 'begin' : 'einde'}`,
     tip: (notation: ReactNode, ex1: ReactNode, ex2: ReactNode) => (
       <>
-        Tip: klik op een werkdag om hem als vrij te markeren (verlof, ziekte) — hij valt dan weg uit
-        de vereiste uren. Feestdagen (violet) worden automatisch uitgesloten voor het land dat je
+        Tip: klik op een werkdag om verlofuren aan het begin of einde van de dag in te vullen, of
+        de hele dag vrij te nemen (verlof, ziekte). Verlof vermindert de vereiste uren.
+        Feestdagen (violet) worden automatisch uitgesloten voor het land dat je
         kiest. Geef uren op als decimaal ({notation}) of als uren-minuten ({ex1} / {ex2}). Het “nog
         te werken” van elke week neemt elk overschot of tekort van eerdere weken mee.
       </>
@@ -115,13 +134,6 @@ const STR = {
     savedMonths: 'Opgeslagen maanden',
     carriedOver: (h: string, monthName: string) => `−${h} u al genoteerd in ${monthName}`,
   },
-}
-
-interface MonthData {
-  /** ISO dates ("YYYY-MM-DD") that are normally work days but were taken off. */
-  offDays: string[]
-  /** Hours worked, keyed by the ISO date of that week's Monday. */
-  weekHours: Record<string, number>
 }
 
 interface WorkConfig extends Record<string, unknown> {
@@ -215,6 +227,7 @@ export function WorkHoursTracker() {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth()) // 0-indexed
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const key = monthKey(year, month)
   const monthData: MonthData = config.months[key] ?? { offDays: [], weekHours: {} }
@@ -313,8 +326,11 @@ export function WorkHoursTracker() {
     const d = ymd(date)
     updateMonth((m) => {
       const has = m.offDays.includes(d)
+      const holidayHours = { ...m.holidayHours }
+      if (!has) delete holidayHours[d]
       return {
         ...m,
+        holidayHours,
         offDays: has ? m.offDays.filter((x) => x !== d) : [...m.offDays, d],
       }
     })
@@ -322,6 +338,17 @@ export function WorkHoursTracker() {
 
   function setWeekHours(mondayKey: string, value: number) {
     updateMonth((m) => ({ ...m, weekHours: { ...m.weekHours, [mondayKey]: value } }))
+  }
+
+  function setHolidayHours(date: string, holiday: HolidayHours) {
+    updateMonth((m) => updateHolidayHours(m, date, holiday))
+  }
+
+  function hoursForDay(d: Date) {
+    const date = ymd(d)
+    const excluded = d.getMonth() !== month || d.getFullYear() !== year
+      || !config.workdays.includes(d.getDay()) || offSet.has(date) || isHoliday(d)
+    return dayHours(config.hoursPerDay, monthData.holidayHours?.[date], excluded)
   }
 
   // ---- Totals for the selected month ----
@@ -332,20 +359,22 @@ export function WorkHoursTracker() {
     let scheduled = 0
     let off = 0
     let hol = 0
+    let holidayHours = 0
     for (const w of weeks) {
       for (const d of w.days) {
         if (!inMonth(d) || !isWorkday(d)) continue
         scheduled++
         if (offSet.has(ymd(d))) off++
         else if (isHoliday(d)) hol++
+        holidayHours += hoursForDay(d).holiday
       }
     }
     const effectiveDays = scheduled - off - hol
-    const required = effectiveDays * config.hoursPerDay
+    const required = effectiveDays * config.hoursPerDay - holidayHours
     const worked = weeks.reduce((sum, w, i) => sum + effectiveWorked(i, w.mondayKey), 0)
     const left = required - worked
     const pct = required > 0 ? Math.min(100, (worked / required) * 100) : worked > 0 ? 100 : 0
-    return { scheduled, off, hol, effectiveDays, required, worked, left, pct }
+    return { scheduled, off, hol, holidayHours, effectiveDays, required, worked, left, pct }
   })()
 
   // Per-week figures with a running balance: each week's "still needed" carries
@@ -358,10 +387,7 @@ export function WorkHoursTracker() {
     weeks.forEach((w, i) => {
       let required = 0
       for (const d of w.days) {
-        const inMonth = d.getMonth() === month && d.getFullYear() === year
-        if (!inMonth || !config.workdays.includes(d.getDay())) continue
-        if (offSet.has(ymd(d)) || isHoliday(d)) continue
-        required += config.hoursPerDay
+        required += hoursForDay(d).required
       }
       const worked = effectiveWorked(i, w.mondayKey)
       cumRequired += required
@@ -378,11 +404,13 @@ export function WorkHoursTracker() {
   const prevMonthLabel = prevMonthDate.toLocaleDateString(locale, { month: 'long' })
 
   function shiftMonth(delta: number) {
+    setSelectedDay(null)
     const d = new Date(year, month + delta, 1)
     setYear(d.getFullYear())
     setMonth(d.getMonth())
   }
   function toThisMonth() {
+    setSelectedDay(null)
     setYear(today.getFullYear())
     setMonth(today.getMonth())
   }
@@ -543,6 +571,11 @@ export function WorkHoursTracker() {
               ? t.onTargetMonth
               : t.over(fmtHours(-stats.left), -stats.left)}
         </p>
+        {stats.holidayHours > 0 && (
+          <p className="mt-1 text-xs text-amber-300">
+            {t.holidayDeduction(fmtHours(stats.holidayHours))}
+          </p>
+        )}
       </div>
 
       {/* ---- Weeks ---- */}
@@ -598,11 +631,14 @@ export function WorkHoursTracker() {
                   const isHol = workday && Boolean(holidayName) && !isOff
                   const isToday = ymd(d) === ymd(today)
                   const interactive = inMonth && workday && !isHol
+                  const personalHoliday = monthData.holidayHours?.[ymd(d)]
+                  const holidayHours = hoursForDay(d).holiday
                   return (
                     <button
                       key={ymd(d)}
                       disabled={!interactive}
-                      onClick={() => interactive && toggleOff(d)}
+                      onClick={() => interactive && setSelectedDay(selectedDay === ymd(d) ? null : ymd(d))}
+                      aria-expanded={interactive ? selectedDay === ymd(d) : undefined}
                       title={
                         isHol
                           ? t.holidayTitle(holidayName)
@@ -621,17 +657,77 @@ export function WorkHoursTracker() {
                               ? 'bg-amber-500/15 text-amber-300 line-through hover:bg-amber-500/25'
                               : isHol
                                 ? 'bg-violet-500/15 text-violet-300'
+                                : holidayHours > 0
+                                  ? 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
                                 : 'bg-white/5 text-slate-200 hover:bg-white/10'
-                      } ${isToday ? 'ring-1 ring-indigo-400/60' : ''}`}
+                      } ${isToday || selectedDay === ymd(d) ? 'ring-1 ring-indigo-400/60' : ''}`}
                     >
                       <span className="text-[10px] text-slate-500">
                         {t.weekdays[d.getDay()]}
                       </span>
                       <span className="font-medium">{d.getDate()}</span>
+                      {holidayHours > 0 && personalHoliday && (
+                        <span className="mt-1 text-[9px]">
+                          {t.holidayBadge(fmtHours(holidayHours), personalHoliday.position)}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
               </div>
+              {selectedDay && w.days.some((d) => ymd(d) === selectedDay
+                && config.workdays.includes(d.getDay()) && !isHoliday(d)) && (
+                <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/5 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-amber-200">
+                      {w.days.find((d) => ymd(d) === selectedDay)!.toLocaleDateString(locale, {
+                        weekday: 'long', day: 'numeric', month: 'long',
+                      })}
+                    </p>
+                    <button onClick={() => setSelectedDay(null)} className="rounded-lg px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10">
+                      {t.closeDay}
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-end gap-4">
+                    <label className="flex flex-col gap-1.5 text-xs text-slate-400">
+                      {t.holidayHours}
+                      <HoursInput
+                        key={`${selectedDay}-${offSet.has(selectedDay)}`}
+                        value={Math.min(config.hoursPerDay, monthData.holidayHours?.[selectedDay]?.hours ?? 0)}
+                        max={config.hoursPerDay}
+                        placeholder="0"
+                        onChange={(hours) => setHolidayHours(selectedDay, {
+                          hours, position: monthData.holidayHours?.[selectedDay]?.position ?? 'start',
+                        })}
+                        className="glass w-28 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-xs text-slate-400">
+                      {t.holidayPosition}
+                      <select
+                        value={monthData.holidayHours?.[selectedDay]?.position ?? 'start'}
+                        onChange={(e) => setHolidayHours(selectedDay, {
+                          hours: monthData.holidayHours?.[selectedDay]?.hours ?? 0,
+                          position: e.target.value as HolidayHours['position'],
+                        })}
+                        className="glass rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                      >
+                        <option value="start" className="bg-slate-900">{t.startOfDay}</option>
+                        <option value="end" className="bg-slate-900">{t.endOfDay}</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 py-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={offSet.has(selectedDay)}
+                        onChange={() => toggleOff(w.days.find((d) => ymd(d) === selectedDay)!)}
+                        className="accent-amber-400"
+                      />
+                      {t.fullDayOff}
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
@@ -661,6 +757,7 @@ export function WorkHoursTracker() {
                 <button
                   key={k}
                   onClick={() => {
+                    setSelectedDay(null)
                     setYear(y)
                     setMonth(m - 1)
                   }}
