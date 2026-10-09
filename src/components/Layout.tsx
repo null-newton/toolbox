@@ -1,3 +1,4 @@
+import { LegalLinks } from '../legal/LegalPages'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ChevronDown, Images, PanelLeft } from 'lucide-react'
@@ -276,6 +277,7 @@ export function Layout() {
           <div className={`mb-3 flex justify-center ${collapsed ? 'lg:hidden' : ''}`}>
             <LanguageSwitcher />
           </div>
+          <div className={`mb-3 ${collapsed ? 'lg:hidden' : ''}`}><LegalLinks /></div>
           {user ? (
             <>
               <Link to="/account" onClick={closeNav} className="mb-3 block text-sm text-indigo-300">{access?.role === 'master' ? 'Manage accounts' : `Account · ${access?.role ?? ''}`}</Link>

@@ -1,3 +1,4 @@
+import { LegalLinks } from '../legal/LegalPages'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -22,6 +23,8 @@ const STR = {
     register: 'Register',
     noAccount: 'No account yet?',
     haveAccount: 'Already have an account?',
+    acceptance: 'I am 18 or older, agree to the Terms of Service, and acknowledge the Privacy Policy.',
+    acceptanceRequired: 'You must be 18 or older and agree to the Terms before creating an account.',
     continueWithout: 'Continue without an account →',
   },
   nl: {
@@ -38,6 +41,8 @@ const STR = {
     register: 'Registreren',
     noAccount: 'Nog geen account?',
     haveAccount: 'Heb je al een account?',
+    acceptance: 'Ik ben 18 jaar of ouder, ga akkoord met de gebruiksvoorwaarden en bevestig dat ik het privacybeleid heb gelezen (documenten in het Engels).',
+    acceptanceRequired: 'Je moet 18 jaar of ouder zijn en akkoord gaan met de voorwaarden om een account te maken.',
     continueWithout: 'Verdergaan zonder account →',
   },
 }
@@ -55,11 +60,14 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [accepted, setAccepted] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setNotice(null)
+
+    if (mode === 'register' && !accepted) { setError(t.acceptanceRequired); return }
 
     if (mode === 'register' && password !== confirmPassword) {
       setError(t.passwordsNoMatch)
@@ -167,6 +175,9 @@ export function AuthPage() {
               />
             </div>
           )}
+
+          {mode === 'register' && <label className="flex items-start gap-3 text-sm text-slate-300"><input type="checkbox" required checked={accepted} onChange={e => setAccepted(e.target.checked)} className="mt-1" />{t.acceptance}</label>}
+          <LegalLinks />
 
           {error && (
             <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-300">

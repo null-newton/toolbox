@@ -1,3 +1,4 @@
+import { AccountPrivacy } from '../legal/AccountPrivacy'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/auth-context'
 import { supabase } from '../lib/supabase'
@@ -67,6 +68,7 @@ export function AccountPage() {
     {error && <p role="alert" className="text-red-300">{error}</p>}{notice && <p role="status" className="text-green-300">{notice}</p>}
     {!isMaster && <div className="space-y-3">{access?.apps.filter(a => a.app_id === '__favorites__' || getUtility(a.app_id)).map(a => <div key={a.app_id} className="flex flex-wrap justify-between gap-3 border-b border-slate-700 py-3"><span>{name(a.app_id)} · {a.allowed ? 'Enabled' : 'Restricted'}</span><span>{size(a.used_bytes)} / {a.max_bytes === null ? 'Unlimited' : size(a.max_bytes)}</span></div>)}</div>}
     {isMaster && !dashboard && <p>Loading accounts…</p>}
+    <AccountPrivacy />
     {dashboard && <>
       <section><h2 className="mb-3 text-xl font-bold">Accounts</h2><input aria-label="Search accounts by email" placeholder="Search by email" value={search} onChange={e => setSearch(e.target.value)} className={`${inputClass} mb-3 w-full`} />
         <div className="max-h-80 overflow-auto">{dashboard.accounts.filter(a => a.email?.toLowerCase().includes(search.toLowerCase())).map(a => <button key={a.user_id} onClick={() => setSelected(a.user_id)} className={`flex w-full justify-between gap-3 rounded-lg px-3 py-3 text-left ${selected === a.user_id ? 'bg-indigo-500/20' : 'hover:bg-white/5'}`}><span>{a.email || a.user_id}</span><span>{a.role}{a.suspended ? ' · Suspended' : ''}</span></button>)}</div>

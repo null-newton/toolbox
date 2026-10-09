@@ -1,6 +1,9 @@
 // HashRouter so deep links survive refresh on GitHub Pages (no rewrite rules there).
+import { LegalPage, LegalLinks } from './legal/LegalPages'
+import { AccountDeletedPage, PrivacyAccountPage } from './legal/AccountPrivacy'
+import { TermsAcceptance } from './legal/TermsAcceptance'
 import { lazy, Suspense } from 'react'
-import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { HashRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { useAuth } from './auth/auth-context'
 import { FavoritesProvider } from './favorites/FavoritesProvider'
@@ -44,6 +47,9 @@ function AppRoutes() {
   const location = useLocation()
   const t = useT({ en: { loading: 'Loading…' }, nl: { loading: 'Laden…' } })
 
+  if (location.pathname === '/privacy' || location.pathname === '/terms') return <LegalPage kind={location.pathname === '/privacy' ? 'privacy' : 'terms'} />
+  if (location.pathname === '/account-deleted') return <AccountDeletedPage />
+
   if (loading) {
     return (
       <div className="ambient flex min-h-screen items-center justify-center bg-surface text-slate-400">
@@ -52,7 +58,10 @@ function AppRoutes() {
     )
   }
 
-  if (user && (accessError || access?.suspended)) return <div className="ambient flex min-h-screen items-center justify-center bg-surface text-white"><div className="relative z-10 space-y-4 p-8"><h1 className="text-2xl font-bold">{access?.suspended ? 'Account suspended' : 'Account settings unavailable'}</h1><p>{access?.suspended ? 'Contact the account administrator.' : accessError}</p><button onClick={() => void refreshAccess()} className="acid-button rounded px-4 py-2">Retry</button> <button onClick={() => void signOut()}>Log out</button></div></div>
+  if (user && location.pathname === '/account/privacy') return <PrivacyAccountPage />
+  if (user && access && !access.terms_accepted) return <TermsAcceptance />
+
+  if (user && (accessError || access?.suspended)) return <div className="ambient flex min-h-screen items-center justify-center bg-surface text-white"><div className="relative z-10 space-y-4 p-8"><h1 className="text-2xl font-bold">{access?.suspended ? 'Account suspended' : 'Account settings unavailable'}</h1><p>{access?.suspended ? 'Contact the account administrator.' : accessError}</p><Link to="/account/privacy" className="block text-indigo-300">Export data or delete account</Link><LegalLinks /><button onClick={() => void refreshAccess()} className="acid-button rounded px-4 py-2">Retry</button> <button onClick={() => void signOut()}>Log out</button></div></div>
 
   return (
     <Routes>

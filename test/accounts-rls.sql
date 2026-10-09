@@ -18,6 +18,14 @@ insert into auth.users(id,email) values
  ('33333333-3333-4333-8333-333333333333','pro@example.test');
 update public.accounts set role='master' where user_id='11111111-1111-4111-8111-111111111111';
 
+-- Existing test fixtures explicitly accept terms when the privacy migration is installed.
+do $$ begin
+ if to_regclass('public.account_legal_acceptances') is not null then
+  insert into public.account_legal_acceptances(user_id,terms_version,privacy_version,adult_attested)
+  select id,'2026-10-09','2026-10-09',true from auth.users
+  where id in ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333') on conflict do nothing;
+ end if;
+end $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',true);
 do $$ begin

@@ -194,3 +194,12 @@ with its Supabase Auth configuration before deploying the frontend. See the
 See [the account rollout guide](supabase/ACCOUNTS.md) before enabling Supabase
 signup. It includes the owner bootstrap, migration/deployment order, free/pro
 app settings, individual overrides, and database-enforced saved-data quotas.
+
+## Privacy, Terms, export, and account deletion
+
+Public pages are `/#/privacy` and `/#/terms`. Accounts are 18+ and require an
+explicit acknowledgement. Account privacy controls offer JSON export and
+password-confirmed erasure, including for suspended users. Apply the **new**
+privacy migration and follow [the privacy rollout guide](supabase/PRIVACY-ROLLOUT.md).
+Provider region, retention, processor/transfer arrangements, and applicable legal
+requirements need operator verification before claiming GDPR/worldwide compliance.

@@ -7,5 +7,6 @@ export interface AppAccess {
 export interface AccountAccess {
   role: 'free' | 'pro' | 'master'
   suspended: boolean
+  terms_accepted: boolean
   apps: AppAccess[]
 }
