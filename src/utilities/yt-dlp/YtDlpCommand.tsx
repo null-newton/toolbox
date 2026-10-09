@@ -1,3 +1,4 @@
+import { MediaRightsConfirmation } from '../../legal/MediaRightsConfirmation'
 import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ClipboardPaste, X } from 'lucide-react'
@@ -484,6 +485,8 @@ export function YtDlpCommand() {
   const t = useT(STR)
   const { config, setConfig, loading, saving, error: configError } = useUtilityConfig('yt-dlp', DEFAULTS)
   const [url, setUrl] = useState('')
+  const [rightsConfirmed, setRightsConfirmed] = useState(false)
+  const updateUrl = (value: string) => { setUrl(value); setRightsConfirmed(false) }
   const [copied, setCopied] = useState(false)
   const [phase, setPhase] = useState<DownloadPhase>('idle')
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -556,7 +559,7 @@ export function YtDlpCommand() {
     try {
       const clipboardText = await navigator.clipboard.readText()
       if (clipboardText) {
-        setUrl(clipboardText.trim())
+        updateUrl(clipboardText.trim())
         setDlError(null)
       }
     } catch {
@@ -565,7 +568,7 @@ export function YtDlpCommand() {
   }
 
   function clearUrl() {
-    setUrl('')
+    updateUrl('')
     setDlError(null)
   }
 
@@ -615,6 +618,8 @@ export function YtDlpCommand() {
       setDlError(t.downloadNeedUrl)
       return
     }
+    if (!rightsConfirmed) { setDlError('Confirm your media rights before downloading.'); return }
+    setRightsConfirmed(false)
     if (doneTimer.current) clearTimeout(doneTimer.current)
     setDlError(null)
     setProgress(null)
@@ -625,7 +630,7 @@ export function YtDlpCommand() {
       const res = await fetch(`${functionsBase}/video-download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...o, url: trimmed }),
+        body: JSON.stringify({ ...o, url: trimmed, rightsConfirmed: true }),
       })
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => null)
@@ -746,7 +751,7 @@ export function YtDlpCommand() {
               <input
                 type="url"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => updateUrl(e.target.value)}
                 placeholder={t.urlPlaceholder}
                 className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none"
                 aria-label={t.urlLabel}
@@ -922,9 +927,10 @@ export function YtDlpCommand() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
               {t.downloadHeading}
             </p>
+            <MediaRightsConfirmation checked={rightsConfirmed} disabled={busy} onChange={setRightsConfirmed} />
             <button
               onClick={download}
-              disabled={busy || !url.trim()}
+              disabled={busy || !url.trim() || !rightsConfirmed}
               className="mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? busyLabel : t.downloadButton}

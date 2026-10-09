@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { LEGAL_VERSION } from '../legal/content'
+import { TERMS_VERSION, PRIVACY_VERSION } from '../legal/content'
 import { supabase } from '../lib/supabase'
 import type { AccountAccess } from './access'
 import { AuthContext } from './auth-context'
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { terms_version: LEGAL_VERSION, privacy_version: LEGAL_VERSION, adult_attested: true } } })
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION, adult_attested: true } } })
     return { error: error?.message ?? null }
   }
 

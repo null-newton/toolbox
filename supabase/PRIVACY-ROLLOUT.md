@@ -119,3 +119,33 @@ silently loading tracking scripts.
 - [Supabase DPA](https://supabase.com/legal/customer-resources/data-processing-addendum)
 - [Supabase backup documentation](https://supabase.com/docs/guides/platform/backups)
 - [Signed JWT authentication-method claims](https://supabase.com/docs/guides/auth/jwt-fields)
+
+## Per-download rights declaration
+
+Video Downloader and Subtitle Studio's URL mode require a fresh declaration of
+media rights before each remote download. Both server routes require literal
+`rightsConfirmed: true`, and ignore the operator's yt-dlp config files. The flag
+is validated for the request and is not added to saved settings, tracking, or a
+new permanent receipt table. Existing app/plan permission controls still apply.
+Upload-only subtitle processing does not perform a new remote download.
+
+This is a misuse-reduction measure, not a promise that self-attestation proves
+rights or removes operator liability. The current Terms already prohibit unlawful
+media use and preserve mandatory legal rights; no misleading blanket waiver was
+added. The per-request check itself needs no SQL; the revised Terms described
+below require their own acceptance-version migration. Deploy both repositories.
+
+## Revised media-download Terms (version 2026-10-09.2)
+
+The Terms now explicitly describe the per-download rights declaration, its scope,
+prohibited circumvention, user/operator responsibilities, and copyright-report
+contact process. The Privacy Policy remains version 2026-10-09.
+
+After the privacy migration, apply **only**
+`migrations/202610090003_media_terms.sql`, then deploy the updated frontend.
+Do not rerun earlier migrations. Historical receipts remain; app access requires
+review and acceptance of the new Terms. Export and deletion remain available.
+The acceptance RPC requires explicit Terms and Privacy versions. A cached older
+frontend cannot record agreement to a document version it has not displayed;
+it must refresh. Signup metadata is likewise matched to the current revisions.
+Deploy the pending backend rights checks alongside the pending frontend changes.

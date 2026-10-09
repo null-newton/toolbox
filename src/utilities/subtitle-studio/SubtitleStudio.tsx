@@ -1,3 +1,4 @@
+import { MediaRightsConfirmation } from '../../legal/MediaRightsConfirmation'
 import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
@@ -52,6 +53,8 @@ export function SubtitleStudio() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [tab, setTab] = useState<'url' | 'upload'>('url')
   const [url, setUrl] = useState('')
+  const [rightsConfirmed, setRightsConfirmed] = useState(false)
+  const updateUrl = (value: string) => { setUrl(value); setRightsConfirmed(false) }
   const [file, setFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [phase, setPhase] = useState<Phase>('source')
@@ -125,6 +128,8 @@ export function SubtitleStudio() {
 
   async function transcribe() {
     if (tab === 'url' && !url.trim()) { setError('Paste a video URL first.'); return }
+    if (tab === 'url' && !rightsConfirmed) { setError('Confirm your media rights before downloading.'); return }
+    setRightsConfirmed(false)
     if (tab === 'upload' && !file) { setError('Choose a video file first.'); return }
     setError('')
     setPhase('transcribing')
@@ -135,7 +140,7 @@ export function SubtitleStudio() {
       setProgress(id ? 48 : 20)
       const data = await parseResponse(await fetch(`${api}?action=transcribe`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: id || undefined, url: tab === 'url' ? url.trim() : undefined, language, targetLanguage, model }),
+        body: JSON.stringify({ jobId: id || undefined, url: tab === 'url' ? url.trim() : undefined, rightsConfirmed: tab === 'url' ? true : undefined, language, targetLanguage, model }),
       }))
       setJobId(data.jobId)
       setCues(data.cues)
@@ -180,7 +185,7 @@ export function SubtitleStudio() {
   }
 
   const reset = () => {
-    setFile(null); setUrl(''); setCues([]); setJobId(''); setVideoUrl(''); setError(''); setProgress(0); setPhase('source')
+    setFile(null); updateUrl(''); setCues([]); setJobId(''); setVideoUrl(''); setError(''); setProgress(0); setPhase('source')
   }
 
   const active = cues[activeCue]
@@ -202,12 +207,12 @@ export function SubtitleStudio() {
         <div className="grid gap-6 lg:grid-cols-[1.35fr_.65fr]">
           <section className="glass p-5 sm:p-8">
             <div className="mb-7 flex border-b border-slate-700">
-              {(['url', 'upload'] as const).map(item => <button key={item} onClick={() => setTab(item)} className={`-mb-px flex flex-1 items-center justify-center gap-2 border-b-2 px-4 pb-4 text-sm font-semibold ${tab === item ? 'border-indigo-300 text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-200'}`}>{item === 'url' ? <Link2 className="size-4" /> : <Upload className="size-4" />}{item === 'url' ? 'Paste video URL' : 'Upload a video'}</button>)}
+              {(['url', 'upload'] as const).map(item => <button key={item} onClick={() => { setTab(item); setRightsConfirmed(false) }} className={`-mb-px flex flex-1 items-center justify-center gap-2 border-b-2 px-4 pb-4 text-sm font-semibold ${tab === item ? 'border-indigo-300 text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-200'}`}>{item === 'url' ? <Link2 className="size-4" /> : <Upload className="size-4" />}{item === 'url' ? 'Paste video URL' : 'Upload a video'}</button>)}
             </div>
             {tab === 'url' ? (
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-200">Video URL</label>
-                <div className="flex gap-2"><input value={url} onChange={e => { setUrl(e.target.value); setPhase(e.target.value ? 'ready' : 'source') }} placeholder="https://youtube.com/watch?v=…" className="form-input h-12 flex-1 font-mono" /><button onClick={async () => { const text = await navigator.clipboard.readText(); setUrl(text); setPhase('ready') }} className="border border-slate-700 px-4 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-300">Paste</button></div>
+                <div className="flex gap-2"><input value={url} onChange={e => { updateUrl(e.target.value); setPhase(e.target.value ? 'ready' : 'source') }} placeholder="https://youtube.com/watch?v=…" className="form-input h-12 flex-1 font-mono" /><button onClick={async () => { const text = await navigator.clipboard.readText(); updateUrl(text); setPhase('ready') }} className="border border-slate-700 px-4 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-300">Paste</button></div>
                 <p className="mt-3 flex items-center gap-2 text-xs text-slate-500"><Check className="size-3.5 text-indigo-300" /> YouTube, Vimeo, TikTok, X, and thousands more via yt-dlp</p>
               </div>
             ) : (
@@ -225,7 +230,8 @@ export function SubtitleStudio() {
               <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200"><Sparkles className="size-4 text-cyan-300" /> Accuracy model</span><span className="relative block"><select value={model} onChange={e => setModel(e.target.value)} className="form-input h-11 appearance-none"><option value="tiny">Tiny · fastest</option><option value="base">Base · balanced</option><option value="small">Small · accurate</option><option value="medium">Medium · best</option></select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 size-4 text-slate-500" /></span></label>
             </div>
             {error && <p className="mt-5 border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}
-            {phase === 'transcribing' ? <div className="mt-7"><div className="mb-2 flex justify-between text-xs"><span className="flex items-center gap-2 text-slate-300"><LoaderCircle className="size-3.5 animate-spin text-indigo-300" />{status}</span><span className="font-mono text-indigo-300">{progress}%</span></div><div className="h-1 bg-slate-800"><div className="h-full bg-indigo-300 transition-all duration-700" style={{ width: `${progress}%` }} /></div><p className="mt-3 text-xs text-slate-500">Keep this tab open. Processing time depends on video length and model size.</p></div> : <button onClick={transcribe} className="mt-7 flex w-full items-center justify-center gap-2 bg-indigo-300 px-5 py-3.5 text-sm font-bold text-slate-950 hover:bg-indigo-200 disabled:opacity-40" disabled={(tab === 'url' ? !url.trim() : !file)}><WandSparkles className="size-4" /> Generate subtitles</button>}
+            {tab === 'url' && <MediaRightsConfirmation checked={rightsConfirmed} disabled={phase === 'transcribing'} onChange={setRightsConfirmed} />}
+            {phase === 'transcribing' ? <div className="mt-7"><div className="mb-2 flex justify-between text-xs"><span className="flex items-center gap-2 text-slate-300"><LoaderCircle className="size-3.5 animate-spin text-indigo-300" />{status}</span><span className="font-mono text-indigo-300">{progress}%</span></div><div className="h-1 bg-slate-800"><div className="h-full bg-indigo-300 transition-all duration-700" style={{ width: `${progress}%` }} /></div><p className="mt-3 text-xs text-slate-500">Keep this tab open. Processing time depends on video length and model size.</p></div> : <button onClick={transcribe} className="mt-7 flex w-full items-center justify-center gap-2 bg-indigo-300 px-5 py-3.5 text-sm font-bold text-slate-950 hover:bg-indigo-200 disabled:opacity-40" disabled={(tab === 'url' ? !url.trim() || !rightsConfirmed : !file)}><WandSparkles className="size-4" /> Generate subtitles</button>}
           </section>
 
           <aside className="glass flex flex-col p-6">

@@ -2,21 +2,21 @@
 begin;
 insert into auth.users(id,email,raw_user_meta_data) values
  ('44444444-4444-4444-8444-444444444444','privacy@example.test','{}'),
- ('55555555-5555-4555-8555-555555555555','other@example.test','{"terms_version":"2026-10-09","privacy_version":"2026-10-09","adult_attested":true}');
+ ('55555555-5555-4555-8555-555555555555','other@example.test','{"terms_version":"2026-10-09.2","privacy_version":"2026-10-09","adult_attested":true}');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',true);
 do $$ begin
  if public.can_use_app('qr-code') then raise exception 'unaccepted account can use apps'; end if;
  begin
- perform public.accept_current_terms(false); raise exception 'minor attestation accepted';
+ perform public.accept_current_terms(false,'2026-10-09.2','2026-10-09'); raise exception 'minor attestation accepted';
  exception when raise_exception then if sqlerrm not like 'Accounts are available%' then raise; end if; end;
  begin
  insert into public.account_legal_acceptances(user_id,terms_version,privacy_version,adult_attested)
  values(auth.uid(),'2026-10-09','2026-10-09',true); raise exception 'direct acceptance write allowed';
  exception when insufficient_privilege then null; end;
 end $$;
-select public.accept_current_terms(true);
-select public.accept_current_terms(true);
+select public.accept_current_terms(true,'2026-10-09.2','2026-10-09');
+select public.accept_current_terms(true,'2026-10-09.2','2026-10-09');
 do $$ begin
  if not public.can_use_app('qr-code') then raise exception 'accepted account blocked'; end if;
  if (select count(*) from public.account_legal_acceptances) <> 1 then raise exception 'acceptance not idempotent/isolated'; end if;

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useLang } from '../i18n/LanguageContext'
-import { LEGAL_VERSION, PRIVACY_CONTACT, privacySections, termsSections } from './content'
+import { LEGAL_VERSION, TERMS_VERSION, PRIVACY_VERSION, PRIVACY_CONTACT, privacySections, termsSections } from './content'
 
 export function LegalLinks() {
   const { lang } = useLang()
@@ -17,7 +17,7 @@ export function LegalPage({ kind }: { kind: 'privacy' | 'terms' }) {
     <article className="relative z-10 mx-auto max-w-3xl">
       <Link to="/" className="text-sm text-indigo-300">← Toolbox</Link>
       <h1 className="mt-6 text-4xl font-bold">{title}</h1>
-      <p className="mt-3 text-sm text-slate-400">Effective date and version: {LEGAL_VERSION} · English</p>
+      <p className="mt-3 text-sm text-slate-400">Effective date: {LEGAL_VERSION} · Version: {kind === 'terms' ? TERMS_VERSION : PRIVACY_VERSION} · English</p>
       <nav aria-label="Document contents" className="my-8 flex flex-wrap gap-x-4 gap-y-2 text-sm text-indigo-300">{sections.map((section, i) => <button key={section.title} onClick={() => document.getElementById(`section-${i}`)?.scrollIntoView({ behavior: 'smooth' })}>{section.title}</button>)}</nav>
       <div className="space-y-8">{sections.map((section, i) => <section key={section.title} id={`section-${i}`}>
         <h2 className="text-xl font-bold">{section.title}</h2>

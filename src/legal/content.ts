@@ -1,4 +1,6 @@
 export const LEGAL_VERSION = '2026-10-09'
+export const TERMS_VERSION = '2026-10-09.2'
+export const PRIVACY_VERSION = '2026-10-09'
 export const PRIVACY_CONTACT = 'isaacsauer+toolbox@icloud.com'
 export const OPERATOR = 'Isaac Sauer'
 export interface LegalSection { title: string; paragraphs: string[] }
@@ -66,6 +68,12 @@ export const termsSections: LegalSection[] = [
     'You retain rights in your content. You grant the operator only the permission needed to store, process, transmit, and display it to provide the features you request, including sharing with recipients through links you enable. This is not a licence to sell your content or use private uploads for advertising or model training.',
     'Only upload, download, transform, or share content you are entitled to use. Respect copyright, privacy, provider terms, and other people’s rights. Do not use Toolbox for unlawful content, harassment, malware, unauthorized system access, credential theft, unlawful surveillance, or bypassing payment/access restrictions. Do not evade quotas or deliberately overload the backend. A video-download or media tool does not grant permission to obtain protected content.',
     'Do not upload other people’s sensitive data unless you have a lawful reason and any necessary permission. The service is not designed as a records system for medical, emergency, legal, or regulated professional work. If you share a link, review what it exposes and understand that recipients can retain their own copies.'
+  ] },
+  { title: 'Media downloads and rights confirmation', paragraphs: [
+    'Before each server-side URL download in Video Downloader or Subtitle Studio, you must expressly confirm that you have the necessary rights or another lawful basis to download and process the requested media. Do not bypass DRM, paywalls, authentication, or other access restrictions. Check applicable copyright law and source-site rules before making the request.',
+    'The confirmation applies to that download request only. It is not remembered as permission for future downloads; changing the source URL or starting another request requires a new confirmation. Account and app permissions continue to apply. Uploading your own video for subtitles does not initiate a remote URL download, but remains subject to the lawful-use requirements above.',
+    'Toolbox and its use of yt-dlp do not grant copyright permission, prove that a source is lawful, or establish that a requested download is allowed. Your declaration is an attestation and a condition of using the feature, not a legal immunity or waiver of mandatory rights. You remain responsible under applicable law for your submissions and actions; the operator remains responsible for its own acts and legal obligations.',
+    'If you believe a Toolbox media request infringes your rights, contact isaacsauer+toolbox@icloud.com. Identify the relevant work, Toolbox file/job or link if available, your basis for claiming rights, and a way to contact you. We may restrict the relevant access or remove material where appropriate after reviewing the report. This contact process does not limit any remedy available under applicable law.'
   ] },
   { title: 'Availability, accuracy, and external services', paragraphs: [
     'Toolbox is a collection of utilities provided without a charge. Features may depend on external providers, browsers, AI models, and experimental implementations. Forecasts, estimates, transcriptions, image outputs, imported prices, routing, and other results can be incomplete or inaccurate. Check results before relying on them; tools do not replace qualified professional advice where it is needed.',

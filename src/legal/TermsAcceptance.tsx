@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/auth-context'
 import { useLang } from '../i18n/LanguageContext'
+import { TERMS_VERSION, PRIVACY_VERSION } from './content'
 import { LegalLinks } from './LegalPages'
 
 export function TermsAcceptance() {
@@ -14,7 +15,7 @@ export function TermsAcceptance() {
   async function submit() {
     if (!accepted) return
     setBusy(true); setError('')
-    const { error } = await supabase.rpc('accept_current_terms', { p_adult: true })
+    const { error } = await supabase.rpc('accept_current_terms', { p_adult: true, p_terms_version: TERMS_VERSION, p_privacy_version: PRIVACY_VERSION })
     if (error) setError(error.message)
     else await refreshAccess()
     setBusy(false)
