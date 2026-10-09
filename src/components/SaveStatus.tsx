@@ -12,7 +12,7 @@ const STR = {
  * debounced config save; signed out it becomes a sign-in nudge, since
  * utilities still work without an account — settings just aren't persisted.
  */
-export function SaveStatus({ saving }: { saving: boolean }) {
+export function SaveStatus({ saving, error }: { saving: boolean; error?: string | null }) {
   const { user } = useAuth()
   const t = useT(STR)
 
@@ -26,6 +26,8 @@ export function SaveStatus({ saving }: { saving: boolean }) {
       </Link>
     )
   }
+
+  if (error) return <span role="alert" className="text-xs text-rose-400">{error}</span>
 
   return (
     <span className="flex items-center gap-1.5 text-xs text-slate-500">

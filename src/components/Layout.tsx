@@ -44,13 +44,13 @@ const STR = {
 }
 
 export function Layout() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, canUseApp, access } = useAuth()
   const location = useLocation()
   const sidebarHidden = isSidebarHidden(location.search)
   const { isFavorite, toggleFavorite } = useFavorites()
   const t = useT(STR)
   const { lang } = useLang()
-  const utilities = getUtilities().filter((u) => user || u.availableWithoutAccount)
+  const utilities = getUtilities().filter((u) => user ? canUseApp(u.id) : u.availableWithoutAccount)
   const favourites = utilities.filter((u) => isFavorite(u.id))
   const nonFavourites = utilities.filter((u) => !isFavorite(u.id))
   const mediaUtilities = nonFavourites.filter((u) => u.category === 'media')
@@ -278,6 +278,7 @@ export function Layout() {
           </div>
           {user ? (
             <>
+              <Link to="/account" onClick={closeNav} className="mb-3 block text-sm text-indigo-300">{access?.role === 'master' ? 'Manage accounts' : `Account · ${access?.role ?? ''}`}</Link>
               <p
                 className={`truncate text-xs text-slate-500 ${collapsed ? 'lg:hidden' : ''}`}
                 title={user.email ?? ''}

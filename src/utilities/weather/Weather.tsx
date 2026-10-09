@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
@@ -329,7 +330,7 @@ function MiniClimateChart({ data, convert }: { data: ClimateData; convert: (valu
 }
 
 export function Weather() {
-  const { config, setConfig, loading: configLoading, saving } = useUtilityConfig<WeatherConfig>('weather', DEFAULTS)
+  const { config, setConfig, loading: configLoading, saving, error: configError } = useUtilityConfig<WeatherConfig>('weather', DEFAULTS)
   const t = useT(STR)
   const { lang, locale } = useLang()
   const [place, setPlace] = useState<Place>(DEFAULT_PLACE)
@@ -507,7 +508,7 @@ export function Weather() {
             </span>
             <div>
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-              <SaveStatus saving={saving} />
+              <SaveStatus saving={saving} error={configError} />
             </div>
           </div>
           <p className="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">{t.subtitle}</p>

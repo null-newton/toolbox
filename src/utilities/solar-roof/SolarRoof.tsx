@@ -505,7 +505,7 @@ function CompassDial({
 export function SolarRoof() {
   const t = useT(STR)
   const { locale } = useLang()
-  const { config, setConfig, loading, saving } = useUtilityConfig<Config>('solar-roof', {
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig<Config>('solar-roof', {
     site: DEFAULT_CENTER,
     faces: [],
     obstacles: [],
@@ -896,7 +896,7 @@ export function SolarRoof() {
         <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
           <Sun className="size-7 text-amber-400" /> {t.title}
         </h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 max-w-3xl text-slate-400">{t.intro}</p>
 

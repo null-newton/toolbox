@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useState } from 'react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
@@ -341,7 +342,7 @@ function PredictionCard({ pred }: { pred: Prediction }) {
 export function SoccerPredictor() {
   const t = useT(STR)
   const { locale } = useLang()
-  const { config, setConfig, loading, saving } = useUtilityConfig('soccer-predictor', {
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig('soccer-predictor', {
     apiKey: '',
     competition: 'PL',
     mode: 'matchup' as Mode,
@@ -483,7 +484,7 @@ export function SoccerPredictor() {
     <div className="animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 

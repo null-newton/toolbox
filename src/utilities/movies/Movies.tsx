@@ -969,7 +969,7 @@ function Player({
 
 export function Movies() {
   const t = useT(STR)
-  const { config, setConfig, loading, saving } = useUtilityConfig<MoviesConfig>('movies', DEFAULTS)
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig<MoviesConfig>('movies', DEFAULTS)
   const key = config.apiKey.trim()
   const hasKey = key.length > 0
 
@@ -1200,7 +1200,7 @@ export function Movies() {
     <div className="max-w-6xl animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.heading}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 

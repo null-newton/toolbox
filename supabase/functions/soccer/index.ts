@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 // Soccer match + win-probability proxy for the "Soccer Predictor" utility.
 //
 // Backed by football-data.org (v4). The browser can't call it directly (no
@@ -361,7 +362,7 @@ async function handleMatchup(apiGet: ReturnType<typeof makeClient>, p: URLSearch
 
 // --- Entry ---------------------------------------------------------------
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('soccer-predictor', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const token = req.headers.get('x-fd-token')
@@ -380,4 +381,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Request failed' }, 502)
   }
-})
+}))

@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { functionsBase } from '../../lib/supabase'
 import type { LatLon } from './solar'
 

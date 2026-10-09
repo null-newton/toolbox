@@ -1,6 +1,12 @@
 -- Run against a LOCAL/test Supabase database after both Wishlist migrations.
 -- All fixture rows are rolled back. psql: \set ON_ERROR_STOP on
 begin;
+-- Account-access deployments default backend apps to restricted.
+do $$ begin
+ if to_regclass('public.app_rules') is not null then
+   update public.app_rules set free_access=true where app_id='wishlist';
+ end if;
+end $$;
 insert into auth.users(id) values
  ('11111111-1111-4111-8111-111111111111'), ('22222222-2222-4222-8222-222222222222');
 set local role authenticated;

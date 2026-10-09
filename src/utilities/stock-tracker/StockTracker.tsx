@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
@@ -545,7 +546,7 @@ function WatchRow({
 
 export function StockTracker() {
   const t = useT(STR)
-  const { config, setConfig, loading, saving } = useUtilityConfig<Config>('stock-tracker', DEFAULTS)
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig<Config>('stock-tracker', DEFAULTS)
 
   const hasCreds = hasCredentials(config)
   const isAv = config.provider === 'alphavantage'
@@ -706,7 +707,7 @@ export function StockTracker() {
     <div className="max-w-2xl animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 

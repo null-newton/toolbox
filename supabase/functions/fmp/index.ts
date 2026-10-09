@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 // Financial Modeling Prep proxy for the "Stock Tracker" utility — a second free
 // provider with a more generous quota than Alpha Vantage.
 //
@@ -36,7 +37,7 @@ async function fmpGet(path: string, params: Record<string, string>, key: string)
   const res = await fetch(`${API_BASE}${path}?${qs}`)
   // Errors (e.g. 402 "Restricted Endpoint") come back as plain text, not JSON.
   const text = await res.text()
-  let data: Json = null
+  let data: Json
   try {
     data = JSON.parse(text)
   } catch {
@@ -143,7 +144,7 @@ async function handleHoldings(p: URLSearchParams, key: string) {
 
 // --- Entry ---------------------------------------------------------------
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('stock-tracker', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const key = req.headers.get('x-fmp-key')
@@ -160,4 +161,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Request failed' }, 502)
   }
-})
+}))

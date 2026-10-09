@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 import { LyricSearchError, searchByLyrics } from '../_shared/lyric-search.mjs'
 
 const LRCLIB_BASE = 'https://lrclib.net/api'
@@ -48,7 +49,7 @@ async function lrclibSearch(query: string, includePlain = false) {
   return (Array.isArray(rows) ? rows : []).filter((row) => row.syncedLyrics || (includePlain && row.plainLyrics)).slice(0, 8).map(normalizeTrack)
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('song-listener', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   const url = new URL(req.url)
   const action = url.searchParams.get('action')
@@ -74,4 +75,4 @@ Deno.serve(async (req) => {
     if (error instanceof LyricSearchError) return json({ error: error.message, code: error.code }, error.status)
     return json({ error: error instanceof Error ? error.message : 'Song lookup failed.' }, 502)
   }
-})
+}))

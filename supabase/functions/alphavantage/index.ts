@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 // Alpha Vantage proxy for the "Stock Tracker" utility — the free provider.
 //
 // Alpha Vantage offers a genuinely free API key (no card, ~25 requests/day,
@@ -134,7 +135,7 @@ async function handleHoldings(p: URLSearchParams, key: string) {
 
 // --- Entry ---------------------------------------------------------------
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('stock-tracker', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const key = req.headers.get('x-av-key')
@@ -151,4 +152,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Request failed' }, 502)
   }
-})
+}))

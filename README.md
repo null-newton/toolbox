@@ -188,3 +188,9 @@ Amazon/bol details, tags/sorting, revocable share links and anonymous gift
 reservations. Apply the new Wishlist SQL migration and **deploy the backend**
 with its Supabase Auth configuration before deploying the frontend. See the
 [Wishlist setup, privacy model and tests](src/utilities/wishlist/README.md).
+
+## Account access and saved-data limits
+
+See [the account rollout guide](supabase/ACCOUNTS.md) before enabling Supabase
+signup. It includes the owner bootstrap, migration/deployment order, free/pro
+app settings, individual overrides, and database-enforced saved-data quotas.

@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useRef, useState } from 'react'
 import { functionsBase, supabase } from '../../lib/supabase'
 import { useT } from '../../i18n/LanguageContext'

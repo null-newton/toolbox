@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 // CORS proxy for the Shortest Route utility's shared-list import.
 //
 // Browsers can't fetch google.com / apple.com pages directly (no CORS
@@ -23,7 +24,7 @@ const CORS_HEADERS = {
 const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('route-optimizer', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
   }
@@ -48,4 +49,4 @@ Deno.serve(async (req) => {
     status: upstream.status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'text/plain; charset=utf-8' },
   })
-})
+}))

@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ExternalLink, Gift } from 'lucide-react'

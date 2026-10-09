@@ -7,6 +7,7 @@ import { FavoritesProvider } from './favorites/FavoritesProvider'
 import { AuthPage } from './auth/AuthPage'
 import { Layout } from './components/Layout'
 import { SetupScreen } from './components/SetupScreen'
+import { AccountPage } from './pages/AccountPage'
 import { Home } from './pages/Home'
 import { isSupabaseConfigured } from './lib/supabase'
 import { loginDestination, loginUrl } from './lib/navigation'
@@ -22,13 +23,14 @@ const FileTransfer = lazy(() =>
 const SharedWishlist = lazy(() => import('./utilities/wishlist/SharedWishlist').then(m => ({ default: m.SharedWishlist })))
 
 function UtilityPage() {
-  const { user } = useAuth()
+  const { user, canUseApp } = useAuth()
   const location = useLocation()
   const { utilityId } = useParams()
   const t = useT({ en: { loading: 'Loading tool…' }, nl: { loading: 'Tool laden…' } })
   const utility = utilityId ? getUtility(utilityId) : undefined
   if (!utility) return <Navigate to="/" replace />
   if (!user && !utility.availableWithoutAccount) return <Navigate to={loginUrl(location)} replace />
+  if (user && !canUseApp(utility.id)) return <div className="space-y-3"><h1 className="text-2xl font-bold">App access unavailable</h1><p>Contact the account administrator to enable this app.</p></div>
   const Component = utility.component
   return (
     <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
@@ -38,7 +40,7 @@ function UtilityPage() {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { user, loading, accessError, access, refreshAccess, signOut } = useAuth()
   const location = useLocation()
   const t = useT({ en: { loading: 'Loading…' }, nl: { loading: 'Laden…' } })
 
@@ -50,11 +52,14 @@ function AppRoutes() {
     )
   }
 
+  if (user && (accessError || access?.suspended)) return <div className="ambient flex min-h-screen items-center justify-center bg-surface text-white"><div className="relative z-10 space-y-4 p-8"><h1 className="text-2xl font-bold">{access?.suspended ? 'Account suspended' : 'Account settings unavailable'}</h1><p>{access?.suspended ? 'Contact the account administrator.' : accessError}</p><button onClick={() => void refreshAccess()} className="acid-button rounded px-4 py-2">Retry</button> <button onClick={() => void signOut()}>Log out</button></div></div>
+
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={loginDestination(location.search)} replace /> : <AuthPage />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/account" element={user ? <AccountPage /> : <Navigate to="/login" replace />} />
         <Route
           path="/transfer/:transferId"
           element={

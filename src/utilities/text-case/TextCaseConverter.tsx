@@ -58,7 +58,7 @@ function convert(text: string, mode: CaseMode, trim: boolean): string {
 }
 
 export function TextCaseConverter() {
-  const { config, setConfig, loading, saving } = useUtilityConfig('text-case', {
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig('text-case', {
     mode: 'upper' as CaseMode,
     autoTrim: true,
   })
@@ -73,7 +73,7 @@ export function TextCaseConverter() {
     <div className="animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 

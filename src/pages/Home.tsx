@@ -30,11 +30,11 @@ const STR = {
 }
 
 export function Home() {
-  const { user } = useAuth()
+  const { user, canUseApp } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const t = useT(STR)
   const { lang } = useLang()
-  const utilities = getUtilities().filter((u) => user || u.availableWithoutAccount)
+  const utilities = getUtilities().filter((u) => user ? canUseApp(u.id) : u.availableWithoutAccount)
 
   return (
     <div className="mx-auto w-full max-w-[1180px] animate-fade-up py-4 lg:py-10">

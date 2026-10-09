@@ -1,3 +1,4 @@
+import { withAppAccess } from '../_shared/app-access.ts'
 // Morningstar proxy for the "Stock Tracker" utility.
 //
 // Backed by Morningstar Direct Web Services. The browser can't call it directly
@@ -111,7 +112,7 @@ async function apiGet(host: string, token: string, path: string): Promise<Json> 
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
   })
   const text = await res.text()
-  let data: Json = {}
+  let data: Json
   try {
     data = JSON.parse(text)
   } catch {
@@ -282,7 +283,7 @@ async function handleHoldings(host: string, token: string, p: URLSearchParams) {
 
 // --- Entry ---------------------------------------------------------------
 
-Deno.serve(async (req) => {
+Deno.serve(withAppAccess('stock-tracker', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const user = req.headers.get('x-ms-user')
@@ -305,4 +306,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : 'Request failed' }, 502)
   }
-})
+}))

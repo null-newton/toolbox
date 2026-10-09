@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
 import {
@@ -95,6 +96,13 @@ export function SubtitleStudio() {
     return data
   }
 
+  async function fileLink(job: string, kind: 'source' | 'render') {
+    const data = await parseResponse(await fetch(`${functionsBase}/account-file-url`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job, kind }),
+    }))
+    return `${functionsBase}/${data.path}`
+  }
+
   async function uploadVideo(source: File) {
     setStatus('Preparing secure upload…')
     const created = await parseResponse(await fetch(`${api}?action=create`, {
@@ -131,7 +139,7 @@ export function SubtitleStudio() {
       }))
       setJobId(data.jobId)
       setCues(data.cues)
-      setVideoUrl(`${api}?action=file&job=${encodeURIComponent(data.jobId)}&kind=source`)
+      setVideoUrl(await fileLink(data.jobId, 'source'))
       setProgress(100)
       setStatus(data.translated ? `Translated subtitles ready in ${TARGET_LANGUAGES.find(([code]) => code === data.targetLanguage)?.[1] || data.targetLanguage}` : 'Transcript ready')
       setPhase('editing')
@@ -165,7 +173,7 @@ export function SubtitleStudio() {
         body: JSON.stringify({ jobId, srt: srt(cues), style: { fontSize, position, background } }),
       }))
       setProgress(100); setStatus('Captioned video ready'); setPhase('editing')
-      window.location.href = `${api}?action=file&job=${encodeURIComponent(jobId)}&kind=render`
+      window.location.href = await fileLink(jobId, 'render')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Video export failed.'); setPhase('editing')
     }

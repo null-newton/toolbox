@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ClipboardPaste, X } from 'lucide-react'
 import { SaveStatus } from '../../components/SaveStatus'
@@ -481,7 +482,7 @@ type Progress = { percent: number; speed: string | null; eta: string | null }
 
 export function YtDlpCommand() {
   const t = useT(STR)
-  const { config, setConfig, loading, saving } = useUtilityConfig('yt-dlp', DEFAULTS)
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig('yt-dlp', DEFAULTS)
   const [url, setUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [phase, setPhase] = useState<DownloadPhase>('idle')
@@ -700,7 +701,7 @@ export function YtDlpCommand() {
             {t.builtFor} · {CURRENT_RELEASE}
           </a>
         </div>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">
         {t.introBefore}

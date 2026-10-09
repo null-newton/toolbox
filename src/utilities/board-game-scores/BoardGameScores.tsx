@@ -110,7 +110,7 @@ function totalFor(game: Game, playerId: string): number {
 }
 
 export function BoardGameScores() {
-  const { config, setConfig, loading, saving } = useUtilityConfig<ScoresConfig>(
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig<ScoresConfig>(
     'board-game-scores',
     DEFAULTS
   )
@@ -204,7 +204,7 @@ export function BoardGameScores() {
     <div className="animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 

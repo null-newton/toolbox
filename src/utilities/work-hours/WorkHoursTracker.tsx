@@ -220,7 +220,7 @@ function parseHours(raw: string): number | null {
 }
 
 export function WorkHoursTracker() {
-  const { config, setConfig, loading, saving } = useUtilityConfig<WorkConfig>(
+  const { config, setConfig, loading, saving, error: configError } = useUtilityConfig<WorkConfig>(
     'work-hours',
     DEFAULTS
   )
@@ -439,7 +439,7 @@ export function WorkHoursTracker() {
     <div className="animate-fade-up">
       <div className="flex items-baseline justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} />
+        <SaveStatus saving={saving} error={configError} />
       </div>
       <p className="mt-2 text-slate-400">{t.intro}</p>
 
