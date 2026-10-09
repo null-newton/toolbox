@@ -1,13 +1,13 @@
 export const LEGAL_VERSION = '2026-10-09'
 export const TERMS_VERSION = '2026-10-09.2'
 export const PRIVACY_VERSION = '2026-10-09'
-export const PRIVACY_CONTACT = 'isaacsauer+toolbox@icloud.com'
+export const PRIVACY_CONTACT = 'privacy@zacsvae.com'
 export const OPERATOR = 'Isaac Sauer'
 export interface LegalSection { title: string; paragraphs: string[] }
 
 export const privacySections: LegalSection[] = [
   { title: 'Who is responsible', paragraphs: [
-    'Toolbox at toolbox.zacsvae.com is operated by Isaac Sauer in Belgium. Isaac Sauer is the controller of personal data processed to operate Toolbox. Contact isaacsauer+toolbox@icloud.com for privacy questions, rights requests, or complaints.',
+    'Toolbox at toolbox.zacsvae.com is operated by Isaac Sauer in Belgium. Isaac Sauer is the controller of personal data processed to operate Toolbox. Contact privacy@zacsvae.com for privacy questions, rights requests, or complaints.',
     'This notice covers Toolbox accounts, saved settings and creations, shared links, and the tools provided through this website. External websites and services have their own privacy notices. Accounts are available only to people aged 18 or over.'
   ] },
   { title: 'What we collect and why', paragraphs: [
@@ -45,7 +45,7 @@ export const privacySections: LegalSection[] = [
   ] },
   { title: 'Your rights and contact', paragraphs: [
     'Depending on the law that applies, you may have rights to access, correction, erasure, restriction, portability, objection, withdrawal of consent where processing relies on consent, and an appeal or complaint about a rights decision. We do not make solely automated decisions with legal or similarly significant effects; app access is managed by the operator.',
-    'Use Account → Download my data for a JSON copy of your account’s stored application records, and Account → Delete my account for self-service erasure. These controls remain available even if your account is suspended or an app is restricted. Contact isaacsauer+toolbox@icloud.com for other requests, an inaccessible account, anonymous guest data, or data not included in the automatic export. We may ask for proportionate identity verification, without requesting your password by email.',
+    'Use Account → Download my data for a JSON copy of your account’s stored application records, and Account → Delete my account for self-service erasure. These controls remain available even if your account is suspended or an app is restricted. Contact privacy@zacsvae.com for other requests, an inaccessible account, anonymous guest data, or data not included in the automatic export. We may ask for proportionate identity verification, without requesting your password by email.',
     'For GDPR requests we respond without undue delay and normally within one month, subject to the legally permitted extension for complex or numerous requests, which we explain. Other applicable jurisdictions may use different deadlines and exceptions. We do not discriminate against people for exercising legally protected privacy rights.',
     'You can complain to the Belgian Data Protection Authority at dataprotectionauthority.be or to a competent authority in your country. You may contact us first, but doing so is not a condition for exercising a regulatory complaint right. California, UK, Canadian, Australian, and other mandatory privacy protections apply where their legal scope is met; this notice does not limit them.'
   ] },
@@ -56,7 +56,7 @@ export const privacySections: LegalSection[] = [
 
 export const termsSections: LegalSection[] = [
   { title: 'Operator and agreement', paragraphs: [
-    'Toolbox is provided by Isaac Sauer in Belgium. Contact isaacsauer+toolbox@icloud.com. These Terms govern your use of toolbox.zacsvae.com and its Toolbox backend. Read the Privacy Policy for how personal data is handled. Account users must expressly agree to these Terms; merely opening the Privacy Policy is not consent to optional processing.',
+    'Toolbox is provided by Isaac Sauer in Belgium. Contact privacy@zacsvae.com. These Terms govern your use of toolbox.zacsvae.com and its Toolbox backend. Read the Privacy Policy for how personal data is handled. Account users must expressly agree to these Terms; merely opening the Privacy Policy is not consent to optional processing.',
     'The service is intended for adults. You must be at least 18 to create or use an account and able to enter the agreement under applicable law. We do not ask for your date of birth, but record your adult attestation. If you believe a child has created an account, contact us so we can address it.'
   ] },
   { title: 'Accounts and access levels', paragraphs: [
@@ -73,7 +73,7 @@ export const termsSections: LegalSection[] = [
     'Before each server-side URL download in Video Downloader or Subtitle Studio, you must expressly confirm that you have the necessary rights or another lawful basis to download and process the requested media. Do not bypass DRM, paywalls, authentication, or other access restrictions. Check applicable copyright law and source-site rules before making the request.',
     'The confirmation applies to that download request only. It is not remembered as permission for future downloads; changing the source URL or starting another request requires a new confirmation. Account and app permissions continue to apply. Uploading your own video for subtitles does not initiate a remote URL download, but remains subject to the lawful-use requirements above.',
     'Toolbox and its use of yt-dlp do not grant copyright permission, prove that a source is lawful, or establish that a requested download is allowed. Your declaration is an attestation and a condition of using the feature, not a legal immunity or waiver of mandatory rights. You remain responsible under applicable law for your submissions and actions; the operator remains responsible for its own acts and legal obligations.',
-    'If you believe a Toolbox media request infringes your rights, contact isaacsauer+toolbox@icloud.com. Identify the relevant work, Toolbox file/job or link if available, your basis for claiming rights, and a way to contact you. We may restrict the relevant access or remove material where appropriate after reviewing the report. This contact process does not limit any remedy available under applicable law.'
+    'If you believe a Toolbox media request infringes your rights, contact privacy@zacsvae.com. Identify the relevant work, Toolbox file/job or link if available, your basis for claiming rights, and a way to contact you. We may restrict the relevant access or remove material where appropriate after reviewing the report. This contact process does not limit any remedy available under applicable law.'
   ] },
   { title: 'Availability, accuracy, and external services', paragraphs: [
     'Toolbox is a collection of utilities provided without a charge. Features may depend on external providers, browsers, AI models, and experimental implementations. Forecasts, estimates, transcriptions, image outputs, imported prices, routing, and other results can be incomplete or inaccurate. Check results before relying on them; tools do not replace qualified professional advice where it is needed.',
@@ -90,6 +90,6 @@ export const termsSections: LegalSection[] = [
   ] },
   { title: 'Law, disputes, and contact', paragraphs: [
     'Belgian law governs these Terms to the extent a choice of law is permitted. If you are a consumer, this choice does not deprive you of mandatory protection under the law that applies in your country of habitual residence. Courts and regulators remain available as provided by applicable law; these Terms do not require you to bring a consumer claim exclusively in Belgium.',
-    'Send service questions, complaints, suspected misuse, or rights concerns to isaacsauer+toolbox@icloud.com. We will try to resolve concerns fairly. If any part of these Terms is unenforceable, the remaining parts continue only to the extent permitted by law.'
+    'Send service questions, complaints, suspected misuse, or rights concerns to privacy@zacsvae.com. We will try to resolve concerns fairly. If any part of these Terms is unenforceable, the remaining parts continue only to the extent permitted by law.'
   ] }
 ]

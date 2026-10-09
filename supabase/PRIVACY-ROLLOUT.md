@@ -1,6 +1,6 @@
 # Privacy and account-erasure rollout
 
-Implemented for Isaac Sauer (Belgium), contact `isaacsauer+toolbox@icloud.com`.
+Implemented for Isaac Sauer (Belgium), contact `privacy@zacsvae.com`.
 Accounts are 18+, and Free/Pro are unpaid access levels. The documents are in
 English; Dutch interface links identify that language. No worldwide compliance
 certification is implied: scope depends on the operator, users, and actual
