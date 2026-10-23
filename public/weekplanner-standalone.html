@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Weekplanning</title>
+  <!-- Stamped at build time (vite.config.ts) so open/cached copies can detect a newer deploy. -->
+  <meta name="build-id" content="__BUILD_ID__">
   <style>
     :root {
       color-scheme: dark;
@@ -835,6 +837,22 @@
       ;['catalog-backdrop','help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop','dialog-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='catalog-backdrop')closeCatalog();else if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else if(id==='dialog-backdrop')closeDialog(false);else closeSettings()}}))
       document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#dialog-backdrop').classList.contains('open')){event.preventDefault();closeDialog(false)}})
       render()
+      // GitHub Pages can't send no-cache headers, so browsers may keep showing an old copy.
+      // Compare our build id with the live file and reload (cache-busted) when it changed.
+      async function checkForUpdate() {
+        const current = document.querySelector('meta[name="build-id"]')?.content
+        if (!current || current === '__BUILD_ID__' || document.querySelector('.open')) return
+        try {
+          const response = await fetch(`${location.pathname}?check=${Date.now()}`, { cache: 'no-store' })
+          if (!response.ok) return
+          const latest = (await response.text()).match(/<meta name="build-id" content="([^"]+)"/)?.[1]
+          if (!latest || latest === current || latest === '__BUILD_ID__' || sessionStorage.getItem('weekplanner-reloaded') === latest) return
+          sessionStorage.setItem('weekplanner-reloaded', latest)
+          location.replace(`${location.pathname}?v=${encodeURIComponent(latest)}${location.hash}`)
+        } catch {}
+      }
+      checkForUpdate()
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate() })
     })()
   </script>
 </body>
