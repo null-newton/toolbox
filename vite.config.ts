@@ -4,7 +4,7 @@ import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// public/weekplanner-standalone.html is copied verbatim and served without
+// public/weekplanner.html is copied verbatim and served without
 // cache-busting hashes; stamp a unique build id into it so the page can detect
 // that a newer version was deployed and reload itself.
 function stampStandaloneBuildId(): Plugin {
@@ -14,7 +14,7 @@ function stampStandaloneBuildId(): Plugin {
     apply: 'build',
     configResolved(config) { outDir = resolve(config.root, config.build.outDir) },
     closeBundle() {
-      const file = resolve(outDir, 'weekplanner-standalone.html')
+      const file = resolve(outDir, 'weekplanner.html')
       const buildId = process.env.GITHUB_SHA?.slice(0, 12) || Date.now().toString(36)
       writeFileSync(file, readFileSync(file, 'utf8').replace('content="__BUILD_ID__"', `content="${buildId}"`))
     },
