@@ -43,21 +43,22 @@
     button { cursor: pointer; }
     button:disabled { cursor: not-allowed; opacity: .4; }
     .app { position: relative; width: min(1800px, 100%); margin: auto; padding: 32px; }
-    .top { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
     .brand { display: flex; align-items: center; gap: 14px; }
     .logo { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 15px; color: #c7d2fe; background: rgba(99,102,241,.16); border: 1px solid rgba(129,140,248,.22); font-size: 22px; }
-    h1 { margin: 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
-    .sub { margin: 8px 0 0 60px; max-width: 700px; color: #94a3b8; font-size: 14px; }
-    .save-status { margin-top: 3px; color: #64748b; font-size: 11px; }
-    .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); }
+    h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.03em; }
+    .save-status { margin-top: 4px; border: 0; border-radius: 6px; padding: 2px 6px 2px 0; color: #64748b; background: none; font-size: 11px; text-align: left; }
+    .save-status:hover { color: var(--text); }
+    .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); vertical-align: 1px; }
+    .save-status.pending .dot { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
     .actions, .week-nav, .filters, .stats, .row { display: flex; align-items: center; gap: 8px; }
     .actions { flex-wrap: wrap; justify-content: end; }
     .btn { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; color: #dbe2ee; background: rgba(255,255,255,.045); font-weight: 650; font-size: 13px; transition: .18s ease; }
     .btn:hover { color: white; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
     .btn.primary { border: 0; color: white; background: linear-gradient(120deg, #6366f1, #9333ea); box-shadow: 0 10px 30px rgba(99,102,241,.2); }
     .btn.small { padding: 7px 10px; font-size: 11px; }
-    .btn.icon { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; }
-    .card { margin-top: 26px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.035); }
+    .btn.icon { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; font-size: 16px; }
+    .card { margin-top: 22px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.035); }
     .overview { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .range { min-width: 230px; margin-left: 8px; }
     .range strong { display: block; font-size: 18px; }
@@ -66,9 +67,32 @@
     .stat b { display: block; font-size: 14px; }
     .stat span { display: block; color: #64748b; font-size: 9px; }
     .stat-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--indigo); background: rgba(99,102,241,.1); }
-    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 22px 0 14px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 16px 0 14px; }
+    .menu { position: relative; }
+    .menu > summary { list-style: none; user-select: none; }
+    .menu > summary::-webkit-details-marker { display: none; }
+    .menu[open] > summary { border-color: rgba(129,140,248,.45); }
+    .menu-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 15; width: 290px; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+    .menu-item { display: block; width: 100%; border: 0; border-radius: 10px; padding: 10px 11px; color: var(--text); background: transparent; text-align: left; }
+    .menu-item:hover { background: rgba(127,127,127,.1); }
+    .menu-item b { display: block; font-size: 13px; }
+    .menu-item span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .menu-sep { height: 1px; margin: 2px 0; background: var(--line); }
+    .menu-panel label { margin: 4px 0 0 4px; }
+    .menu-panel .input { font-size: 13px; }
+    .menu-panel.roster { width: 270px; max-height: min(420px, 70vh); overflow-y: auto; }
+    .menu-title { padding: 2px 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .menu-links { display: flex; gap: 6px; padding: 0 4px; }
+    .check-list { display: grid; gap: 2px; }
+    .check-list label.check-row { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 8px 10px; border-radius: 10px; color: var(--text); font-size: 13px; font-weight: 650; cursor: pointer; }
+    .check-list label.check-row:hover { background: rgba(127,127,127,.09); }
+    .check-row input { flex: none; width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--indigo); cursor: pointer; }
+    .check-row small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 400; }
+    .check-row .worker-dot { margin-top: 5px; }
+    .check-list.boxed { padding: 6px; border: 1px solid var(--line); border-radius: 14px; }
+    .check-list label.check-row.disabled { opacity: .45; cursor: not-allowed; }
     .filters { flex: 1; }
-    .control { min-height: 40px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; color: #dbe2ee; background: #101522; outline: none; }
+    .control { min-height: 40px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; color: #dbe2ee; background: #101522; outline: none; font-size: 13px; }
     .control:focus { border-color: rgba(129,140,248,.6); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
     .search { width: min(430px, 100%); }
     .matrix-shell { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.018); }
@@ -92,6 +116,7 @@
     .worker b { display: block; overflow-wrap: anywhere; font-size: 14px; }
     .worker small { display: block; margin-top: 4px; color: #536076; font-size: 10px; }
     .day-cell { min-height: 132px; padding: 8px; border-right: 1px solid var(--line); transition: background .15s ease; }
+    .worker-row.idle .worker b { opacity: .6; }
     .day-cell.drag-over { background: rgba(99,102,241,.12); box-shadow: inset 0 0 0 1px rgba(129,140,248,.45); }
     .cell-content { min-height: 116px; display: flex; flex-direction: column; gap: 6px; }
     .task-card { padding: 8px; border-radius: 9px; background: rgba(255,255,255,.045); box-shadow: inset 0 0 0 1px rgba(255,255,255,.065); }
@@ -164,9 +189,24 @@
     .worker-setting .input { min-width: 80px; flex: 1; border: 0; background: transparent; }
     .color { width: 28px; height: 28px; flex: none; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; }
     .preset-list { display: flex; flex-wrap: wrap; gap: 7px; }
+    .sort-grip { flex: none; padding: 0 3px; color: var(--muted); font-size: 16px; line-height: 1; cursor: grab; user-select: none; touch-action: none; }
+    [data-sort].dragging { opacity: .4; }
+    [data-sort].drop-before { box-shadow: inset 0 3px 0 var(--indigo); }
+    [data-sort].drop-after { box-shadow: inset 0 -3px 0 var(--indigo); }
     .preset { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 8px; color: #cbd5e1; background: rgba(255,255,255,.05); font-size: 12px; }
-    .file-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-    .file-group span { margin-right: auto; color: #64748b; font-size: 11px; }
+    .file-options { display: grid; gap: 10px; }
+    .file-option { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(127,127,127,.04); }
+    .file-option.featured { border-color: color-mix(in srgb, var(--indigo) 40%, transparent); background: color-mix(in srgb, var(--indigo) 6%, transparent); }
+    .file-option h3 { margin: 0; font-size: 14px; }
+    .file-option p { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .file-option .input { width: auto; margin-top: 8px; padding: 6px 9px; }
+    .file-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--indigo); background: color-mix(in srgb, var(--indigo) 12%, transparent); font-size: 19px; font-weight: 800; }
+    .dropzone { display: grid; gap: 4px; margin-top: 14px; padding: 22px; border: 2px dashed var(--line); border-radius: 14px; color: var(--muted); text-align: center; font-size: 12px; cursor: pointer; transition: .15s ease; }
+    .dropzone b { color: var(--text); font-size: 14px; }
+    .dropzone:hover, .dropzone:focus-visible, body.file-drag .dropzone { border-color: var(--indigo); color: var(--text); background: color-mix(in srgb, var(--indigo) 6%, transparent); outline: none; }
+    .file-status { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: rgba(127,127,127,.06); color: var(--muted); font-size: 12px; }
+    .file-status.pending { color: #b45309; background: rgba(245,158,11,.1); }
+    body:not([data-theme="white"]) .file-status.pending { color: #fcd34d; }
     .earnings-drawer { position: fixed; top: 0; right: 0; z-index: 20; width: min(360px, calc(100vw - 44px)); height: 100dvh; border-left: 1px solid var(--line); background: rgba(13,17,28,.985); box-shadow: -24px 0 60px rgba(0,0,0,.45); backdrop-filter: blur(18px); transform: translateX(100%); transition: transform .3s ease; }
     .earnings-drawer.open { transform: translateX(0); }
     .earnings-inner { display: flex; height: 100%; flex-direction: column; }
@@ -191,7 +231,6 @@
     .toast.show { translate: -50% 0; opacity: 1; }
     body[data-theme="white"]::before { background: radial-gradient(700px circle at 10% -10%, rgba(99,102,241,.11), transparent 60%), radial-gradient(700px circle at 95% 110%, rgba(14,165,233,.08), transparent 60%); }
     body[data-theme="white"] .logo { color: #4338ca; background: #eef2ff; border-color: #c7d2fe; }
-    body[data-theme="white"] .sub,
     body[data-theme="white"] .range span,
     body[data-theme="white"] .stat span,
     body[data-theme="white"] .day-name,
@@ -201,7 +240,6 @@
     body[data-theme="white"] .task-meta,
     body[data-theme="white"] .hint,
     body[data-theme="white"] label,
-    body[data-theme="white"] .file-group span,
     body[data-theme="white"] .earnings-head p { color: #64748b; }
     body[data-theme="white"] .save-status { color: #64748b; }
     body[data-theme="white"] .btn { color: #334155; background: rgba(255,255,255,.82); }
@@ -226,7 +264,8 @@
     body[data-theme="white"] .task-card,
     body[data-theme="white"] .worker-setting,
     body[data-theme="white"] .preset,
-    body[data-theme="white"] .help-step { color: #334155; background: rgba(255,255,255,.9); box-shadow: inset 0 0 0 1px rgba(15,23,42,.08); }
+    body[data-theme="white"] .help-step,
+    body[data-theme="white"] .file-option:not(.featured) { color: #334155; background: rgba(255,255,255,.9); box-shadow: inset 0 0 0 1px rgba(15,23,42,.08); }
     body[data-theme="white"] .task-title { color: #172033; }
     body[data-theme="white"] .mini:hover { color: #172033; background: rgba(15,23,42,.06); }
     body[data-theme="white"] .add-cell { color: #64748b; border-color: rgba(15,23,42,.15); }
@@ -254,36 +293,30 @@
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.today { background: color-mix(in srgb, var(--indigo) 8%, transparent); }
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-head.weekend,
     body:is([data-theme="ocean"],[data-theme="forest"]) .day-cell.weekend { background: color-mix(in srgb, var(--violet) 4%, transparent); }
-    .catalog-scroll { overflow-x:auto; }
-    .catalog-table { width:100%; min-width:600px; border-collapse:collapse; }
-    .catalog-table th,.catalog-table td { border:1px solid var(--line); padding:10px; text-align:center; }
-    .catalog-table th:first-child { width:40%; text-align:left; }
-    .catalog-table small { display:block; margin-top:5px; color:var(--muted); font-weight:400; }
-    .catalog-table input { width:20px; height:20px; accent-color:var(--indigo); cursor:pointer; }
-    @media (max-width: 900px) { .app { padding: 20px; } .top, .overview, .toolbar { align-items: stretch; flex-direction: column; } .actions { justify-content: start; } .stats { overflow-x: auto; } .filters { width: 100%; } .search { max-width: none; } }
-    @media (max-width: 560px) { .app { padding: 14px; } .sub { margin-left: 0; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .worker-setting { flex-wrap: wrap; } .help-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .help-nav { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .help-nav button { width: auto; flex: none; margin: 0; } .help-content { padding: 24px 20px; } }
+    @media (max-width: 900px) { .app { padding: 20px; } .top, .overview, .toolbar { align-items: stretch; flex-direction: column; } .actions { justify-content: start; } .week-nav { flex-wrap: wrap; } .range { min-width: 0; } .menu-panel { right: auto; left: 0; } .stats { overflow-x: auto; } .filters { width: 100%; } .search { max-width: none; } }
+    @media (max-width: 560px) { .app { padding: 14px; } .file-option { grid-template-columns: 1fr; } .file-icon { display: none; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .worker-setting { flex-wrap: wrap; } .help-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .help-nav { display: flex; gap: 5px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); } .help-nav button { width: auto; flex: none; margin: 0; } .help-content { padding: 24px 20px; } }
   </style>
 </head>
 <body data-theme="white">
   <main class="app">
     <header class="top">
-      <div>
-        <div class="brand"><button class="btn icon" data-action="help" title="Handleiding">?</button><div class="logo">▦</div><div><h1>Klussenlijst / Algemene planning</h1><div class="save-status"><span class="dot"></span>Automatisch lokaal bewaard</div></div></div>
-        <p class="sub">Plan een volledige werkweek, bewaar alles in deze browser en neem afzonderlijke maanden mee als bestand.</p>
-      </div>
-      <div class="actions">
-        <select id="theme-select" class="control" title="Kleurenthema" aria-label="Kleurenthema">
-          <option value="white">Wit</option>
-          <option value="violet">Nachtpaars</option>
-          <option value="ocean">Oceaan</option>
-          <option value="forest">Bos</option>
-        </select>
-        <button class="btn" id="earnings-toggle" data-action="toggle-earnings" aria-expanded="false">€ Maandverdiensten</button>
-        <button class="btn" data-action="settings">⚙ Instellingen</button>
-        <button class="btn" data-action="print-general">Algemene planning</button>
-        <select id="sheet-worker" class="control" title="Klussenkaart kiezen"></select>
-        <button class="btn primary" data-action="print-sheets" title="Bekijk de klussenkaarten en druk ze daarna af">Klussenkaart(s)</button>
-      </div>
+      <div class="brand"><div class="logo">▦</div><div><h1>Klussenlijst / Algemene planning</h1><button class="save-status" id="save-status" data-action="open-files" title="Planning opslaan of openen"></button></div></div>
+      <nav class="actions">
+        <button class="btn" data-action="open-files">⇅ Opslaan / openen</button>
+        <button class="btn" id="earnings-toggle" data-action="toggle-earnings" aria-expanded="false">€ Verdiensten</button>
+        <details class="menu" id="print-menu">
+          <summary class="btn">⎙ Afdrukken</summary>
+          <div class="menu-panel">
+            <button class="menu-item" data-action="print-general"><b>Algemene planning</b><span>De hele week op één liggend A4</span></button>
+            <div class="menu-sep"></div>
+            <label for="sheet-worker">Klussenkaarten</label>
+            <select id="sheet-worker" class="input"></select>
+            <button class="btn primary" data-action="print-sheets">Klussenkaart(en) bekijken</button>
+          </div>
+        </details>
+        <button class="btn icon" data-action="settings" title="Instellingen" aria-label="Instellingen">⚙</button>
+        <button class="btn icon" data-action="help" title="Handleiding" aria-label="Handleiding">?</button>
+      </nav>
     </header>
 
     <section class="card overview">
@@ -296,19 +329,12 @@
       <div class="stats" id="stats"></div>
     </section>
 
-    <div class="file-group">
-      <span>Maandbestand: de gekozen maand, inclusief bewoners en taakpresets.</span>
-      <button class="btn small" data-action="download-json">↓ Opslaan</button>
-      <button class="btn small" data-action="upload-json">↑ Openen</button>
-      <input id="json-file" type="file" accept="application/json,.json" hidden>
-    </div>
-
     <section class="toolbar">
       <div class="filters">
         <input id="search" class="control search" type="search" placeholder="Zoek taak, bewoner of notitie…">
         <select id="worker-filter" class="control"></select>
       </div>
-      <div class="actions"><button class="btn primary" data-action="task-catalog">Klussen kiezen</button><button class="btn" data-action="new-task">+ Taak toevoegen</button><button class="btn" data-action="copy-previous">⧉ Vorige week kopiëren</button></div>
+      <div class="actions"><details class="menu" id="roster-menu"><summary class="btn" id="roster-summary">♙ Bewoners deze week</summary><div class="menu-panel roster"><div class="menu-title">Kies wie er deze week meedoet. Alleen deze bewoners kun je deze week inplannen.</div><div class="check-list" id="roster-list"></div><div class="menu-sep"></div><div class="menu-links"><button class="btn small" data-action="roster-all">Iedereen</button><button class="btn small" data-action="roster-none">Niemand</button></div></div></details><button class="btn" data-action="copy-week">⧉ Kopiëren van week…</button><button class="btn primary" data-action="new-task">+ Nieuwe klus</button></div>
     </section>
 
     <section class="matrix-shell"><div class="matrix" id="matrix"></div></section>
@@ -323,6 +349,48 @@
       <div class="earnings-list" id="earnings-list"></div>
     </div>
   </aside>
+
+  <div class="modal-backdrop" id="copy-backdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="copy-title">
+      <div class="modal-head"><div><h2 id="copy-title">Kopiëren naar deze week</h2><p class="hint" id="copy-target"></p></div><button class="btn icon" data-action="close-copy" aria-label="Sluiten">×</button></div>
+      <form id="copy-form">
+        <div class="field"><label for="copy-source">Kopiëren van</label><select id="copy-source" class="input"></select><p class="hint" id="copy-source-info"></p></div>
+        <label style="margin-top:16px">Wat wil je overnemen?</label>
+        <div class="check-list boxed">
+          <label class="check-row"><input type="checkbox" id="copy-workers" checked><span>Bewoners<small>Wie er die week meedeed</small></span></label>
+          <label class="check-row"><input type="checkbox" id="copy-assignments" checked><span>Toewijzingen<small>Wie welke klus op welke dag doet (zonder vinkjes). Klussen zonder toewijzing worden niet gedaan.</small></span></label>
+        </div>
+        <div class="check-list" style="margin-top:10px">
+          <label class="check-row"><input type="checkbox" id="copy-replace"><span>Deze week eerst leegmaken<small>Bestaande toewijzingen van deze week worden vervangen in plaats van aangevuld</small></span></label>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn" data-action="close-copy">Annuleren</button><button type="submit" class="btn primary" id="copy-submit">Kopiëren</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="files-backdrop">
+    <section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="files-title">
+      <div class="modal-head"><div><h2 id="files-title">Planning opslaan of openen</h2><p class="hint">Alles wordt automatisch in deze browser bewaard. Met een bestand zet je de planning verder op een andere computer of browser.</p></div><button class="btn icon" data-action="close-files" aria-label="Sluiten">×</button></div>
+      <div class="file-options">
+        <article class="file-option featured">
+          <div class="file-icon">↓</div>
+          <div><h3>Volledige planning opslaan</h3><p>Alle weken, bewoners, klussen en instellingen in één bestand. Open dit bestand in een andere browser om verder te werken.</p></div>
+          <button class="btn primary" data-action="download-backup">Opslaan</button>
+        </article>
+        <article class="file-option">
+          <div class="file-icon">▦</div>
+          <div><h3>Eén maand opslaan</h3><p id="export-month-hint"></p><input id="export-month" class="input" type="month" aria-label="Maand"></div>
+          <button class="btn" data-action="download-json">Maand opslaan</button>
+        </article>
+      </div>
+      <div class="dropzone" data-action="upload-json" role="button" tabindex="0">
+        <b>↑ Bestand openen</b>
+        <span>Klik hier of sleep een planningsbestand (.json) naar dit venster. Oude maand- en weekbestanden worden ook herkend.</span>
+      </div>
+      <input id="json-file" type="file" accept="application/json,.json" hidden>
+      <div class="file-status" id="file-status"></div>
+    </section>
+  </div>
 
   <div class="modal-backdrop" id="help-backdrop">
     <section class="modal help-modal" role="dialog" aria-modal="true" aria-label="Handleiding">
@@ -364,28 +432,18 @@
     </section>
   </div>
 
-  <div class="modal-backdrop" id="catalog-backdrop">
-    <section class="modal wide" role="dialog" aria-modal="true" aria-labelledby="catalog-title">
-      <div class="modal-head"><div><h2 id="catalog-title">Klussen kiezen</h2><p id="catalog-range" class="hint"></p></div><button class="btn icon" data-action="close-catalog" aria-label="Sluiten">×</button></div>
-      <p class="hint" style="margin-bottom:16px">Vink per klus de dagen aan waarop deze nodig is. Alle klussen en extra klussen blijven hier beschikbaar. Alleen gekozen of toegewezen klussen komen op de weeklijst; toegewezen bewoners krijgen ze op hun klussenkaart.</p>
-      <form id="catalog-form">
-        <div class="catalog-scroll"><table class="catalog-table"><thead><tr id="catalog-head"></tr></thead><tbody id="catalog-body"></tbody></table></div>
-        <div class="modal-footer"><button type="button" class="btn" data-action="close-catalog">Annuleren</button><button type="submit" class="btn primary">Weekselectie bewaren</button></div>
-      </form>
-    </section>
-  </div>
-
   <div class="modal-backdrop" id="settings-backdrop">
     <section class="modal wide" role="dialog" aria-modal="true">
       <div class="modal-head"><h2>Planning instellen</h2><button class="btn icon" data-action="close-settings">×</button></div>
       <div class="form-grid">
         <div class="field"><label for="company">Bedrijfsnaam</label><input id="company" class="input" placeholder="Naam op de exports"></div>
         <div class="field"><label for="week-starts">De week begint op</label><select id="week-starts" class="input"></select></div>
-        <div class="field full"><label for="default-monthly-limit">Standaard maandmaximum</label><input id="default-monthly-limit" class="input" inputmode="decimal" placeholder="€"></div>
+        <div class="field"><label for="default-monthly-limit">Standaard maandmaximum</label><input id="default-monthly-limit" class="input" inputmode="decimal" placeholder="€"></div>
+        <div class="field"><label for="theme-select">Kleurenthema</label><select id="theme-select" class="input"><option value="white">Wit</option><option value="violet">Nachtpaars</option><option value="ocean">Oceaan</option><option value="forest">Bos</option></select></div>
       </div>
-      <div class="section-head"><div><h3>Bewoners</h3><p class="hint">Deze volgorde wordt gebruikt in de planner en exports.</p></div><button class="btn small" data-action="add-worker">+ Bewoner</button></div>
+      <div class="section-head"><div><h3>Bewoners</h3><p class="hint">Sleep ⠿ of gebruik de pijlen om de volgorde in de planner, verdiensten en klussenkaarten te bepalen.</p></div><button class="btn small" data-action="add-worker">+ Bewoner</button></div>
       <div id="worker-settings"></div>
-      <div class="section-head"><div><h3>Taakpresets</h3><p class="hint">Alle klussen blijven hier bewaard met hun uur en prijs. Kies de gewenste dagen via Klussen kiezen.</p></div></div>
+      <div class="section-head"><div><h3>Klussen</h3><p class="hint">Sleep ⠿ of gebruik de pijlen om de volgorde in de weekplanning en de afdrukken te bepalen. Uur en prijs pas je hier ook aan.</p></div></div>
       <div class="preset-list" id="preset-settings"></div>
       <div class="modal-footer"><button class="btn primary" data-action="close-settings">Sluiten</button></div>
     </section>
@@ -420,15 +478,16 @@
       const SHORT_DAYS = ['zo','ma','di','wo','do','vr','za']
       const HELP_SECTIONS = [
         {id:'start',title:'Snel starten',intro:'Van een lege planner naar een bruikbare weekplanning.',steps:['Open Instellingen en vul de algemene gegevens in.','Voeg bewoners toe en controleer hun volgorde en maandmaximum.','Maak de nodige taken aan.','Wijs bewoners per dag toe in de weekmatrix.','Controleer de maandverdiensten en exporteer de documenten.']},
-        {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies bovenaan een kleurenthema; je keuze wordt automatisch in deze browser opgeslagen.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
-        {id:'residents',title:'Bewoners',intro:'Beheer namen, volgorde, kleuren en persoonlijke limieten.',steps:['Klik bij Instellingen op Bewoner toevoegen.','Gebruik de pijlen om de vaste volgorde te bepalen.','Kies een herkenbare kleur.','Laat Eigen maximum leeg voor het standaardbedrag, of vul een afwijkend bedrag in.','Bij verwijderen verdwijnen ook de gekoppelde toewijzingen.']},
-        {id:'tasks',title:'Taken en prijs',intro:'Een taak heeft een naam, uur en prijs; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Taak toevoegen en vul de taakgegevens in.','Een nieuwe taak verschijnt in de huidige week. Via Klussen kiezen vink je de gewenste dagen aan.','Gebruik het potlood naast de taak om ze later te bewerken.','Klussen kiezen toont alle klussen en extra klussen. Niet gekozen klussen blijven bewaard voor later.','De taakprijs telt per ingeplande bewoner mee in de maandverdiensten.']},
-        {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Vorige week kopiëren neemt de gekozen klussen en toewijzingen over. Via Klussen kiezen kun je dagen weer uitvinken.']},
-        {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Maandverdiensten via de vaste knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt de taakprijs één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
-        {id:'json',title:'Maandbestand JSON',intro:'Gebruik een maandbestand als lokale back-up of om gegevens naar een andere browser te verplaatsen.',steps:['Kies eerst de juiste maand in Maandverdiensten.','Klik op Maand als JSON om alleen die maand te downloaden.','JSON uploaden vervangt uitsluitend de maand uit het bestand.','Andere maanden blijven behouden.','Oude weekbestanden kunnen nog steeds worden geïmporteerd.']},
-        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en klussenkaarten hebben ieder hun eigen afdrukindeling.',steps:['Open eerst de afdrukweergave van de algemene planning of klussenkaarten.','Controleer de inhoud en klik bovenaan op Afdrukken.','De klussenlijst past op één liggend A4 per week. Klussenkaarten staan per twee op liggend A4, met rasterruimte voor extra klussen.','Op iedere klussenkaartpagina staan maximaal twee bewonersfiches naast elkaar.','Kies daarna een printer of Bewaar als PDF.']},
+        {id:'settings',title:'Configuratie',intro:'De basisinstellingen gelden voor de volledige planner.',steps:['De bedrijfsnaam verschijnt bovenaan de exports.','Kies bij Instellingen een kleurenthema; je keuze wordt automatisch in deze browser opgeslagen.','Kies op welke dag een nieuwe werkweek begint; weekenddagen blijven zichtbaar.','Stel het standaard maandmaximum in.','Alle gegevens worden automatisch in deze browser opgeslagen.']},
+        {id:'residents',title:'Bewoners',intro:'Beheer namen, volgorde, kleuren en persoonlijke limieten.',steps:['Klik bij Instellingen op Bewoner toevoegen.','Sleep een bewoner aan ⠿ of gebruik de pijlen om de vaste volgorde te bepalen.','Kies een herkenbare kleur.','Laat Eigen maximum leeg voor het standaardbedrag, of vul een afwijkend bedrag in.','Via Bewoners deze week (boven de planning) kies je wie er in de gekozen week meedoet. Zo kan de groep van week tot week verschillen.','Bij verwijderen verdwijnen ook de gekoppelde toewijzingen.']},
+        {id:'tasks',title:'Taken en prijs',intro:'Een taak heeft een naam, uur en prijs; bij het aanmaken is nog geen bewoner nodig.',steps:['Klik op Nieuwe klus en vul de taakgegevens in.','Een nieuwe taak verschijnt in elke week als rij in de planning.','Een klus wordt alleen gedaan op de dagen waarop er een bewoner aan is toegewezen. Lege dagen hoef je niet af te vinken.','Gebruik het potlood naast de taak om ze later te bewerken.','De taakprijs telt per ingeplande bewoner mee in de maandverdiensten.','De volgorde van de klussen wijzig je bij Instellingen: sleep aan ⠿ of gebruik de pijlen.']},
+        {id:'planning',title:'Weekplanning',intro:'Iedere taak is een rij en iedere dag is een kolom.',steps:['Kies in een dagcel een bewoner via de dropdown.','Meerdere bewoners kunnen op dezelfde taak en dag staan.','Sleep een bewonerskaart naar een andere taak of dag.','Vink af, bewerk, dupliceer of verwijder via de kaartknoppen.','Een klus zonder toegewezen bewoner wordt die dag niet gedaan en komt niet op de afdruk.','Kopiëren van week… neemt bewoners en/of toewijzingen over van een week naar keuze. Pas daarna aan wat deze week anders is.']},
+        {id:'earnings',title:'Maandverdiensten',intro:'Het rechterpaneel toont het geplande of verdiende bedrag per bewoner.',steps:['Open Verdiensten via de knop bovenaan.','Kies de gewenste kalendermaand.','Elke taaktoewijzing telt de taakprijs één keer mee.','Groen is onder 70%, geel vanaf 70%, oranje vanaf 90% en rood bij het maximum.','Persoonlijke limieten stel je in bij Instellingen.']},
+        {id:'json',title:'Opslaan en openen',intro:'Alles wordt automatisch in deze browser bewaard. Met een bestand neem je de planning mee naar een andere computer of browser.',steps:['Klik bovenaan op Opslaan / openen.','Volledige planning opslaan bewaart alle weken, bewoners, klussen en instellingen in één bestand.','Open dat bestand in een andere browser via Bestand openen, of sleep het naar het venster. De planning in die browser wordt dan vervangen.','Onder de titel zie je of er wijzigingen zijn die nog niet in een bestand staan (oranje stip).','Eén maand opslaan bevat ook de volledige weken aan het begin en einde van de maand. Bij openen wordt alleen die periode vervangen.','Oude maand- en weekbestanden kunnen nog steeds worden geopend.']},
+        {id:'printing',title:'Exporteren en printen',intro:'De algemene planning en klussenkaarten hebben ieder hun eigen afdrukindeling.',steps:['Kies via Afdrukken de algemene planning of de klussenkaarten (alle of één bewoner).','Controleer de inhoud en klik bovenaan op Afdrukken.','De klussenlijst past op één liggend A4 per week. Klussenkaarten staan per twee op liggend A4, met rasterruimte voor extra klussen.','Op iedere klussenkaartpagina staan maximaal twee bewonersfiches naast elkaar.','Kies daarna een printer of Bewaar als PDF.']},
       ]
-      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', theme: 'white', workers: [], taskPresets: [], taskDefaults: {}, plannedTasks: [], assignments: [] })
+      const emptyData = () => ({ companyName: '', weekStartsOn: 1, defaultMonthlyLimit: '285', theme: 'white', workers: [], taskPresets: [], taskDefaults: {}, plannedTasks: [], assignments: [], weekRosters: {}, updatedAt: '', lastFileSave: '' })
+      const isDateItem = item => item && typeof item.task === 'string' && typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
       let data = loadData()
       let anchor = new Date()
       let query = ''
@@ -453,15 +512,35 @@
       const timeLabel = value => value ? value.replace(':','u') : '—'
       const weekDays = () => Array.from({length:7}, (_, index) => addDays(startOfWeek(anchor), index))
       const weekSet = () => new Set(weekDays().map(ymd))
+      const weekDates = start => Array.from({length:7}, (_, index) => ymd(addDays(start, index)))
+      // Looked up by any day of the week so rosters survive a change of the first weekday.
+      const rosterKey = (start = startOfWeek(anchor)) => { const dates=new Set(weekDates(start)); return Object.keys(data.weekRosters).find(key=>dates.has(key)) }
+      function weekWorkers(start = startOfWeek(anchor)) { const key=rosterKey(start); if(!key)return data.workers; const ids=new Set(data.weekRosters[key]); return data.workers.filter(worker=>ids.has(worker.id)) }
+      function setWeekRoster(ids, start = startOfWeek(anchor)) { const old=rosterKey(start); if(old)delete data.weekRosters[old]; const keep=new Set(ids); data.weekRosters[ymd(start)]=data.workers.filter(worker=>keep.has(worker.id)).map(worker=>worker.id) }
 
-      function loadData() {
-        try {
-          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
-          if (!saved || typeof saved !== 'object') return emptyData()
-          return { ...emptyData(), ...saved, theme: THEMES.includes(saved.theme) ? saved.theme : 'white', workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, plannedTasks: Array.isArray(saved.plannedTasks) ? saved.plannedTasks.filter(item=>typeof item.task==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(item.date)) : [], assignments: Array.isArray(saved.assignments) ? saved.assignments : [] }
-        } catch { return emptyData() }
+      function normalizeData(saved) {
+        if (!saved || typeof saved !== 'object') return emptyData()
+        return { ...emptyData(), ...saved, theme: THEMES.includes(saved.theme) ? saved.theme : 'white', workers: Array.isArray(saved.workers) ? saved.workers : [], taskPresets: Array.isArray(saved.taskPresets) ? saved.taskPresets : [], taskDefaults: saved.taskDefaults && typeof saved.taskDefaults === 'object' ? saved.taskDefaults : {}, plannedTasks: Array.isArray(saved.plannedTasks) ? saved.plannedTasks.filter(isDateItem) : [], assignments: Array.isArray(saved.assignments) ? saved.assignments.filter(isDateItem) : [], weekRosters: cleanRosters(saved.weekRosters) }
       }
-      function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
+      // weekRosters: { [first day of a week]: [worker ids] }. A week without an entry includes every resident.
+      function cleanRosters(value) { return Object.fromEntries(Object.entries(value && typeof value === 'object' ? value : {}).filter(([key,ids])=>/^\d{4}-\d{2}-\d{2}$/.test(key)&&Array.isArray(ids)).map(([key,ids])=>[key,ids.map(String)])) }
+      function loadData() {
+        try { return normalizeData(JSON.parse(localStorage.getItem(STORAGE_KEY))) } catch { return emptyData() }
+      }
+      // touch=false for browser-only preferences (theme) so they don't count as unsaved planning changes.
+      function save(touch = true) { if(touch)data.updatedAt=new Date().toISOString(); localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); renderSaveStatus() }
+      const hasPlanning = () => data.workers.length > 0 || data.assignments.length > 0 || data.plannedTasks.length > 0
+      const hasUnsavedChanges = () => hasPlanning() && (!data.lastFileSave || (data.updatedAt || '') > data.lastFileSave)
+      const dateTimeLabel = iso => new Date(iso).toLocaleString('nl-BE',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      function renderSaveStatus() {
+        const pending=hasUnsavedChanges(), node=$('#save-status')
+        const text=!hasPlanning()?'Automatisch bewaard in deze browser':pending?(data.lastFileSave?`Wijzigingen sinds bestand van ${dateTimeLabel(data.lastFileSave)}`:'Nog niet als bestand opgeslagen'):`Bestand bijgewerkt op ${dateTimeLabel(data.lastFileSave)}`
+        node.className=`save-status ${pending?'pending':''}`
+        node.innerHTML=`<span class="dot"></span>${esc(text)}`
+        const status=$('#file-status')
+        status.className=`file-status ${pending?'pending':''}`
+        status.textContent=!hasPlanning()?'Deze browser bevat nog geen planning.':pending?`${text}. Sla de volledige planning op voordat je in een andere browser verder werkt.`:`De volledige planning is opgeslagen op ${dateTimeLabel(data.lastFileSave)} en sindsdien niet meer gewijzigd.`
+      }
       function commit(next = data) { data = next; save(); render() }
       function applyTheme() { data.theme=THEMES.includes(data.theme)?data.theme:'white';document.body.dataset.theme=data.theme;$('#theme-select').value=data.theme }
       function toast(message) { const node = $('#toast'); node.textContent = message; node.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('show'), 2400) }
@@ -523,12 +602,29 @@
         $('#range').textContent = formatRange()
         const days = weekDays()
         $('#range-sub').textContent = `${DAYS[days[0].getDay()]} → ${DAYS[days[6].getDay()]}`
-        $('#stats').innerHTML = stat('▣',allWeek.length,'Taken deze week') + stat('♙',new Set(allWeek.map(item => item.workerId)).size,'Bewoners') + stat('✓',allWeek.filter(item => item.done).length,'Afgevinkt')
+        $('#stats').innerHTML = stat('▤',tasksForWeek().length,'Klussen deze week') + stat('▣',allWeek.length,'Toewijzingen') + stat('♙',weekWorkers().length,'Bewoners deze week') + stat('✓',allWeek.filter(item => item.done).length,'Afgevinkt')
         $('#search').value = query
-        $('#worker-filter').innerHTML = `<option value="all">Alle bewoners</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${workerFilter===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
-        $('#sheet-worker').innerHTML = `<option value="all">Alle klussenkaarten</option>` + data.workers.map(worker => `<option value="${esc(worker.id)}" ${sheetWorker===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        const roster = weekWorkers()
+        if (workerFilter!=='all' && !roster.some(worker=>worker.id===workerFilter) && !allWeek.some(item=>item.workerId===workerFilter)) workerFilter='all'
+        if (sheetWorker!=='all' && !roster.some(worker=>worker.id===sheetWorker)) sheetWorker='all'
+        $('#worker-filter').innerHTML = `<option value="all">Alle bewoners</option>` + roster.map(worker => `<option value="${esc(worker.id)}" ${workerFilter===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        $('#sheet-worker').innerHTML = `<option value="all">Alle klussenkaarten</option>` + roster.map(worker => `<option value="${esc(worker.id)}" ${sheetWorker===worker.id?'selected':''}>${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        renderSaveStatus()
+        renderRoster()
         renderEarnings()
         renderMatrix()
+      }
+      function renderRoster() {
+        const roster=new Set(weekWorkers().map(worker=>worker.id))
+        $('#roster-summary').textContent=`♙ Bewoners deze week (${roster.size}/${data.workers.length})`
+        $('#roster-list').innerHTML=data.workers.length?data.workers.map(worker=>`<label class="check-row"><input type="checkbox" data-roster-worker="${esc(worker.id)}" ${roster.has(worker.id)?'checked':''}><span class="worker-dot" style="background:${workerColor(worker)}"></span><span>${esc(worker.name||'Naam bewoner')}</span></label>`).join(''):'<p class="hint" style="padding:4px">Nog geen bewoners. Voeg ze toe bij Instellingen.</p>'
+      }
+      async function changeRoster(ids) {
+        const keep=new Set(ids), dates=weekSet(), removed=data.assignments.filter(item=>dates.has(item.date)&&!keep.has(item.workerId))
+        if(removed.length&&!await showConfirm(`${removed.length} toewijzing(en) van deze week horen bij bewoners die je uitvinkt en worden verwijderd.`,{title:'Bewoners deze week aanpassen?',confirmLabel:'Aanpassen',variant:'warning'})){renderRoster();return}
+        setWeekRoster(ids)
+        data.assignments=data.assignments.filter(item=>!removed.includes(item))
+        commit()
       }
 
       function renderEarnings() {
@@ -540,21 +636,15 @@
       const stat = (icon,value,label) => `<div class="stat"><div class="stat-icon">${icon}</div><div><b>${value}</b><span>${label}</span></div></div>`
 
       function allTasks() {
+        // plannedTasks is only kept from older versions (the removed "Klussen kiezen" window) so no task name gets lost.
         return [...data.taskPresets,...data.plannedTasks.map(item=>item.task),...data.assignments.map(item=>item.task)]
           .filter((task,index,list)=>taskKey(task)&&list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index)
       }
       function tasksForWeek() {
-        const dates=weekSet(), selected=new Set([...data.plannedTasks,...data.assignments].filter(item=>dates.has(item.date)).map(item=>taskKey(item.task)))
+        // A task is only done on days someone is assigned to it.
+        const dates=weekSet(), selected=new Set(data.assignments.filter(item=>dates.has(item.date)).map(item=>taskKey(item.task)))
         return allTasks().filter(task=>selected.has(taskKey(task)))
       }
-      function openCatalog() {
-        const days=weekDays(), selected=new Set([...data.plannedTasks,...data.assignments].map(item=>JSON.stringify([taskKey(item.task),item.date])))
-        $('#catalog-range').textContent=formatRange()
-        $('#catalog-head').innerHTML='<th>Alle klussen / extra klussen</th>'+days.map(day=>`<th>${SHORT_DAYS[day.getDay()]}<br>${day.getDate()}/${day.getMonth()+1}</th>`).join('')
-        $('#catalog-body').innerHTML=allTasks().map(task=>`<tr><th scope="row">${esc(task)}<small>${esc(timeLabel(taskDefaultTime(task)))} · Prijs: €${esc(taskDefaultWage(task)||'0')}</small></th>${days.map(day=>`<td><input type="checkbox" data-plan-task="${esc(task)}" data-plan-date="${ymd(day)}" aria-label="${esc(task)} op ${ymd(day)}" ${selected.has(JSON.stringify([taskKey(task),ymd(day)]))?'checked':''}></td>`).join('')}</tr>`).join('')||'<tr><td colspan="8">Nog geen klussen. Voeg eerst een taak toe.</td></tr>'
-        $('#catalog-backdrop').classList.add('open')
-      }
-      function closeCatalog() { $('#catalog-backdrop').classList.remove('open') }
       function workerColor(worker) { return /^#[0-9a-f]{6}$/i.test(worker?.color) ? worker.color : COLORS[Math.max(0,data.workers.indexOf(worker))%COLORS.length] }
       function workerBadge(worker) { return `<span class="resident" style="--resident-color:${workerColor(worker)}">${esc(worker?.name||'—')}</span>` }
 
@@ -562,17 +652,17 @@
         const days = weekDays(), dates = new Set(days.map(ymd)), today = ymd(new Date())
         const map = workerMap(), needle = query.trim().toLocaleLowerCase('nl-BE')
         const assignments = sortAssignments(data.assignments.filter(item => dates.has(item.date)).filter(item => workerFilter==='all'||item.workerId===workerFilter))
-        const tasks = tasksForWeek()
+        const tasks = allTasks(), roster = weekWorkers()
         const visibleTasks = tasks.filter(task=>!needle||task.toLocaleLowerCase('nl-BE').includes(needle)||assignments.some(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)))
         const head = `<div class="matrix-grid matrix-head"><div class="corner">Taken</div>${days.map(day => { const date=ymd(day), weekend=[0,6].includes(day.getDay()); return `<div class="day-head ${date===today?'today':''} ${weekend?'weekend':''}"><div class="day-name"><span>${SHORT_DAYS[day.getDay()]}</span>${weekend?'<em>weekend</em>':''}</div><div class="day-date">${day.getDate()} <span>${day.toLocaleDateString('nl-BE',{month:'short'})}</span></div></div>` }).join('')}</div>`
-        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div><p>Kies de klussen die deze week nodig zijn.</p><button class="btn primary" data-action="task-catalog">Klussen kiezen</button>${data.workers.length?'':' <button class="btn" data-action="settings">Bewoner toevoegen</button>'}</div></div>`; return }
+        if (!visibleTasks.length) { $('#matrix').innerHTML = head + `<div class="empty-state"><div><div style="font-size:28px">▣</div>${tasks.length?`<p>Geen klussen gevonden voor “${esc(query)}”.</p>`:`<p>Nog geen klussen. Maak er een aan om bewoners te kunnen toewijzen.</p><button class="btn primary" data-action="new-task">+ Nieuwe klus</button>${data.workers.length?'':' <button class="btn" data-action="settings">Bewoner toevoegen</button>'}`}</div></div>`; return }
         const rows = visibleTasks.map(task => {
           const total = data.assignments.filter(item => dates.has(item.date) && item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')).length
           const cells = days.map(day => {
-            const date=ymd(day), taskMatches=task.toLocaleLowerCase('nl-BE').includes(needle), items=assignments.filter(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&item.date===date).filter(item=>!needle||taskMatches||`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)), assignedIds=new Set(data.assignments.filter(item=>taskKey(item.task)===taskKey(task)&&item.date===date).map(item=>item.workerId)),available=data.workers.filter(worker=>!assignedIds.has(worker.id)),weekend=[0,6].includes(day.getDay())
-            return `<div class="day-cell ${date===today?'today':''} ${weekend?'weekend':''}" data-date="${date}" data-task="${esc(task)}"><div class="cell-content">${items.map(taskCard).join('')}<select class="add-cell" data-assign-task="${esc(task)}" data-assign-date="${date}" ${available.length?'':'disabled'}><option value="">${available.length?'+ Bewoner kiezen':'Iedereen toegewezen'}</option>${available.map(worker=>`<option value="${esc(worker.id)}">${esc(worker.name||'Naam bewoner')}</option>`).join('')}</select></div></div>`
+            const date=ymd(day), taskMatches=task.toLocaleLowerCase('nl-BE').includes(needle), items=assignments.filter(item=>item.task.toLocaleLowerCase('nl-BE')===task.toLocaleLowerCase('nl-BE')&&item.date===date).filter(item=>!needle||taskMatches||`${map.get(item.workerId)?.name||''} ${item.notes||''}`.toLocaleLowerCase('nl-BE').includes(needle)), assignedIds=new Set(data.assignments.filter(item=>taskKey(item.task)===taskKey(task)&&item.date===date).map(item=>item.workerId)),available=roster.filter(worker=>!assignedIds.has(worker.id)),weekend=[0,6].includes(day.getDay())
+            return `<div class="day-cell ${date===today?'today':''} ${weekend?'weekend':''}" data-date="${date}" data-task="${esc(task)}"><div class="cell-content">${items.map(taskCard).join('')}<select class="add-cell" data-assign-task="${esc(task)}" data-assign-date="${date}" ${available.length?'':'disabled'}><option value="">${!available.length?'Iedereen toegewezen':'+ Bewoner kiezen'}</option>${available.map(worker=>`<option value="${esc(worker.id)}">${esc(worker.name||'Naam bewoner')}</option>`).join('')}</select></div></div>`
           }).join('')
-          return `<div class="matrix-grid worker-row"><div class="worker" style="justify-content:space-between"><div><b>${esc(task)}</b><small style="font-family:ui-monospace,monospace;color:#77839a">${esc(timeLabel(taskDefaultTime(task)))}${taskDefaultWage(task)?` · €${esc(taskDefaultWage(task))}`:''}</small><small>${total} ${total===1?'bewoner':'bewoners'}</small></div><button class="mini" data-action="edit-task-definition" data-task="${esc(task)}" title="Taak bewerken">✎</button></div>${cells}</div>`
+          return `<div class="matrix-grid worker-row ${total?'':'idle'}"><div class="worker" style="justify-content:space-between"><div><b>${esc(task)}</b><small style="font-family:ui-monospace,monospace;color:#77839a">${esc(timeLabel(taskDefaultTime(task)))}${taskDefaultWage(task)?` · €${esc(taskDefaultWage(task))}`:''}</small><small>${total?`${total} ${total===1?'toewijzing':'toewijzingen'}`:'Niet nodig deze week'}</small></div><button class="mini" data-action="edit-task-definition" data-task="${esc(task)}" title="Taak bewerken">✎</button></div>${cells}</div>`
         }).join('')
         $('#matrix').innerHTML = head + rows
       }
@@ -586,7 +676,8 @@
         lockedTask = Boolean(taskName || item)
         $('#task-modal-title').textContent = item ? 'Toewijzing aanpassen' : taskName ? 'Bewoner toewijzen' : 'Taak toevoegen'
         $('#task-presets').innerHTML = data.taskPresets.map(name => `<option value="${esc(name)}"></option>`).join('')
-        $('#task-worker').innerHTML = data.workers.map(worker => `<option value="${esc(worker.id)}">${esc(worker.name || 'Naam bewoner')}</option>`).join('')
+        const weekStart = startOfWeek(fromYmd(item?.date || date || ymd(anchor))), choices = weekWorkers(weekStart).filter(worker=>worker.id!==item?.workerId)
+        $('#task-worker').innerHTML = [...data.workers.filter(worker=>worker.id===item?.workerId),...choices].map(worker => `<option value="${esc(worker.id)}">${esc(worker.name || 'Naam bewoner')}</option>`).join('')
         $('#task-name').value = item?.task || taskName
         $('#task-name').disabled = lockedTask
         $('#task-worker').value = item?.workerId || workerId
@@ -614,36 +705,124 @@
       }
       function closeSettings() { $('#settings-backdrop').classList.remove('open'); render() }
       function renderSettingsLists() {
-        $('#worker-settings').innerHTML = data.workers.length ? data.workers.map((worker,index) => `<div class="worker-setting" style="flex-wrap:wrap"><input class="color" type="color" value="${esc(worker.color)}" data-worker-color="${esc(worker.id)}" title="Kleur"><input class="input" style="min-width:160px;flex:1" value="${esc(worker.name)}" data-worker-name="${esc(worker.id)}" placeholder="Naam bewoner"><label style="display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap" title="Leeg = standaardbedrag">Eigen maximum € <input class="input" style="width:82px" inputmode="decimal" value="${esc(worker.monthlyLimit??'')}" placeholder="${esc(data.defaultMonthlyLimit||'285')}" data-worker-limit="${esc(worker.id)}"></label><button class="mini" data-action="move-worker-up" data-id="${esc(worker.id)}" ${index===0?'disabled':''}>↑</button><button class="mini" data-action="move-worker-down" data-id="${esc(worker.id)}" ${index===data.workers.length-1?'disabled':''}>↓</button><button class="mini danger" data-action="delete-worker" data-id="${esc(worker.id)}">⌫</button></div>`).join('') : '<p class="hint">Nog geen bewoners.</p>'
-        $('#preset-settings').innerHTML = data.taskPresets.length ? data.taskPresets.map(name => `<div class="preset" style="width:100%;flex-wrap:wrap"><b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Prijs € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label><button class="mini danger" data-action="delete-preset" data-name="${esc(name)}">×</button></div>`).join('') : '<p class="hint">Maak een preset tijdens het invoeren van een taak.</p>'
+        const arrows = (kind,index,count) => `<button class="mini" data-action="move-setting" data-kind="${kind}" data-index="${index}" data-dir="-1" title="Omhoog" ${index===0?'disabled':''}>↑</button><button class="mini" data-action="move-setting" data-kind="${kind}" data-index="${index}" data-dir="1" title="Omlaag" ${index===count-1?'disabled':''}>↓</button>`
+        const grip = '<span class="sort-grip" title="Slepen om te verplaatsen">⠿</span>'
+        $('#worker-settings').innerHTML = data.workers.length ? data.workers.map((worker,index) => `<div class="worker-setting" style="flex-wrap:wrap" data-sort="workers" data-index="${index}">${grip}<input class="color" type="color" value="${esc(worker.color)}" data-worker-color="${esc(worker.id)}" title="Kleur"><input class="input" style="min-width:160px;flex:1" value="${esc(worker.name)}" data-worker-name="${esc(worker.id)}" placeholder="Naam bewoner"><label style="display:flex;align-items:center;gap:5px;margin:0;white-space:nowrap" title="Leeg = standaardbedrag">Eigen maximum € <input class="input" style="width:82px" inputmode="decimal" value="${esc(worker.monthlyLimit??'')}" placeholder="${esc(data.defaultMonthlyLimit||'285')}" data-worker-limit="${esc(worker.id)}"></label>${arrows('workers',index,data.workers.length)}<button class="mini danger" data-action="delete-worker" data-id="${esc(worker.id)}">⌫</button></div>`).join('') : '<p class="hint">Nog geen bewoners.</p>'
+        const tasks = allTasks()
+        $('#preset-settings').innerHTML = tasks.length ? tasks.map((name,index) => `<div class="preset" style="width:100%;flex-wrap:wrap" data-sort="tasks" data-index="${index}">${grip}<b style="min-width:150px;flex:1">${esc(name)}</b><label style="margin:0">Uur <input class="input" style="width:105px" type="time" value="${esc(taskDefaultTime(name))}" data-task-time="${esc(name)}"></label><label style="margin:0">Prijs € <input class="input" style="width:85px" inputmode="decimal" value="${esc(taskDefaultWage(name))}" data-task-wage="${esc(name)}"></label>${arrows('tasks',index,tasks.length)}<button class="mini danger" data-action="delete-preset" data-name="${esc(name)}" title="Klus verwijderen">×</button></div>`).join('') : '<p class="hint">Nog geen klussen. Maak er een via Nieuwe klus.</p>'
+      }
+      function moveSetting(kind, from, to) {
+        // Tasks only partly live in taskPresets; store the full visible order there so it sticks.
+        const list = kind==='workers' ? data.workers : (data.taskPresets = allTasks())
+        if(from===to||from<0||to<0||from>=list.length||to>=list.length) return
+        const [item]=list.splice(from,1); list.splice(to,0,item)
+        save(); renderSettingsLists(); renderEarnings()
       }
       function updateTaskDefault(task, patch) { const key=taskKey(task),current=data.taskDefaults[key]||{time:taskDefaultTime(task),wage:taskDefaultWage(task)},next={...current,...patch};data.taskDefaults[key]=next;data.assignments=data.assignments.map(item=>taskKey(item.task)===key?{...item,time:next.time,price:next.wage}:item);save() }
-      function openTaskDefinition(task = '') { const editing=Boolean(task);editingTaskName=task||null;$('#task-definition-title').textContent=editing?'Taak bewerken':'Taak aanmaken';$('#task-definition-hint').textContent=editing?'Wijzigingen gelden voor alle bewoners en dagen van deze taak.':'Je hoeft nu nog geen bewoner te kiezen. Die wijs je later toe via de dropdown van de juiste dag.';$('#definition-name').value=task;$('#definition-time').value=editing?taskDefaultTime(task):'09:00';$('#definition-wage').value=editing?taskDefaultWage(task):'';$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
+      function openTaskDefinition(task = '') { const editing=Boolean(task);editingTaskName=task||null;$('#task-definition-title').textContent=editing?'Taak bewerken':'Taak aanmaken';$('#task-definition-hint').textContent=editing?'Wijzigingen gelden voor alle bewoners en dagen van deze taak.':'De klus verschijnt als rij in de planning. Wijs daarna per dag een bewoner toe; zonder toewijzing wordt de klus die dag niet gedaan.';$('#definition-name').value=task;$('#definition-time').value=editing?taskDefaultTime(task):'09:00';$('#definition-wage').value=editing?taskDefaultWage(task):'';$('#task-definition-backdrop').classList.add('open');setTimeout(()=>$('#definition-name').focus(),20) }
       function closeTaskDefinition() { $('#task-definition-backdrop').classList.remove('open');editingTaskName=null }
 
-      function downloadMonth() {
-        const month=/^\d{4}-\d{2}$/.test(earningsMonth)?earningsMonth:ymd(new Date()).slice(0,7), assignments=data.assignments.filter(item=>item.date.startsWith(`${month}-`))
-        const payload={ type:'weekplanner-month', version:1, exportedAt:new Date().toISOString(), month, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit,theme:data.theme}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, plannedTasks:data.plannedTasks.filter(item=>item.date.startsWith(`${month}-`)), assignments }
+      function monthRange(month) {
+        // Include the complete weeks at both ends so days of a week that spills into the next/previous month aren't lost.
+        const first=fromYmd(`${month}-01`), last=new Date(first.getFullYear(),first.getMonth()+1,0)
+        return { from:ymd(startOfWeek(first)), to:ymd(addDays(startOfWeek(last),6)) }
+      }
+      const periodLabel = (from,to) => `${fromYmd(from).toLocaleDateString('nl-BE',{day:'numeric',month:'short'})} – ${fromYmd(to).toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'})}`
+      const exportMonth = () => /^\d{4}-\d{2}$/.test($('#export-month').value) ? $('#export-month').value : earningsMonth
+      function renderExportMonthHint() { const {from,to}=monthRange(exportMonth());$('#export-month-hint').textContent=`Inclusief de volledige begin- en eindweek: ${periodLabel(from,to)}. Bij openen wordt alleen deze periode vervangen.` }
+      function sourceWeeks() {
+        const current=ymd(startOfWeek(anchor)), weeks=new Map()
+        const add=date=>{const start=ymd(startOfWeek(fromYmd(date)));if(start===current)return;const week=weeks.get(start)||{start,tasks:new Set(),assignments:0};weeks.set(start,week);return week}
+        data.assignments.forEach(item=>{const week=add(item.date);if(week){week.tasks.add(taskKey(item.task));week.assignments++}})
+        Object.keys(data.weekRosters).forEach(key=>add(key))
+        return [...weeks.values()].sort((a,b)=>b.start.localeCompare(a.start)).map(week=>({...week,workers:weekWorkers(fromYmd(week.start)).length}))
+      }
+      function openCopy() {
+        const weeks=sourceWeeks(), current=startOfWeek(anchor), previous=ymd(addDays(current,-7)), next=ymd(addDays(current,7))
+        $('#copy-target').textContent=`Naar ${formatRange()}`
+        $('#copy-source').innerHTML=weeks.length?weeks.map(week=>`<option value="${week.start}" ${week.start===previous?'selected':''}>${esc(periodLabel(week.start,ymd(addDays(fromYmd(week.start),6))))}${week.start===previous?' (vorige week)':week.start===next?' (volgende week)':''}</option>`).join(''):'<option value="">Geen andere weken met een planning</option>'
+        $('#copy-source').disabled=!weeks.length
+        $('#copy-submit').disabled=!weeks.length
+        renderCopyInfo()
+        $('#copy-backdrop').classList.add('open')
+      }
+      function closeCopy() { $('#copy-backdrop').classList.remove('open') }
+      function renderCopyInfo() {
+        const week=sourceWeeks().find(item=>item.start===$('#copy-source').value)
+        $('#copy-source-info').textContent=week?`Die week: ${week.workers} bewoner(s), ${week.tasks.size} klus(sen), ${week.assignments} toewijzing(en).`:'Plan eerst een andere week om die hier te kunnen kopiëren.'
+      }
+      async function copyWeek(sourceStart, {workers, assignments, replace}) {
+        const target=startOfWeek(anchor), source=fromYmd(sourceStart), offset=Math.round((target-source)/864e5)
+        const sourceDates=new Set(weekDates(source)), targetDates=weekSet(), shift=item=>({...item,date:ymd(addDays(fromYmd(item.date),offset))})
+        const existing=data.assignments.filter(item=>targetDates.has(item.date)).length
+        if(replace&&existing&&!await showConfirm(`De ${existing} toewijzing(en) die nu in deze week staan, worden vervangen.`,{title:'Deze week leegmaken?',confirmLabel:'Vervangen',variant:'warning'}))return false
+        if(replace){data.plannedTasks=data.plannedTasks.filter(item=>!targetDates.has(item.date));data.assignments=data.assignments.filter(item=>!targetDates.has(item.date))}
+        const ids=new Set(data.workers.map(worker=>worker.id))
+        let roster=new Set(weekWorkers().map(worker=>worker.id)), counts={workers:0,assignments:0}
+        if(workers){roster=new Set(weekWorkers(source).map(worker=>worker.id));counts.workers=roster.size}
+        if(assignments){
+          const added=data.assignments.filter(item=>sourceDates.has(item.date)&&ids.has(item.workerId)).map(shift).filter(item=>!data.assignments.some(x=>x.date===item.date&&taskKey(x.task)===taskKey(item.task)&&x.workerId===item.workerId)).map(item=>({...item,id:uid(),done:false}))
+          added.forEach(item=>roster.add(item.workerId))
+          data.assignments.push(...added);counts.assignments=added.length
+        }
+        if(workers||rosterKey()||roster.size!==weekWorkers().length)setWeekRoster([...roster])
+        commit()
+        toast(`Gekopieerd: ${[workers&&`${counts.workers} bewoner(s)`,assignments&&`${counts.assignments} toewijzing(en)`].filter(Boolean).join(', ')}`)
+        return true
+      }
+      function openFiles() { $('#export-month').value=earningsMonth;renderExportMonthHint();renderSaveStatus();$('#files-backdrop').classList.add('open') }
+      function closeFiles() { $('#files-backdrop').classList.remove('open') }
+      function downloadFile(name, payload) {
         const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}), url=URL.createObjectURL(blob), link=document.createElement('a')
-        link.href=url; link.download=`maandplanning-${month}.json`; link.click(); URL.revokeObjectURL(url)
+        link.href=url; link.download=name; document.body.append(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000)
+      }
+      function downloadBackup() {
+        const exportedAt=new Date().toISOString(), { updatedAt, lastFileSave, ...planning }=data
+        downloadFile(`weekplanning-${ymd(new Date())}.json`,{ type:'weekplanner-backup', version:2, exportedAt, data:planning })
+        data.lastFileSave=exportedAt; save(false); toast('Volledige planning opgeslagen')
+      }
+      function downloadMonth() {
+        const month=exportMonth(), {from,to}=monthRange(month), inRange=item=>item.date>=from&&item.date<=to
+        downloadFile(`maandplanning-${month}.json`,{ type:'weekplanner-month', version:2, exportedAt:new Date().toISOString(), month, from, to, settings:{companyName:data.companyName,weekStartsOn:data.weekStartsOn,defaultMonthlyLimit:data.defaultMonthlyLimit,theme:data.theme}, workers:data.workers, taskPresets:data.taskPresets, taskDefaults:data.taskDefaults, plannedTasks:data.plannedTasks.filter(inRange), assignments:data.assignments.filter(inRange), weekRosters:Object.fromEntries(Object.entries(data.weekRosters).filter(([key])=>key>=from&&key<=to)) })
+        toast(`Maand opgeslagen (${periodLabel(from,to)})`)
+      }
+      // Period files: v2 month (full weeks, explicit from/to), v1 month (calendar month only), v1 week.
+      // Files from before per-week residents have no weekRosters; the browser's current choice is then kept.
+      function filePeriod(payload) {
+        const isDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)
+        if(payload.type==='weekplanner-month'&&payload.version===2&&isDate(payload.from)&&isDate(payload.to)&&payload.from<=payload.to) return {from:payload.from,to:payload.to,anchor:/^\d{4}-\d{2}$/.test(payload.month)?`${payload.month}-01`:payload.from,label:periodLabel(payload.from,payload.to),kind:'Maandbestand'}
+        if(payload.type==='weekplanner-month'&&payload.version===1&&/^\d{4}-\d{2}$/.test(payload.month)){const first=fromYmd(`${payload.month}-01`);return {from:ymd(first),to:ymd(new Date(first.getFullYear(),first.getMonth()+1,0)),anchor:ymd(first),label:first.toLocaleDateString('nl-BE',{month:'long',year:'numeric'}),kind:'Oud maandbestand'}}
+        if(payload.type==='weekplanner-week'&&payload.version===1&&isDate(payload.weekStart)){const to=ymd(addDays(fromYmd(payload.weekStart),6));return {from:payload.weekStart,to,anchor:payload.weekStart,label:`${payload.weekStart} t/m ${payload.weekEnd||to}`,kind:'Oud weekbestand'}}
+        return null
       }
       async function importPlannerFile(file) {
         try {
-          const payload=JSON.parse(await file.text())
-          const isMonth=payload?.type==='weekplanner-month'&&payload.version===1&&/^\d{4}-\d{2}$/.test(payload.month)
-          const isLegacyWeek=payload?.type==='weekplanner-week'&&payload.version===1&&/^\d{4}-\d{2}-\d{2}$/.test(payload.weekStart)
-          if ((!isMonth&&!isLegacyWeek)||!Array.isArray(payload.assignments)||!Array.isArray(payload.workers)) throw new Error('Ongeldig maandbestand')
-          const start=isMonth?fromYmd(`${payload.month}-01`):fromYmd(payload.weekStart)
-          const legacyDates=isLegacyWeek?new Set(Array.from({length:7},(_,index)=>ymd(addDays(start,index)))):null
-          const isInPeriod=date=>isMonth?date.startsWith(`${payload.month}-`):legacyDates.has(date)
-          const periodLabel=isMonth?start.toLocaleDateString('nl-BE',{month:'long',year:'numeric'}):`${payload.weekStart} t/m ${payload.weekEnd||ymd(addDays(start,6))}`
-          if (!await showConfirm(`De planning van ${periodLabel} wordt vervangen door de inhoud van dit bestand. Andere maanden blijven behouden.`,{title:'Maandplanning openen?',confirmLabel:'Maand vervangen'})) return
+          let payload
+          try { payload=JSON.parse(await file.text()) } catch { throw new Error('Dit bestand is geen geldig planningsbestand (.json).') }
+          if(!payload||typeof payload!=='object') throw new Error('Dit bestand is geen geldig planningsbestand.')
+          // Full planning: new backup format, or a raw copy of the browser storage.
+          const backup=payload.type==='weekplanner-backup'?payload.data:!payload.type&&Array.isArray(payload.workers)&&Array.isArray(payload.assignments)?payload:null
+          if(backup){
+            if(!Array.isArray(backup.workers)||!Array.isArray(backup.assignments)) throw new Error('Het bestand is beschadigd of onvolledig.')
+            const saved=payload.exportedAt?` (opgeslagen op ${dateTimeLabel(payload.exportedAt)})`:''
+            const warning=hasUnsavedChanges()?'\n\nLet op: deze browser bevat wijzigingen die nog niet in een bestand zijn opgeslagen.':''
+            if(!await showConfirm(`De volledige planning in deze browser wordt vervangen door dit bestand${saved}.${warning}`,{title:'Volledige planning openen?',confirmLabel:'Planning openen',variant:warning?'warning':'info'}))return
+            const now=new Date().toISOString()
+            data={...normalizeData(backup),updatedAt:now,lastFileSave:now}
+            anchor=new Date(); earningsMonth=ymd(anchor).slice(0,7); workerFilter='all'; sheetWorker='all'; query=''
+            save(false); closeFiles(); render(); toast('Volledige planning geopend')
+            return
+          }
+          const period=filePeriod(payload)
+          if(!period||!Array.isArray(payload.assignments)||!Array.isArray(payload.workers)) throw new Error('Dit bestand wordt niet herkend als weekplanning.')
+          const isInPeriod=date=>date>=period.from&&date<=period.to
+          if (!await showConfirm(`De planning van ${period.label} wordt vervangen door de inhoud van dit bestand. Andere weken blijven behouden.`,{title:`${period.kind} openen?`,confirmLabel:'Periode vervangen'})) return
           const importedIds=new Set(payload.workers.map(worker=>worker.id))
           const workers=[...payload.workers.map(imported=>({...data.workers.find(worker=>worker.id===imported.id),...imported})),...data.workers.filter(worker=>!importedIds.has(worker.id))]
           const presets=[...data.taskPresets]
           ;(payload.taskPresets||[]).forEach(name=>{ if(!presets.some(item=>item.toLocaleLowerCase('nl-BE')===String(name).toLocaleLowerCase('nl-BE'))) presets.push(String(name)) })
-          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, plannedTasks:[...data.plannedTasks.filter(item=>!isInPeriod(item.date)),...(Array.isArray(payload.plannedTasks)?payload.plannedTasks:[]).filter(item=>typeof item.task==='string'&&typeof item.date==='string'&&isInPeriod(item.date))], assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isInPeriod(item.date)).map(item=>({...item,id:uid()}))]}
-          anchor=start; earningsMonth=ymd(start).slice(0,7); workerFilter='all'; query=''; commit(); toast(isMonth?'Maandbestand geïmporteerd':'Oud weekbestand geïmporteerd')
+          data={...data, companyName:payload.settings?.companyName ?? data.companyName, weekStartsOn:Number.isInteger(payload.settings?.weekStartsOn)?payload.settings.weekStartsOn:data.weekStartsOn, defaultMonthlyLimit:payload.settings?.defaultMonthlyLimit ?? data.defaultMonthlyLimit, theme:THEMES.includes(payload.settings?.theme)?payload.settings.theme:data.theme, workers, taskPresets:presets, taskDefaults:{...data.taskDefaults,...(payload.taskDefaults||{})}, plannedTasks:[...data.plannedTasks.filter(item=>!isInPeriod(item.date)),...(Array.isArray(payload.plannedTasks)?payload.plannedTasks:[]).filter(item=>isDateItem(item)&&isInPeriod(item.date))], assignments:[...data.assignments.filter(item=>!isInPeriod(item.date)), ...payload.assignments.filter(item=>isDateItem(item)&&isInPeriod(item.date)).map(item=>({...item,id:uid()}))], weekRosters:payload.weekRosters?{...Object.fromEntries(Object.entries(data.weekRosters).filter(([key])=>!isInPeriod(key))),...Object.fromEntries(Object.entries(cleanRosters(payload.weekRosters)).filter(([key])=>isInPeriod(key)))}:data.weekRosters}
+          anchor=fromYmd(period.anchor); earningsMonth=period.anchor.slice(0,7); workerFilter='all'; query=''; closeFiles(); commit(); toast(`${period.kind} geopend`)
         } catch(error) { await showAlert(error instanceof Error ? error.message : 'Kon het bestand niet lezen.','Bestand niet geopend') }
         finally { $('#json-file').value='' }
       }
@@ -736,7 +915,7 @@
           const items=all.filter(item=>taskKey(item.task)===taskKey(task)), notes=[...new Set(items.map(x=>x.notes?.trim()).filter(Boolean))]
           const cells=days.map(day=>{
             const found=items.filter(x=>x.date===ymd(day))
-            if(!found.length)return `<td>${data.plannedTasks.some(item=>taskKey(item.task)===taskKey(task)&&item.date===ymd(day))?'<span class="muted">Nog toe te wijzen</span>':''}</td><td></td>`
+            if(!found.length)return '<td></td><td></td>'
             return `<td>${found.map(x=>workerBadge(map.get(x.workerId))).join('')}</td><td class="center">${found.map(x=>`<div class="line">${x.done?'✓':'&nbsp;'}</div>`).join('')}</td>`
           }).join('')
           return `<tr><td class="task">${esc(task)}${notes.map(note=>`<span class="notes">${esc(note)}</span>`).join('')}</td><td class="center narrow">${esc(taskDefaultWage(task))}</td><td class="center narrow">${esc(timeLabel(taskDefaultTime(task)))}</td>${cells}</tr>`
@@ -744,7 +923,7 @@
         printWindow(`<section class="general-page"><div class="head"><div><div class="brand">${esc(data.companyName||'Planning')}</div><h1>Klussenlijst / Algemene planning</h1></div><div>${esc(formatRange())}</div></div><table class="general-table"><colgroup><col style="width:55mm"><col style="width:10mm"><col style="width:10mm">${days.map(()=>'<col><col style="width:10mm">').join('')}</colgroup><thead><tr><th rowspan="2">TAAK</th><th rowspan="2" class="center narrow">Prijs<br>€</th><th rowspan="2" class="center narrow">Uur</th>${dayHeads}</tr><tr class="subh">${sub}</tr></thead><tbody>${rows}</tbody></table></section>`)
       }
       function printSheets() {
-        const selectedWorkers=sheetWorker==='all'?data.workers:data.workers.filter(worker=>worker.id===sheetWorker)
+        const selectedWorkers=sheetWorker==='all'?weekWorkers():data.workers.filter(worker=>worker.id===sheetWorker)
         if(!selectedWorkers.length){toast('Voeg eerst een bewoner toe');return}
         const days=weekDays()
         const sheets=selectedWorkers.map(worker=>{
@@ -754,13 +933,16 @@
         printWindow(sheets.join(''),true)
       }
 
+      document.addEventListener('click', event => document.querySelectorAll('.menu[open]').forEach(menu => { if(!menu.contains(event.target)) menu.open=false }))
       document.addEventListener('click', async event => {
         const button=event.target.closest('[data-action]'); if(!button)return
         const action=button.dataset.action
         if(action==='dialog-cancel'){closeDialog(false);return}
         if(action==='dialog-confirm'){closeDialog(true);return}
-        if(action==='task-catalog') openCatalog()
-        if(action==='close-catalog') closeCatalog()
+        if(button.closest('#print-menu .menu-panel')) $('#print-menu').open=false
+        if(action==='open-files') openFiles()
+        if(action==='close-files') closeFiles()
+        if(action==='download-backup') downloadBackup()
         if(action==='settings') openSettings()
         if(action==='help') openHelp()
         if(action==='close-help') closeHelp()
@@ -780,19 +962,23 @@
         if(action==='done-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item){item.done=!item.done;commit()}}
         if(action==='duplicate-task'){const item=data.assignments.find(x=>x.id===button.dataset.id);if(item)commit({...data,assignments:[...data.assignments,{...item,id:uid(),done:false}]})}
         if(action==='delete-task') commit({...data,assignments:data.assignments.filter(x=>x.id!==button.dataset.id)})
-        if(action==='copy-previous'){
-          const dates=new Set(Array.from({length:7},(_,i)=>ymd(addDays(startOfWeek(anchor),-7+i))))
-          const source=data.assignments.filter(x=>dates.has(x.date)), planned=data.plannedTasks.filter(x=>dates.has(x.date))
-          if(!source.length&&!planned.length){toast('Geen taken in de vorige week');return}
-          const shifted=item=>({...item,date:ymd(addDays(fromYmd(item.date),7))})
-          const assignments=source.map(shifted).filter(item=>!data.assignments.some(x=>x.date===item.date&&taskKey(x.task)===taskKey(item.task)&&x.workerId===item.workerId)).map(item=>({...item,id:uid(),done:false}))
-          const selections=planned.map(shifted).filter(item=>!data.plannedTasks.some(x=>x.date===item.date&&taskKey(x.task)===taskKey(item.task)))
-          commit({...data,assignments:[...data.assignments,...assignments],plannedTasks:[...data.plannedTasks,...selections]});toast('Vorige week gekopieerd')
+        if(action==='copy-week') openCopy()
+        if(action==='close-copy') closeCopy()
+        if(action==='roster-all') changeRoster(data.workers.map(worker=>worker.id))
+        if(action==='roster-none') changeRoster([])
+        if(action==='add-worker'){const worker={id:uid(),name:'',color:COLORS[data.workers.length%COLORS.length],monthlyLimit:''},key=rosterKey();data.workers.push(worker);if(key)data.weekRosters[key].push(worker.id);save();renderSettingsLists();renderEarnings();setTimeout(()=>document.querySelector(`[data-worker-name="${worker.id}"]`)?.focus(),0)}
+        if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&await showConfirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken worden definitief verwijderd.`,{title:'Bewoner verwijderen?',confirmLabel:'Verwijderen',variant:'danger'})){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);Object.keys(data.weekRosters).forEach(key=>data.weekRosters[key]=data.weekRosters[key].filter(id=>id!==worker.id));if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
+        if(action==='move-setting'){const index=Number(button.dataset.index);moveSetting(button.dataset.kind,index,index+Number(button.dataset.dir))}
+        if(action==='delete-preset'){
+          const name=button.dataset.name, key=taskKey(name), assigned=data.assignments.filter(item=>taskKey(item.task)===key).length
+          const usage=assigned?`\n\nDeze klus heeft nog ${assigned} toewijzing(en). Die worden ook verwijderd, in alle weken.`:''
+          if(!await showConfirm(`“${name}” wordt definitief verwijderd, samen met het uur en de prijs.${usage}`,{title:'Klus verwijderen?',confirmLabel:'Verwijderen',variant:'danger'}))return
+          data.taskPresets=data.taskPresets.filter(task=>taskKey(task)!==key)
+          data.plannedTasks=data.plannedTasks.filter(item=>taskKey(item.task)!==key)
+          data.assignments=data.assignments.filter(item=>taskKey(item.task)!==key)
+          delete data.taskDefaults[key]
+          save();renderSettingsLists();renderEarnings();toast(`Klus “${name}” verwijderd`)
         }
-        if(action==='add-worker'){const worker={id:uid(),name:'',color:COLORS[data.workers.length%COLORS.length],monthlyLimit:''};data.workers.push(worker);save();renderSettingsLists();renderEarnings();setTimeout(()=>document.querySelector(`[data-worker-name="${worker.id}"]`)?.focus(),0)}
-        if(action==='delete-worker'){const worker=data.workers.find(x=>x.id===button.dataset.id);if(worker&&await showConfirm(`${worker.name||'Deze bewoner'} en alle gekoppelde taken worden definitief verwijderd.`,{title:'Bewoner verwijderen?',confirmLabel:'Verwijderen',variant:'danger'})){data.workers=data.workers.filter(x=>x.id!==worker.id);data.assignments=data.assignments.filter(x=>x.workerId!==worker.id);if(workerFilter===worker.id)workerFilter='all';if(sheetWorker===worker.id)sheetWorker='all';save();renderSettingsLists();renderEarnings()}}
-        if(action==='move-worker-up'||action==='move-worker-down'){const index=data.workers.findIndex(x=>x.id===button.dataset.id),target=index+(action.endsWith('up')?-1:1);if(index>=0&&target>=0&&target<data.workers.length){[data.workers[index],data.workers[target]]=[data.workers[target],data.workers[index]];save();renderSettingsLists();renderEarnings()}}
-        if(action==='delete-preset'){data.taskPresets=data.taskPresets.filter(name=>name!==button.dataset.name);save();renderSettingsLists()}
         if(action==='download-json') downloadMonth()
         if(action==='upload-json') $('#json-file').click()
         if(action==='print-general') printGeneral()
@@ -810,32 +996,55 @@
       document.addEventListener('change',event=>{if(event.target.matches('[data-assign-task]')){const workerId=event.target.value,task=event.target.dataset.assignTask,date=event.target.dataset.assignDate;if(workerId){data.assignments.push({id:uid(),task,workerId,date,time:taskDefaultTime(task),price:taskDefaultWage(task),notes:'',done:false});commit()}}})
       $('#worker-filter').addEventListener('change',event=>{workerFilter=event.target.value;renderMatrix()})
       $('#sheet-worker').addEventListener('change',event=>{sheetWorker=event.target.value})
-      $('#theme-select').addEventListener('change',event=>{data.theme=THEMES.includes(event.target.value)?event.target.value:'white';applyTheme();save()})
+      $('#theme-select').addEventListener('change',event=>{data.theme=THEMES.includes(event.target.value)?event.target.value:'white';applyTheme();save(false)})
+      $('#export-month').addEventListener('input',renderExportMonthHint)
+      $('#roster-list').addEventListener('change',()=>changeRoster([...document.querySelectorAll('[data-roster-worker]:checked')].map(input=>input.dataset.rosterWorker)))
+      $('#copy-source').addEventListener('change',renderCopyInfo)
+      $('#copy-form').addEventListener('submit',async event=>{
+        event.preventDefault()
+        const options={workers:$('#copy-workers').checked,assignments:$('#copy-assignments').checked,replace:$('#copy-replace').checked}
+        if(!$('#copy-source').value)return
+        if(!options.workers&&!options.assignments){showAlert('Vink minstens één onderdeel aan om te kopiëren.','Niets gekozen','info');return}
+        if(await copyWeek($('#copy-source').value,options))closeCopy()
+      })
       $('#earnings-month').addEventListener('change',event=>{earningsMonth=event.target.value;renderEarnings()})
       $('#company').addEventListener('input',event=>{data.companyName=event.target.value;save()})
       $('#default-monthly-limit').addEventListener('input',event=>{data.defaultMonthlyLimit=event.target.value;save();renderEarnings()})
       $('#week-starts').addEventListener('change',event=>{data.weekStartsOn=Number(event.target.value);save();render()})
       $('#create-preset').addEventListener('click',()=>{const name=$('#task-name').value.trim();if(name&&!data.taskPresets.some(x=>x.toLocaleLowerCase('nl-BE')===name.toLocaleLowerCase('nl-BE'))){data.taskPresets.push(name);save();$('#task-presets').innerHTML=data.taskPresets.map(x=>`<option value="${esc(x)}"></option>`).join('');updatePresetButton();toast(`Preset “${name}” aangemaakt`)}})
       $('#task-form').addEventListener('submit',event=>{event.preventDefault();const previous=data.assignments.find(x=>x.id===editingId),workerId=$('#task-worker').value,task=$('#task-name').value.trim(),time=$('#task-time').value||'09:00',wage=$('#task-price').value.trim(),item={id:editingId||uid(),task,workerId,date:$('#task-date').value,time,price:wage,notes:$('#task-notes').value.trim(),done:previous?.done||false};if(!item.task||!item.workerId)return;const key=taskKey(task);data.taskDefaults[key]={time,wage};data.assignments=data.assignments.map(existing=>taskKey(existing.task)===key?{...existing,time,price:wage}:existing);data.assignments=editingId?data.assignments.map(existing=>existing.id===editingId?item:existing):[...data.assignments,item];closeTask();commit()})
-      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);data.plannedTasks=data.plannedTasks.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name}:item);if(!originalName)data.plannedTasks.push({task:name,date:ymd(weekDays()[0])});closeTaskDefinition();commit()})
-      $('#catalog-form').addEventListener('submit',async event=>{
-        event.preventDefault()
-        const planned=[...document.querySelectorAll('[data-plan-task]:checked')].map(input=>({task:input.dataset.planTask,date:input.dataset.planDate}))
-        const dates=weekSet(), selected=new Set(planned.map(item=>JSON.stringify([taskKey(item.task),item.date])))
-        const keep=item=>!dates.has(item.date)||selected.has(JSON.stringify([taskKey(item.task),item.date]))
-        const removed=data.assignments.filter(item=>!keep(item))
-        if(removed.length&&!await showConfirm(`${removed.length} toewijzing(en) worden uit deze week verwijderd omdat de klus op die dag niet meer nodig is. De klus blijft beschikbaar in de volledige klussenlijst.`,{title:'Weekselectie aanpassen?',confirmLabel:'Selectie bewaren'}))return
-        data.plannedTasks=[...data.plannedTasks.filter(item=>!dates.has(item.date)),...planned]
-        data.assignments=data.assignments.filter(keep)
-        closeCatalog();commit();toast('Klussen voor deze week bewaard')
-      })
+      $('#task-definition-form').addEventListener('submit',event=>{event.preventDefault();const originalName=editingTaskName||'',oldKey=taskKey(originalName),name=$('#definition-name').value.trim(),newKey=taskKey(name),time=$('#definition-time').value||'09:00',wage=$('#definition-wage').value.trim();if(!name)return;if(oldKey)delete data.taskDefaults[oldKey];data.taskDefaults[newKey]={time,wage};data.taskPresets=[...data.taskPresets,...(originalName?[]:[name])].map(task=>oldKey&&taskKey(task)===oldKey?name:task).filter((task,index,list)=>list.findIndex(candidate=>taskKey(candidate)===taskKey(task))===index);data.assignments=data.assignments.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name,time,price:wage}:item);data.plannedTasks=data.plannedTasks.map(item=>oldKey&&taskKey(item.task)===oldKey?{...item,task:name}:item);closeTaskDefinition();commit()})
+      // Reorder rows in Instellingen by dragging the grip; rows are only draggable while the grip is held so inputs stay usable.
+      let settingsDrag=null
+      const clearDropMarks=()=>document.querySelectorAll('.drop-before,.drop-after').forEach(row=>row.classList.remove('drop-before','drop-after'))
+      const dropIndex=(event,row)=>{const box=row.getBoundingClientRect(),after=event.clientY>box.top+box.height/2,index=Number(row.dataset.index);return {after,target:after?index+1:index}}
+      const settingsModal=$('#settings-backdrop')
+      settingsModal.addEventListener('pointerdown',event=>{const grip=event.target.closest('.sort-grip');if(grip)grip.closest('[data-sort]').draggable=true})
+      document.addEventListener('pointerup',()=>settingsModal.querySelectorAll('[data-sort][draggable="true"]').forEach(row=>row.draggable=false))
+      settingsModal.addEventListener('dragstart',event=>{const row=event.target.closest('[data-sort]');if(!row?.draggable)return;settingsDrag={kind:row.dataset.sort,index:Number(row.dataset.index)};event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain','');row.classList.add('dragging')})
+      settingsModal.addEventListener('dragover',event=>{const row=event.target.closest('[data-sort]');if(!settingsDrag||!row||row.dataset.sort!==settingsDrag.kind)return;event.preventDefault();clearDropMarks();row.classList.add(dropIndex(event,row).after?'drop-after':'drop-before')})
+      settingsModal.addEventListener('drop',event=>{const row=event.target.closest('[data-sort]');if(!settingsDrag||!row||row.dataset.sort!==settingsDrag.kind)return;event.preventDefault();const {target}=dropIndex(event,row),from=settingsDrag.index;moveSetting(settingsDrag.kind,from,target>from?target-1:target)})
+      settingsModal.addEventListener('dragend',()=>{settingsDrag=null;clearDropMarks();settingsModal.querySelectorAll('[data-sort]').forEach(row=>{row.draggable=false;row.classList.remove('dragging')})})
       $('#json-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)importPlannerFile(file)})
       $('#matrix').addEventListener('dragstart',event=>{const card=event.target.closest('[data-task-id]');if(card){event.dataTransfer.setData('text/plain',card.dataset.taskId);event.dataTransfer.effectAllowed='move'}})
-      $('#matrix').addEventListener('dragover',event=>{const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
+      const isFileDrag = event => [...(event.dataTransfer?.types||[])].includes('Files')
+      document.addEventListener('dragover',event=>{if(isFileDrag(event)){event.preventDefault();document.body.classList.add('file-drag')}})
+      document.addEventListener('dragleave',event=>{if(!event.relatedTarget)document.body.classList.remove('file-drag')})
+      document.addEventListener('drop',event=>{document.body.classList.remove('file-drag');if(!isFileDrag(event))return;event.preventDefault();const file=event.dataTransfer.files?.[0];if(file)importPlannerFile(file)})
+      $('#matrix').addEventListener('dragover',event=>{if(isFileDrag(event))return;const cell=event.target.closest('.day-cell');if(cell){event.preventDefault();cell.classList.add('drag-over')}})
       $('#matrix').addEventListener('dragleave',event=>event.target.closest('.day-cell')?.classList.remove('drag-over'))
-      $('#matrix').addEventListener('drop',event=>{const cell=event.target.closest('.day-cell');if(!cell)return;event.preventDefault();const id=event.dataTransfer.getData('text/plain'),item=data.assignments.find(x=>x.id===id);if(item){item.date=cell.dataset.date;item.task=cell.dataset.task;commit()}})
-      ;['catalog-backdrop','help-backdrop','task-backdrop','task-definition-backdrop','settings-backdrop','dialog-backdrop'].forEach(id=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget){if(id==='catalog-backdrop')closeCatalog();else if(id==='help-backdrop')closeHelp();else if(id==='task-backdrop')closeTask();else if(id==='task-definition-backdrop')closeTaskDefinition();else if(id==='dialog-backdrop')closeDialog(false);else closeSettings()}}))
-      document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('#dialog-backdrop').classList.contains('open')){event.preventDefault();closeDialog(false)}})
+      $('#matrix').addEventListener('drop',event=>{const cell=event.target.closest('.day-cell');if(!cell||isFileDrag(event))return;event.preventDefault();const id=event.dataTransfer.getData('text/plain'),item=data.assignments.find(x=>x.id===id);if(item){item.date=cell.dataset.date;item.task=cell.dataset.task;commit()}})
+      // Ordered top-most first so Escape closes the dialog before the modal underneath it.
+      const BACKDROPS = [['dialog-backdrop',()=>closeDialog(false)],['copy-backdrop',closeCopy],['help-backdrop',closeHelp],['task-backdrop',closeTask],['task-definition-backdrop',closeTaskDefinition],['files-backdrop',closeFiles],['settings-backdrop',closeSettings]]
+      BACKDROPS.forEach(([id,close])=>$('#'+id).addEventListener('mousedown',event=>{if(event.target===event.currentTarget)close()}))
+      document.addEventListener('keydown',event=>{
+        if(event.key==='Enter'&&event.target.matches('.dropzone')){event.preventDefault();$('#json-file').click();return}
+        if(event.key!=='Escape')return
+        const openMenu=document.querySelector('.menu[open]')
+        if(openMenu){openMenu.open=false;return}
+        const open=BACKDROPS.find(([id])=>$('#'+id).classList.contains('open'))
+        if(open){event.preventDefault();open[1]()}
+      })
       render()
       // GitHub Pages can't send no-cache headers, so browsers may keep showing an old copy.
       // Compare our build id with the live file and reload (cache-busted) when it changed.
