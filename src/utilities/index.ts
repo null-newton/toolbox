@@ -22,6 +22,7 @@ import {
   songListenerIcon,
   imageToolboxIcon,
   subtitleStudioIcon,
+  bankViewerIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -35,6 +36,17 @@ registerUtility({
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./song-listener/SongListener').then((m) => ({ default: m.SongListener }))
+  ),
+})
+
+registerUtility({
+  id: 'bank-viewer',
+  name: 'Bank Viewer',
+  description: 'Read-only bank balances and transactions, with your surplus just before each salary.',
+  icon: bankViewerIcon,
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./bank-viewer/BankViewer').then((m) => ({ default: m.BankViewer }))
   ),
 })
 
