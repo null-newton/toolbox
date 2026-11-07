@@ -1,52 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Copy, KeyRound, Landmark, Link2, Lock, RefreshCw, Settings, ShieldCheck, Trash2, Upload } from 'lucide-react'
+import { Copy, KeyRound, Landmark, Link2, Lock, LockOpen, RefreshCw, Settings, ShieldCheck, Trash2, Upload } from 'lucide-react'
 import { useAuth } from '../../auth/auth-context'
 import { useLang, useT } from '../../i18n/LanguageContext'
-import { supabase } from '../../lib/supabase'
+import { importPrivateKey, randomBytes, signEnableBankingJwt, toB64 } from './crypto'
 import {
-  PBKDF2_ITERATIONS, deriveKey, fromB64, importPrivateKey, open, randomBytes, seal, signEnableBankingJwt,
-  type SealedBox,
-} from './crypto'
-import {
-  EbError, REDIRECT_URL, eb, guessSalary, refreshAccount, surplusByMonth,
-  type Aspsp, type Cache, type LinkedAccount, type LinkedSession, type SalaryRule, type Vault,
+  EbError, REDIRECT_URL, eb, guessSalary, normalizeRule, refreshAccount, surplusByMonth,
+  type Aspsp, type LinkedAccount, type LinkedSession, type SalaryPayer, type SalaryRule,
 } from './model'
+import {
+  WrongPassword, deleteRow, emptyBook, forgetDeviceKey, getDeviceKey, importDataKey, loadRow, openBook, saveRow,
+  sealBook, sealVault, setDeviceKey, unlock, type Book, type Row, type Secret,
+} from './store'
 import { STR } from './strings'
 
-const APP_ID = 'bank-viewer'
 const PENDING_KEY = 'bank-viewer:pending'
 const COUNTRIES = ['BE', 'NL', 'LU', 'FR', 'DE', 'AT', 'ES', 'IT', 'FI', 'SE', 'DK', 'NO', 'PL', 'PT', 'IE']
-const DEFAULT_RULE: SalaryRule = { match: '', minAmount: 500 }
 
-interface Unlocked {
-  aesKey: CryptoKey
-  salt: Uint8Array<ArrayBuffer>
-  iterations: number
-  vault: Vault
-  rsaKey: CryptoKey
-}
+type Callback = { code: string | null; state: string | null; error: string | null; description: string | null } | null
 
-const cacheKey = (userId: string) => `bank-viewer:cache:${userId}`
-function readLocal(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
-}
-function writeLocal(key: string, value: string | null) {
-  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value) } catch { /* storage unavailable */ }
-}
-
-async function loadBox(): Promise<SealedBox | null> {
-  const { data, error } = await supabase.from('utility_configs').select('config').eq('utility_id', APP_ID).maybeSingle()
-  if (error) throw new Error(error.message)
-  return ((data?.config as { vault?: SealedBox } | undefined)?.vault) ?? null
-}
-async function saveBox(userId: string, box: SealedBox) {
-  const { error } = await supabase.from('utility_configs').upsert(
-    { user_id: userId, utility_id: APP_ID, config: { vault: box } },
-    { onConflict: 'user_id,utility_id' }
-  )
-  if (error) throw new Error(error.message)
+interface Opened {
+  row: Row
+  dk: CryptoKey
+  book: Book
+  secret: Secret | null
 }
 
 export function BankViewer() {
@@ -54,10 +32,10 @@ export function BankViewer() {
   const t = useT(STR)
   const location = useLocation()
   const navigate = useNavigate()
-  const [box, setBox] = useState<SealedBox | null | undefined>(undefined)
+  const [row, setRow] = useState<Row | null | undefined>(undefined)
+  const [opened, setOpened] = useState<Opened | null>(null)
   const [loadError, setLoadError] = useState('')
-  const [session, setSession] = useState<Unlocked | null>(null)
-  const [callback] = useState(() => {
+  const [callback] = useState<Callback>(() => {
     const q = new URLSearchParams(location.search)
     return q.has('code') || q.has('error') ? { code: q.get('code'), state: q.get('state'), error: q.get('error'), description: q.get('error_description') } : null
   })
@@ -66,40 +44,61 @@ export function BankViewer() {
     if (callback) navigate('/tools/bank-viewer', { replace: true })
   }, [callback, navigate])
 
+  // Load the account row, then try to open the saved data with this device's key.
   useEffect(() => {
     if (!user) return
-    loadBox().then(setBox, (e: Error) => setLoadError(e.message))
+    let cancelled = false
+    ;(async () => {
+      const loaded = await loadRow()
+      if (cancelled) return
+      if (loaded?.data) {
+        const dk = await getDeviceKey(user.id)
+        if (dk) {
+          try {
+            const book = await openBook(dk, loaded.data)
+            if (!cancelled) { setRow(loaded); setOpened({ row: loaded, dk, book, secret: null }) }
+            return
+          } catch { await forgetDeviceKey(user.id) } // stale key (data was reset elsewhere)
+        }
+      }
+      if (!cancelled) setRow(loaded)
+    })().catch((e: Error) => { if (!cancelled) setLoadError(e.message) })
+    return () => { cancelled = true }
   }, [user])
 
   if (!user) return null
+  const reset = async () => {
+    await deleteRow()
+    await forgetDeviceKey(user.id)
+    try { localStorage.removeItem(`bank-viewer:cache:${user.id}`) } catch { /* ignore */ }
+    setOpened(null)
+    setRow(null)
+  }
   let body: ReactNode
   if (loadError) body = <p className="text-rose-300">{loadError}</p>
-  else if (box === undefined) body = <p className="animate-pulse text-slate-400">{t.loading}</p>
-  else if (!session && !box) body = <Setup userId={user.id} onDone={(s, b) => { setBox(b); setSession(s) }} />
-  else if (!session && box) body = <Unlock box={box} pendingCallback={!!callback?.code} onUnlocked={setSession} onReset={async () => {
-    await supabase.from('utility_configs').delete().eq('utility_id', APP_ID)
-    writeLocal(cacheKey(user.id), null)
-    setBox(null)
-  }} />
-  else body = <Dashboard userId={user.id} session={session!} setSession={setSession} callback={callback} onDeleted={() => { setSession(null); setBox(null) }} />
+  else if (row === undefined) body = <p className="animate-pulse text-slate-400">{t.loading}</p>
+  else if (opened) body = <Dashboard userId={user.id} opened={opened} setOpened={setOpened} callback={callback} onReset={reset} onForget={async () => { await forgetDeviceKey(user.id); setOpened(null) }} />
+  else if (!row) body = <Setup userId={user.id} onDone={setOpened} />
+  else body = (
+    <Card className="mx-auto max-w-md">
+      <PasswordForm title={t.unlockTitle} note={callback?.code ? t.unlockToFinish : t.unlockOnce} onPassword={async (password) => {
+        const r = await unlock(user.id, password, row)
+        await setDeviceKey(user.id, r.dk)
+        setOpened({ row: r.row, dk: r.dk, book: r.book, secret: r.secret })
+      }} onReset={reset} />
+    </Card>
+  )
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-300/20">
-              <Landmark className="size-6" />
-            </span>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-          </div>
-          <p className="max-w-2xl text-sm leading-6 text-slate-400">{t.subtitle}</p>
+      <header>
+        <div className="mb-2 flex items-center gap-3">
+          <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-300/20">
+            <Landmark className="size-6" />
+          </span>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
         </div>
-        {session && (
-          <button onClick={() => setSession(null)} className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white">
-            <Lock className="size-4" /> {t.lock}
-          </button>
-        )}
+        <p className="max-w-2xl text-sm leading-6 text-slate-400">{t.subtitle}</p>
       </header>
       {body}
     </div>
@@ -129,7 +128,7 @@ function CopyRedirect() {
   )
 }
 
-function Setup({ userId, onDone }: { userId: string; onDone: (s: Unlocked, b: SealedBox) => void }) {
+function Setup({ userId, onDone }: { userId: string; onDone: (o: Opened) => void }) {
   const t = useT(STR)
   const [applicationId, setApplicationId] = useState('')
   const [pem, setPem] = useState('')
@@ -163,13 +162,15 @@ function Setup({ userId, onDone }: { userId: string; onDone: (s: Unlocked, b: Se
         if (err instanceof EbError && (err.status === 401 || err.status === 403 || err.status === 422)) throw new Error(`${t.keyRejected} (${err.message})`, { cause: err })
         if (!(err instanceof EbError) || err.status !== 404) throw err
       }
-      const salt = randomBytes(16)
-      const aesKey = await deriveKey(password, salt)
-      const vault: Vault = { applicationId: appId, pem, sessions: [], salary: {} }
-      const sealed = await seal(aesKey, salt, PBKDF2_ITERATIONS, vault)
-      await saveBox(userId, sealed)
+      const dataKey = toB64(randomBytes(32))
+      const dk = await importDataKey(dataKey)
+      const data = { applicationId: appId, pem, dataKey }
+      const book = emptyBook()
+      const row: Row = { vault: await sealVault(password, data), data: await sealBook(dk, book) }
+      await saveRow(userId, row)
+      await setDeviceKey(userId, dk)
       setPem(''); setPassword(''); setConfirm('')
-      onDone({ aesKey, salt, iterations: PBKDF2_ITERATIONS, vault, rsaKey }, sealed)
+      onDone({ row, dk, book, secret: { data, rsaKey } })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -215,7 +216,10 @@ function Setup({ userId, onDone }: { userId: string; onDone: (s: Unlocked, b: Se
   )
 }
 
-function Unlock({ box, pendingCallback, onUnlocked, onReset }: { box: SealedBox; pendingCallback: boolean; onUnlocked: (s: Unlocked) => void; onReset: () => Promise<void> }) {
+/** Password entry, used for the first unlock on a device and before refresh/link. */
+function PasswordForm({ title, note, onPassword, onCancel, onReset }: {
+  title: string; note?: string; onPassword: (password: string) => Promise<void>; onCancel?: () => void; onReset?: () => Promise<void>
+}) {
   const t = useT(STR)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -226,29 +230,24 @@ function Unlock({ box, pendingCallback, onUnlocked, onReset }: { box: SealedBox;
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      const salt = fromB64(box.salt)
-      const aesKey = await deriveKey(password, salt, box.iterations)
-      let vault: Vault
-      try { vault = await open<Vault>(aesKey, box) } catch (cause) { throw new Error(t.wrongPassword, { cause }) }
-      vault.salary ||= {}
-      const rsaKey = await importPrivateKey(vault.pem)
-      setPassword('')
-      onUnlocked({ aesKey, salt, iterations: box.iterations, vault, rsaKey })
+      await onPassword(password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
+      setError(err instanceof WrongPassword ? t.wrongPassword : err instanceof Error ? err.message : String(err))
       setBusy(false)
     }
   }
 
   return (
-    <Card className="mx-auto max-w-md">
-      <form onSubmit={submit} className="space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold"><KeyRound className="size-5 text-emerald-300" /> {t.unlockTitle}</h2>
-        {pendingCallback && <p className="rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100">{t.unlockToFinish}</p>}
-        <input type="password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.password} autoFocus autoComplete="current-password" />
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+    <form onSubmit={submit} className="space-y-4">
+      <h2 className="flex items-center gap-2 text-lg font-semibold"><KeyRound className="size-5 text-emerald-300" /> {title}</h2>
+      {note && <p className="rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-100">{note}</p>}
+      <input type="password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.password} autoFocus autoComplete="current-password" />
+      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      <div className="flex gap-2">
         <button className={primary} disabled={busy || !password}>{busy ? t.working : t.unlock}</button>
+        {onCancel && <button type="button" className={secondary} onClick={onCancel}>{t.cancel}</button>}
+      </div>
+      {onReset && (
         <div className="border-t border-white/8 pt-3 text-xs text-slate-500">
           {confirmReset ? (
             <span>{t.resetConfirm} <button type="button" className="text-rose-300 underline" onClick={() => void onReset()}>{t.resetYes}</button> · <button type="button" className="underline" onClick={() => setConfirmReset(false)}>{t.cancel}</button></span>
@@ -256,129 +255,159 @@ function Unlock({ box, pendingCallback, onUnlocked, onReset }: { box: SealedBox;
             <button type="button" className="underline hover:text-slate-300" onClick={() => setConfirmReset(true)}>{t.forgot}</button>
           )}
         </div>
-      </form>
-    </Card>
+      )}
+    </form>
   )
 }
 
 // ---------------------------------------------------------------------------
 
-type Callback = { code: string | null; state: string | null; error: string | null; description: string | null } | null
-
-function Dashboard({ userId, session, setSession, callback, onDeleted }: {
-  userId: string; session: Unlocked; setSession: (s: Unlocked) => void; callback: Callback; onDeleted: () => void
+function Dashboard({ userId, opened, setOpened, callback, onReset, onForget }: {
+  userId: string; opened: Opened; setOpened: (o: Opened) => void; callback: Callback; onReset: () => Promise<void>; onForget: () => Promise<void>
 }) {
   const t = useT(STR)
   const { locale } = useLang()
-  const { vault } = session
-  const [cache, setCache] = useState<Cache>({})
-  const [selected, setSelected] = useState<string>(vault.sessions[0]?.accounts[0]?.uid || '')
+  const { book, secret } = opened
+  const cache = book.cache
+  const [selected, setSelected] = useState<string>(book.sessions[0]?.accounts[0]?.uid || '')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [linking, setLinking] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [askFor, setAskFor] = useState<{ note: string; run: (s: Secret) => void } | null>(null)
   const [now] = useState(() => Date.now())
   const jwtRef = useRef<{ token: string; exp: number } | null>(null)
   const handledCallback = useRef(false)
 
-  const jwt = useCallback(async () => {
+  // Latest state for async work, and a queue so saves land in order.
+  const openedRef = useRef(opened)
+  useEffect(() => { openedRef.current = opened }, [opened])
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
+
+  const saveBook = useCallback((next: Book) => {
+    const current = openedRef.current
+    const updated = { ...current, book: next }
+    openedRef.current = updated
+    setOpened(updated)
+    const job = saveQueue.current.then(async () => {
+      const data = await sealBook(current.dk, next)
+      await saveRow(userId, { ...openedRef.current.row, data })
+      openedRef.current = { ...openedRef.current, row: { ...openedRef.current.row, data } }
+    })
+    saveQueue.current = job.catch(() => {})
+    return job
+  }, [setOpened, userId])
+
+  /** Run `fn` with the unlocked key, asking for the password first if needed. */
+  const withSecret = useCallback((note: string, fn: (s: Secret) => void) => {
+    const s = openedRef.current.secret
+    if (s) fn(s)
+    else setAskFor({ note, run: fn })
+  }, [])
+
+  const jwtFor = useCallback(async (s: Secret) => {
     if (jwtRef.current && jwtRef.current.exp > Date.now() + 60_000) return jwtRef.current.token
-    const token = await signEnableBankingJwt(session.rsaKey, vault.applicationId)
+    const token = await signEnableBankingJwt(s.rsaKey, s.data.applicationId)
     jwtRef.current = { token, exp: Date.now() + 3_500_000 }
     return token
-  }, [session.rsaKey, vault.applicationId])
+  }, [])
 
-  const saveVault = useCallback(async (next: Vault) => {
-    await saveBox(userId, await seal(session.aesKey, session.salt, session.iterations, next))
-    setSession({ ...session, vault: next })
-  }, [session, setSession, userId])
+  function lock() {
+    jwtRef.current = null
+    setLinking(false)
+    setOpened({ ...openedRef.current, secret: null })
+  }
 
-  const cacheRef = useRef<Cache>({})
-  const saveCache = useCallback(async (next: Cache) => {
-    cacheRef.current = next
-    setCache(next)
-    writeLocal(cacheKey(userId), JSON.stringify(await seal(session.aesKey, session.salt, session.iterations, next)))
-  }, [session, userId])
-
-  // Load the encrypted local cache.
-  useEffect(() => {
-    const raw = readLocal(cacheKey(userId))
-    if (!raw) return
-    open<Cache>(session.aesKey, JSON.parse(raw)).then((c) => { cacheRef.current = c; setCache(c) }, () => writeLocal(cacheKey(userId), null))
-  }, [session.aesKey, userId])
-
-  const refresh = useCallback(async (accounts: LinkedAccount[]) => {
+  const [progress, setProgress] = useState('')
+  const abortRef = useRef<AbortController | null>(null)
+  const refresh = useCallback(async (s: Secret, accounts: LinkedAccount[]) => {
+    const controller = new AbortController()
+    abortRef.current = controller
     setBusy('refresh'); setError('')
-    let next = { ...cacheRef.current }
+    const failures: string[] = []
     try {
-      const token = await jwt()
-      for (const acc of accounts) {
-        next = { ...next, [acc.uid]: await refreshAccount(token, acc.uid, next[acc.uid]) }
+      const token = await jwtFor(s)
+      for (const [i, acc] of accounts.entries()) {
+        if (controller.signal.aborted) break
+        const label = `${acc.name || acc.iban || acc.uid.slice(0, 8)} (${i + 1}/${accounts.length})`
+        try {
+          const data = await refreshAccount(token, acc.uid, openedRef.current.book.cache[acc.uid], ({ step, page, count }) => {
+            setProgress(step === 'balance' ? `${label}: ${t.progressBalance}` : `${label}: ${t.progressTx} ${page} · ${count} ${t.progressSoFar}`)
+          }, controller.signal)
+          // Save each account as soon as it is done, so a later failure keeps it.
+          const b = openedRef.current.book
+          await saveBook({ ...b, cache: { ...b.cache, [acc.uid]: data } })
+        } catch (err) {
+          if (controller.signal.aborted) break
+          failures.push(`${label}: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
-      await saveCache(next)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      if (Object.keys(next).length) await saveCache(next)
+      failures.push(err instanceof Error ? err.message : String(err))
     } finally {
+      if (failures.length) setError(failures.join('\n'))
+      abortRef.current = null
+      setProgress('')
       setBusy('')
     }
-  }, [jwt, saveCache])
+  }, [jwtFor, saveBook, t])
 
   // Finish a bank login that came back through /eb-callback.
   useEffect(() => {
     if (!callback || handledCallback.current) return
     handledCallback.current = true
     void (async () => {
-    let pending: { state: string; aspsp: { name: string; country: string } } | null = null
-    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null') } catch { /* ignore */ }
-    try { sessionStorage.removeItem(PENDING_KEY) } catch { /* ignore */ }
-    if (callback.error) { setError(`${t.bankError}: ${callback.description || callback.error}`); return }
-    if (!callback.code || !pending || pending.state !== callback.state) { setError(t.stateMismatch); return }
-    const code = callback.code
-      setBusy('link')
-      try {
-        const res = await eb<{
-          session_id: string
-          access?: { valid_until?: string }
-          aspsp?: { name: string; country: string }
-          accounts?: ({ uid?: string; account_id?: { iban?: string }; name?: string; currency?: string } | string)[]
-        }>(await jwt(), 'POST', '/sessions', { code })
-        const accounts: LinkedAccount[] = (res.accounts || []).flatMap((a) => {
-          if (typeof a === 'string') return [{ uid: a }]
-          return a.uid ? [{ uid: a.uid, iban: a.account_id?.iban, name: a.name, currency: a.currency }] : []
-        })
-        const linked: LinkedSession = {
-          sessionId: res.session_id,
-          aspsp: res.aspsp || pending!.aspsp,
-          validUntil: res.access?.valid_until || '',
-          accounts,
+      let pending: { state: string; aspsp: { name: string; country: string } } | null = null
+      try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null') } catch { /* ignore */ }
+      try { sessionStorage.removeItem(PENDING_KEY) } catch { /* ignore */ }
+      if (callback.error) { setError(`${t.bankError}: ${callback.description || callback.error}`); return }
+      if (!callback.code || !pending || pending.state !== callback.state) { setError(t.stateMismatch); return }
+      const code = callback.code
+      const aspsp = pending.aspsp
+      withSecret(t.unlockToFinish, (s) => void (async () => {
+        setBusy('link')
+        try {
+          const res = await eb<{
+            session_id: string
+            access?: { valid_until?: string }
+            aspsp?: { name: string; country: string }
+            accounts?: ({ uid?: string; account_id?: { iban?: string }; name?: string; currency?: string } | string)[]
+          }>(await jwtFor(s), 'POST', '/sessions', { code })
+          const accounts: LinkedAccount[] = (res.accounts || []).flatMap((a) => {
+            if (typeof a === 'string') return [{ uid: a }]
+            return a.uid ? [{ uid: a.uid, iban: a.account_id?.iban, name: a.name, currency: a.currency }] : []
+          })
+          const linked: LinkedSession = { sessionId: res.session_id, aspsp: res.aspsp || aspsp, validUntil: res.access?.valid_until || '', accounts }
+          const b = openedRef.current.book
+          await saveBook({ ...b, sessions: [...b.sessions, linked] })
+          if (accounts[0]) setSelected(accounts[0].uid)
+          setBusy('')
+          await refresh(s, accounts)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err))
+          setBusy('')
         }
-        const next = { ...vault, sessions: [...vault.sessions, linked] }
-        await saveVault(next)
-        if (accounts[0]) setSelected(accounts[0].uid)
-        setBusy('')
-        await refresh(accounts)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
-        setBusy('')
-      }
+      })())
     })()
-  }, [callback, jwt, refresh, saveVault, t, vault])
+  }, [callback, jwtFor, refresh, saveBook, t, withSecret])
 
-  async function unlink(s: LinkedSession) {
+  function unlink(s: LinkedSession) {
     if (!confirm(t.unlinkConfirm)) return
-    try { await eb(await jwt(), 'DELETE', `/sessions/${encodeURIComponent(s.sessionId)}`) } catch { /* already gone */ }
-    const next = { ...vault, sessions: vault.sessions.filter((x) => x.sessionId !== s.sessionId) }
-    const nextCache = { ...cacheRef.current }
-    for (const a of s.accounts) delete nextCache[a.uid]
-    await saveVault(next)
-    await saveCache(nextCache)
+    withSecret(t.unlockToChange, (secretNow) => void (async () => {
+      try { await eb(await jwtFor(secretNow), 'DELETE', `/sessions/${encodeURIComponent(s.sessionId)}`) } catch { /* already gone */ }
+      const b = openedRef.current.book
+      const nextCache = { ...b.cache }
+      for (const a of s.accounts) delete nextCache[a.uid]
+      await saveBook({ ...b, sessions: b.sessions.filter((x) => x.sessionId !== s.sessionId), cache: nextCache }).catch((e: Error) => setError(e.message))
+    })())
   }
 
-  const allAccounts = vault.sessions.flatMap((s) => s.accounts.map((a) => ({ ...a, session: s })))
+  const linkJwt = useCallback(() => (secret ? jwtFor(secret) : Promise.reject(new Error('locked'))), [jwtFor, secret])
+
+  const allAccounts = book.sessions.flatMap((s) => s.accounts.map((a) => ({ ...a, session: s })))
   const current = allAccounts.find((a) => a.uid === selected) || allAccounts[0]
   const data = current ? cache[current.uid] : undefined
-  const rule = (current && vault.salary[current.uid]) || DEFAULT_RULE
+  const rule = useMemo(() => normalizeRule(current && book.salary[current.uid]), [current, book.salary])
   const money = (n: number | null | undefined, currency = data?.currency || 'EUR') =>
     n === null || n === undefined ? '—' : new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n)
   const date = (d: string) => new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
@@ -388,34 +417,65 @@ function Dashboard({ userId, session, setSession, callback, onDeleted }: {
   const recent = months.slice(-6)
   const average = recent.length ? recent.reduce((s, m) => s + m.surplus, 0) / recent.length : null
 
+  // Salary rules are part of the data box: editable while locked, saved debounced.
   const salaryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  function setRule(patch: Partial<SalaryRule>) {
+  function setPayers(payers: SalaryPayer[]) {
+    saveRule({ ...rule, payers })
+  }
+  function saveRule(nextRule: SalaryRule) {
     if (!current) return
-    const next = { ...vault, salary: { ...vault.salary, [current.uid]: { ...rule, ...patch } } }
-    setSession({ ...session, vault: next })
+    const b = openedRef.current.book
+    const next = { ...b, salary: { ...b.salary, [current.uid]: nextRule } }
+    const updated = { ...openedRef.current, book: next }
+    openedRef.current = updated
+    setOpened(updated)
     if (salaryTimer.current) clearTimeout(salaryTimer.current)
-    salaryTimer.current = setTimeout(() => { void saveVault(next).catch((e: Error) => setError(e.message)) }, 800)
+    salaryTimer.current = setTimeout(() => { void saveBook(openedRef.current.book).catch((e: Error) => setError(e.message)) }, 800)
   }
 
   return (
     <div className="space-y-6">
-      {error && <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</p>}
+      {error && <p role="alert" className="whitespace-pre-line rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</p>}
 
       <Card className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="mr-auto text-lg font-semibold">{t.accounts}</h2>
+          {secret ? (
+            <button className={secondary} onClick={lock} title={t.lockHelp}><LockOpen className="inline size-4" /> {t.lock}</button>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-slate-500" title={t.lockedHelp}><Lock className="size-3.5" /> {t.locked}</span>
+          )}
           <button className={secondary} onClick={() => setShowSettings((v) => !v)}><Settings className="inline size-4" /> {t.settings}</button>
-          <button className={secondary} disabled={!!busy || !allAccounts.length} onClick={() => void refresh(allAccounts)}>
+          <button className={secondary} disabled={!!busy || !allAccounts.length} onClick={() => withSecret(t.unlockToRefresh, (s) => void refresh(s, allAccounts))}>
             <RefreshCw className={`inline size-4 ${busy === 'refresh' ? 'animate-spin' : ''}`} /> {t.refresh}
           </button>
-          <button className={primary} disabled={!!busy} onClick={() => setLinking((v) => !v)}><Link2 className="inline size-4" /> {t.linkBank}</button>
+          <button className={primary} disabled={!!busy} onClick={() => (linking ? setLinking(false) : withSecret(t.unlockToLink, () => setLinking(true)))}><Link2 className="inline size-4" /> {t.linkBank}</button>
         </div>
+        {askFor && (
+          <div className="max-w-md rounded-xl border border-emerald-400/20 p-4">
+            <PasswordForm title={t.unlockTitle} note={askFor.note} onCancel={() => setAskFor(null)} onPassword={async (password) => {
+              const r = await unlock(userId, password, openedRef.current.row)
+              const updated = { ...openedRef.current, secret: r.secret }
+              openedRef.current = updated
+              setOpened(updated)
+              const run = askFor.run
+              setAskFor(null)
+              run(r.secret)
+            }} />
+          </div>
+        )}
         {busy === 'link' && <p className="animate-pulse text-sm text-slate-400">{t.linking}</p>}
-        {linking && <LinkBank jwt={jwt} onError={setError} />}
-        {showSettings && <SettingsPanel userId={userId} session={session} setSession={setSession} cache={cache} onDeleted={onDeleted} />}
+        {busy === 'refresh' && (
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <span className="animate-pulse">{progress || t.working}</span>
+            <button className="no-glow text-xs underline hover:text-white" onClick={() => abortRef.current?.abort()}>{t.cancel}</button>
+          </div>
+        )}
+        {linking && secret && <LinkBank jwt={linkJwt} onError={setError} />}
+        {showSettings && <SettingsPanel userId={userId} opened={opened} withSecret={withSecret} setOpened={(o) => { openedRef.current = o; setOpened(o) }} onReset={onReset} onForget={onForget} />}
         {!allAccounts.length && !linking && <p className="text-sm text-slate-400">{t.noAccounts}</p>}
         <div className="space-y-3">
-          {vault.sessions.map((s) => {
+          {book.sessions.map((s) => {
             const expired = s.validUntil && new Date(s.validUntil).getTime() < now
             return (
               <div key={s.sessionId} className="rounded-xl border border-white/8 p-3">
@@ -452,19 +512,37 @@ function Dashboard({ userId, session, setSession, callback, onDeleted }: {
           <Card className="space-y-4">
             <h2 className="text-lg font-semibold">{t.salaryTitle}</h2>
             <p className="text-sm text-slate-400">{t.salaryHelp}</p>
-            <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
-              <label className="space-y-1 text-sm"><span className="text-slate-400">{t.salaryMatch}</span>
-                <input className={input} value={rule.match} onChange={(e) => setRule({ match: e.target.value })} placeholder={t.salaryMatchPh} />
-              </label>
-              <label className="space-y-1 text-sm"><span className="text-slate-400">{t.minAmount}</span>
-                <input type="number" min={0} className={input} value={rule.minAmount} onChange={(e) => setRule({ minAmount: Number(e.target.value) || 0 })} />
-              </label>
+            <div className="space-y-2">
+              {rule.payers.length > 0 && (
+                <div className="hidden grid-cols-[2fr_1fr_2rem] gap-3 text-xs text-slate-500 sm:grid">
+                  <span>{t.salaryMatch}</span><span>{t.minAmount}</span><span />
+                </div>
+              )}
+              {rule.payers.map((p, i) => (
+                <div key={i} className="grid grid-cols-[1fr_7rem_2rem] items-center gap-2 sm:grid-cols-[2fr_1fr_2rem] sm:gap-3">
+                  <input className={input} value={p.match} placeholder={t.salaryMatchPh} aria-label={t.salaryMatch}
+                    onChange={(e) => setPayers(rule.payers.map((x, j) => (j === i ? { ...x, match: e.target.value } : x)))} />
+                  <input type="number" min={0} className={input} value={p.minAmount} aria-label={t.minAmount}
+                    onChange={(e) => setPayers(rule.payers.map((x, j) => (j === i ? { ...x, minAmount: Number(e.target.value) || 0 } : x)))} />
+                  <button className="no-glow text-slate-500 hover:text-rose-300" aria-label={t.removePayer}
+                    onClick={() => setPayers(rule.payers.filter((_, j) => j !== i))}><Trash2 className="size-4" /></button>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center gap-3">
+                <button className={secondary} onClick={() => setPayers([...rule.payers, { match: '', minAmount: 500 }])}>+ {t.addPayer}</button>
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  {t.windowBefore}
+                  <input type="number" min={0} max={25} className={`${input} w-16`} value={rule.windowDays}
+                    onChange={(e) => saveRule({ ...rule, windowDays: Math.max(0, Math.min(25, Number(e.target.value) || 0)) })} />
+                  {t.windowAfter}
+                </label>
+              </div>
             </div>
             {guesses.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-slate-500">{t.suggestions}</span>
-                {guesses.map((g) => (
-                  <button key={g.name} onClick={() => setRule({ match: g.name, minAmount: Math.floor(g.average * 0.5) })}
+                {guesses.filter((g) => !rule.payers.some((p) => p.match.trim().toLowerCase() === g.name.toLowerCase())).map((g) => (
+                  <button key={g.name} onClick={() => setPayers([...rule.payers.filter((p) => p.match.trim()), { match: g.name, minAmount: Math.floor(g.average * 0.5) }])}
                     className="rounded-full border border-white/10 px-3 py-1 hover:border-emerald-400/50">
                     {g.name} · ~{money(g.average)} · {g.months}×
                   </button>
@@ -482,8 +560,8 @@ function Dashboard({ userId, session, setSession, callback, onDeleted }: {
                 <tbody>
                   {[...months].reverse().map((m) => (
                     <tr key={m.salaryDate} className="border-t border-white/5">
-                      <td className="py-2">{date(m.salaryDate)}</td>
-                      <td className="text-slate-400">{money(m.salaryAmount)}</td>
+                      <td className="py-2">{date(m.salaryDate)}{m.lastDate !== m.salaryDate && <span className="text-slate-500"> – {date(m.lastDate)}</span>}</td>
+                      <td className="text-slate-400">{money(m.salaryAmount)}{m.payments > 1 && <span className="text-xs text-slate-500"> ({m.payments}×)</span>}</td>
                       <td className={`text-right font-semibold ${m.surplus < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{money(m.surplus)}</td>
                     </tr>
                   ))}
@@ -539,7 +617,7 @@ function SurplusChart({ months, money, locale }: { months: { salaryDate: string;
             <title>{`${m.salaryDate}: ${money(m.surplus)}`}</title>
             <rect x={i * w + w * 0.18} y={y} width={w * 0.64} height={Math.max(bh, 0.5)} rx={0.8} className={m.surplus >= 0 ? 'fill-emerald-400/70' : 'fill-rose-400/70'} />
             <text x={i * w + w / 2} y={h + 14} textAnchor="middle" className="fill-slate-500" style={{ fontSize: 4 }}>
-              {new Date(m.salaryDate).toLocaleDateString(locale, { month: 'short' })}
+              {new Date(m.salaryDate).toLocaleDateString(locale, { day: 'numeric', month: 'numeric' })}
             </text>
           </g>
         )
@@ -616,8 +694,9 @@ function LinkBank({ jwt, onError }: { jwt: () => Promise<string>; onError: (m: s
   )
 }
 
-function SettingsPanel({ userId, session, setSession, cache, onDeleted }: {
-  userId: string; session: Unlocked; setSession: (s: Unlocked) => void; cache: Cache; onDeleted: () => void
+function SettingsPanel({ userId, opened, setOpened, withSecret, onReset, onForget }: {
+  userId: string; opened: Opened; setOpened: (o: Opened) => void; withSecret: (note: string, fn: (s: Secret) => void) => void
+  onReset: () => Promise<void>; onForget: () => Promise<void>
 }) {
   const t = useT(STR)
   const [password, setPassword] = useState('')
@@ -625,35 +704,33 @@ function SettingsPanel({ userId, session, setSession, cache, onDeleted }: {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
-  async function changePassword(e: FormEvent) {
+  function changePassword(e: FormEvent) {
     e.preventDefault()
     if (password.length < 8) return setMsg(t.passwordShort)
     if (password !== confirm2) return setMsg(t.passwordMismatch)
-    setBusy(true)
-    try {
-      const salt = randomBytes(16)
-      const aesKey = await deriveKey(password, salt)
-      await saveBox(userId, await seal(aesKey, salt, PBKDF2_ITERATIONS, session.vault))
-      writeLocal(cacheKey(userId), JSON.stringify(await seal(aesKey, salt, PBKDF2_ITERATIONS, cache)))
-      setSession({ ...session, aesKey, salt, iterations: PBKDF2_ITERATIONS })
-      setPassword(''); setConfirm2(''); setMsg(t.passwordChanged)
-    } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
+    withSecret(t.unlockToChange, (s) => void (async () => {
+      setBusy(true)
+      try {
+        // Only the password-sealed part changes; saved data keeps its data key.
+        const row = { ...opened.row, vault: await sealVault(password, s.data) }
+        await saveRow(userId, row)
+        setOpened({ ...opened, row, secret: s })
+        setPassword(''); setConfirm2(''); setMsg(t.passwordChanged)
+      } catch (err) {
+        setMsg(err instanceof Error ? err.message : String(err))
+      } finally {
+        setBusy(false)
+      }
+    })())
   }
 
   async function deleteAll() {
     if (!window.confirm(t.deleteConfirm)) return
-    const { error } = await supabase.from('utility_configs').delete().eq('utility_id', APP_ID)
-    if (error) return setMsg(error.message)
-    writeLocal(cacheKey(userId), null)
-    onDeleted()
+    try { await onReset() } catch (err) { setMsg(err instanceof Error ? err.message : String(err)) }
   }
 
   return (
-    <div className="grid gap-4 rounded-xl border border-white/8 p-4 sm:grid-cols-2">
+    <div className="grid gap-4 rounded-xl border border-white/8 p-4 sm:grid-cols-3">
       <form onSubmit={changePassword} className="space-y-2">
         <h3 className="text-sm font-semibold">{t.changePassword}</h3>
         <p className="text-xs text-slate-500">{t.changePasswordHelp}</p>
@@ -662,6 +739,11 @@ function SettingsPanel({ userId, session, setSession, cache, onDeleted }: {
         <button className={secondary} disabled={busy || !password}>{busy ? t.working : t.save}</button>
         {msg && <p className="text-xs text-slate-300">{msg}</p>}
       </form>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">{t.forgetDevice}</h3>
+        <p className="text-xs text-slate-500">{t.forgetDeviceHelp}</p>
+        <button className={secondary} onClick={() => void onForget()}>{t.forgetDevice}</button>
+      </div>
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">{t.dangerZone}</h3>
         <p className="text-xs text-slate-500">{t.deleteHelp}</p>

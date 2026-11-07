@@ -97,3 +97,28 @@ export async function signEnableBankingJwt(key: CryptoKey, applicationId: string
   const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(`${head}.${body}`))
   return `${head}.${body}.${b64url(sig)}`
 }
+
+// ---- compressed boxes (bank data can be a few hundred KB of JSON) ----
+
+export interface DataBox {
+  v: 1
+  z: 'gzip'
+  iv: string
+  ct: string
+}
+
+async function pipe(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | DecompressionStream): Promise<Uint8Array<ArrayBuffer>> {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer())
+}
+
+export async function sealCompressed(key: CryptoKey, value: unknown): Promise<DataBox> {
+  const iv = randomBytes(12)
+  const zipped = await pipe(enc.encode(JSON.stringify(value)), new CompressionStream('gzip'))
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, zipped)
+  return { v: 1, z: 'gzip', iv: toB64(iv), ct: toB64(ct) }
+}
+
+export async function openCompressed<T>(key: CryptoKey, box: DataBox): Promise<T> {
+  const zipped = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.ct)))
+  return JSON.parse(dec.decode(await pipe(zipped, new DecompressionStream('gzip')))) as T
+}
