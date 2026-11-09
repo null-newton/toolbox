@@ -54,7 +54,7 @@ registerUtility({
 registerUtility({
   id: 'stock-forecast',
   name: 'Stock Forecast',
-  description: 'Chart simulated prices with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.',
+  description: 'Chart real stock, ETF and crypto prices from any market with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.',
   icon: stockForecastIcon,
   availableWithoutAccount: true,
   component: lazy(() =>

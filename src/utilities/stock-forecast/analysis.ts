@@ -1,33 +1,12 @@
 export type Series = (number | null)[]
 
-export const ASSETS = [
-  { id: 'AAPL', name: 'Apple Inc.', start: 150, vol: 0.02 },
-  { id: 'TSLA', name: 'Tesla', start: 220, vol: 0.035 },
-  { id: 'GOOGL', name: 'Alphabet', start: 140, vol: 0.015 },
-  { id: 'NVDA', name: 'NVIDIA', start: 120, vol: 0.03 },
-  { id: 'BTC', name: 'Bitcoin', start: 35000, vol: 0.05 },
-  { id: 'ETH', name: 'Ethereum', start: 2000, vol: 0.055 },
-] as const
-
-function rng(seed: number) {
-  return () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
-}
-const hash = (s: string) => [...s].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261)
 const gauss = (r: () => number) => Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r())
 
-// Seeded random walk so the same ticker + seed always draws the same history.
-export function simulate(ticker: string, seed: number, points = 200) {
-  const a = ASSETS.find(x => x.id === ticker) ?? ASSETS[0], r = rng(hash(ticker) + seed), out: number[] = [a.start]
-  for (let i = 1; i < points; i++) out.push(Math.max(0.01, out[i - 1] * (1 + 0.0005 + (r() - 0.5) * a.vol)))
+// `count` weekdays after `from` (yyyy-mm-dd), for projection dates.
+export function businessDays(count: number, from: string) {
+  const out: string[] = [], d = new Date(`${from}T12:00:00`)
+  for (d.setDate(d.getDate() + 1); out.length < count; d.setDate(d.getDate() + 1)) if (d.getDay() % 6) out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
   return out
-}
-
-// Weekday dates: `count` ending today, or `count` after `from` when given.
-export function businessDays(count: number, from?: string) {
-  const out: string[] = [], d = from ? new Date(`${from}T12:00:00`) : new Date(), step = from ? 1 : -1
-  if (from) d.setDate(d.getDate() + 1)
-  for (; out.length < count; d.setDate(d.getDate() + step)) if (d.getDay() % 6) out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
-  return from ? out : out.reverse()
 }
 
 export const sma = (d: number[], p: number): Series => d.map((_, i) => i < p - 1 ? null : d.slice(i - p + 1, i + 1).reduce((s, v) => s + v, 0) / p)
