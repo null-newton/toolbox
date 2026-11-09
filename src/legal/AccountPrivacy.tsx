@@ -6,7 +6,7 @@ import { functionsBase, supabase } from '../lib/supabase'
 import { PRIVACY_CONTACT } from './content'
 import { LegalLinks } from './LegalPages'
 
-export function AccountPrivacy() {
+export function AccountPrivacy({ bare = false }: { bare?: boolean }) {
   const { user, access } = useAuth()
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
@@ -66,8 +66,8 @@ export function AccountPrivacy() {
     } catch { setError('Your browser could not clear site preferences. Use its site-data settings.') }
   }
 
-  return <section className="space-y-5 border-t border-slate-700 pt-8" aria-labelledby="privacy-controls">
-    <h2 id="privacy-controls" className="text-xl font-bold">Your data and account</h2>
+  return <section className={`space-y-5 ${bare ? '' : 'border-t border-slate-700 pt-8'}`} aria-labelledby="privacy-controls">
+    <h2 id="privacy-controls" className={bare ? 'sr-only' : 'text-xl font-bold'}>Your data and account</h2>
     <p className="text-slate-400">Export or delete your account regardless of your plan or app restrictions. For corrections, other privacy requests, or a login problem, email <a className="text-indigo-300" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>.</p>
     {error && <p role="alert" className="text-red-300">{error}</p>}
     {notice && <p role="status" className="text-green-300">{notice}</p>}

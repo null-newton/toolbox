@@ -23,6 +23,7 @@ import {
   imageToolboxIcon,
   subtitleStudioIcon,
   bankViewerIcon,
+  stockForecastIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -42,11 +43,22 @@ registerUtility({
 registerUtility({
   id: 'bank-viewer',
   name: 'Bank Viewer',
-  description: 'Read-only bank balances and transactions, with your surplus just before each salary.',
+  description: 'Read-only bank balances and transactions, with your surplus at the start of each month.',
   icon: bankViewerIcon,
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./bank-viewer/BankViewer').then((m) => ({ default: m.BankViewer }))
+  ),
+})
+
+registerUtility({
+  id: 'stock-forecast',
+  name: 'Stock Forecast',
+  description: 'Chart simulated prices with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.',
+  icon: stockForecastIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./stock-forecast/StockForecast').then((m) => ({ default: m.StockForecast }))
   ),
 })
 

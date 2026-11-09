@@ -1,10 +1,11 @@
 import { LegalLinks } from '../legal/LegalPages'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ChevronDown, Images, PanelLeft } from 'lucide-react'
 import { useAuth } from '../auth/auth-context'
 import { useFavorites } from '../favorites/favorites-context'
-import { getUtilities } from '../utilities/registry'
+import { getUtilities, getUtility } from '../utilities/registry'
+import { useAppIdentity } from '../lib/app-identity'
 import { useLang, useT } from '../i18n/LanguageContext'
 import { localizedUtility } from '../i18n/utilities'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -63,6 +64,12 @@ export function Layout() {
     () => typeof localStorage !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1'
   )
   const closeNav = () => setNavOpen(false)
+  const toolId = /^\/tools\/([^/]+)/.exec(location.pathname)?.[1]
+  const tool = toolId ? getUtility(toolId) : undefined
+  const toolText = tool ? localizedUtility(tool.id, lang, tool) : undefined
+  const iconRef = useRef<HTMLSpanElement>(null)
+  useAppIdentity(tool?.id ?? null, toolText?.name ?? 'Toolbox', toolText?.description ?? 'A collection of handy utilities.', iconRef)
+  const identityIcon = <span ref={iconRef} hidden aria-hidden>{tool?.icon}</span>
 
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
@@ -121,6 +128,7 @@ export function Layout() {
     if (!user) return <Navigate to={loginUrl(location)} replace />
     return (
       <div className="ambient flex min-h-dvh bg-surface text-white lg:h-dvh lg:overflow-hidden">
+        {identityIcon}
         <main className="relative z-10 min-w-0 flex-1 p-5 sm:p-8 lg:overflow-y-auto lg:p-10">
           <Outlet />
         </main>
@@ -167,6 +175,7 @@ export function Layout() {
 
   return (
     <div className="ambient flex min-h-dvh bg-surface text-white lg:h-dvh lg:overflow-hidden">
+      {identityIcon}
       {/* Sidebar: a full-screen drawer on mobile, a static rail from lg up. */}
       <aside
         className={`glass-strong fixed inset-0 z-30 flex w-full shrink-0 flex-col transition-all duration-300 lg:static lg:z-10 lg:m-3 lg:translate-x-0 lg:rounded-2xl ${

@@ -1,0 +1,186 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Activity, ChartSpline, Cpu, Crosshair, Loader2, RefreshCw, Sparkles, Zap } from 'lucide-react'
+import { useUtilityConfig } from '../../hooks/useUtilityConfig'
+import { useAuth } from '../../auth/auth-context'
+import { useLang, useT } from '../../i18n/LanguageContext'
+import { ASSETS, analyse, bollinger, businessDays, ema, linearForecast, monteCarlo, simulate, sma, type Series, type Signal } from './analysis'
+
+const STR = {
+  en: {
+    title: 'Stock Forecast', simulated: 'Prices are simulated for demonstration — not market data and not financial advice.',
+    asset: 'Asset', indicators: 'Indicators', boll: 'Bollinger Bands', engine: 'Forecast engine', linear: 'Linear regression (trend)', mc: 'Monte Carlo (risk)',
+    horizon: 'Horizon', days: 'days', run: 'Run projection', clear: 'Clear', regen: 'New data', price: 'Current price', change: '24h change',
+    live: 'Live analysis', strength: 'Signal', vol: 'Volatility (20d)', insights: 'Algorithmic insights', trend: 'Trend', momentum: 'Momentum (MACD)', action: 'Actionable signal',
+    above: 'Price is above the 50-day SMA: bullish trend.', below: 'Price is below the 50-day SMA: bearish trend.',
+    momText: (pos: boolean, macdBull: boolean, rsi: string) => `5-day momentum is ${pos ? 'positive' : 'negative'}, MACD is ${macdBull ? 'above' : 'below'} its signal line, RSI is ${rsi}.`,
+    overbought: 'overbought', oversold: 'oversold', neutral: 'neutral',
+    actions: { 'STRONG BUY': 'Technicals suggest a strong entry point. Momentum is positive and the asset may be oversold.', BUY: 'Positive trend identified. Consider accumulating positions.', HOLD: 'Market conditions are neutral. Wait for a clearer setup.', SELL: 'Bearish pressure detected. Be cautious with long positions.', 'STRONG SELL': 'Asset is overextended or breaking down. Consider exiting.' } as Record<Signal, string>,
+    ai: 'Gemini AI analyst', aiHelp: 'Generate a short report from the current technicals with your own Gemini API key.', aiKey: 'Gemini API key', aiKeyNote: 'Saved to your account; sent only to Google.', aiKeyGuest: 'Kept in this tab only. Log in to save it.',
+    generate: 'Generate report', analysing: 'Analysing…', aiFail: 'Analysis failed', forecast: 'Forecast', path: 'Sim path',
+  },
+  nl: {
+    title: 'Aandelenprognose', simulated: 'Koersen zijn gesimuleerd als demonstratie — geen marktdata en geen financieel advies.',
+    asset: 'Activum', indicators: 'Indicatoren', boll: 'Bollinger-banden', engine: 'Prognosemodel', linear: 'Lineaire regressie (trend)', mc: 'Monte Carlo (risico)',
+    horizon: 'Horizon', days: 'dagen', run: 'Projectie berekenen', clear: 'Wissen', regen: 'Nieuwe data', price: 'Huidige koers', change: '24u verschil',
+    live: 'Live analyse', strength: 'Signaal', vol: 'Volatiliteit (20d)', insights: 'Algoritmische inzichten', trend: 'Trend', momentum: 'Momentum (MACD)', action: 'Signaal',
+    above: 'Koers staat boven het 50-daags gemiddelde: stijgende trend.', below: 'Koers staat onder het 50-daags gemiddelde: dalende trend.',
+    momText: (pos: boolean, macdBull: boolean, rsi: string) => `Momentum over 5 dagen is ${pos ? 'positief' : 'negatief'}, MACD staat ${macdBull ? 'boven' : 'onder'} de signaallijn, RSI is ${rsi}.`,
+    overbought: 'overkocht', oversold: 'oververkocht', neutral: 'neutraal',
+    actions: { 'STRONG BUY': 'De technische analyse wijst op een sterk instapmoment. Momentum is positief en het activum is mogelijk oververkocht.', BUY: 'Positieve trend. Overweeg posities op te bouwen.', HOLD: 'Neutrale marktomstandigheden. Wacht op een duidelijker signaal.', SELL: 'Verkoopdruk gedetecteerd. Wees voorzichtig met long-posities.', 'STRONG SELL': 'Het activum is overspannen of breekt neer. Overweeg uit te stappen.' } as Record<Signal, string>,
+    ai: 'Gemini AI-analist', aiHelp: 'Maak een kort rapport op basis van de huidige technische analyse met je eigen Gemini API-sleutel.', aiKey: 'Gemini API-sleutel', aiKeyNote: 'Bewaard in je account; enkel naar Google verstuurd.', aiKeyGuest: 'Enkel in dit tabblad bewaard. Meld je aan om hem te bewaren.',
+    generate: 'Rapport maken', analysing: 'Analyseren…', aiFail: 'Analyse mislukt', forecast: 'Prognose', path: 'Simulatie',
+  },
+}
+
+interface Config extends Record<string, unknown> { ticker: string; sma: boolean; ema: boolean; boll: boolean; method: 'linear' | 'montecarlo'; horizon: number; geminiKey: string }
+const DEFAULTS: Config = { ticker: 'AAPL', sma: false, ema: false, boll: false, method: 'linear', horizon: 30, geminiKey: '' }
+const SIGNAL_STYLE: Record<Signal, [string, number]> = { 'STRONG BUY': ['bg-emerald-400 text-slate-950', 90], BUY: ['bg-emerald-300/80 text-slate-950', 70], HOLD: ['bg-slate-600 text-white', 50], SELL: ['bg-rose-300/80 text-slate-950', 30], 'STRONG SELL': ['bg-rose-400 text-slate-950', 10] }
+const input = 'w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-300/60'
+const label = 'mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500'
+
+function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={`glass rounded-2xl p-5 ${className}`}>{children}</section>
+}
+
+export function StockForecast() {
+  const t = useT(STR)
+  const { locale } = useLang()
+  const { user } = useAuth()
+  const { config: c, setConfig } = useUtilityConfig<Config>('stock-forecast', DEFAULTS)
+  const [seed, setSeed] = useState(0)
+  const [projection, setProjection] = useState<{ method: Config['method']; paths: number[][]; dates: string[] } | null>(null)
+  const [ai, setAi] = useState<{ busy: boolean; text: string; error: boolean }>({ busy: false, text: '', error: false })
+  const prices = useMemo(() => simulate(c.ticker, seed), [c.ticker, seed])
+  const dates = useMemo(() => businessDays(prices.length), [prices.length])
+  const a = useMemo(() => analyse(prices), [prices])
+  const asset = ASSETS.find(x => x.id === c.ticker) ?? ASSETS[0]
+  const money = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 }).format(n)
+  const rsiWord = a.rsi === null ? t.neutral : a.rsi > 70 ? t.overbought : a.rsi < 30 ? t.oversold : t.neutral
+  const [sigClass, meter] = SIGNAL_STYLE[a.signal]
+  const reset = () => { setProjection(null); setAi({ busy: false, text: '', error: false }) }
+
+  function run() {
+    const future = businessDays(c.horizon, dates.at(-1))
+    setProjection({ method: c.method, dates: future, paths: c.method === 'linear' ? [linearForecast(prices, c.horizon)] : monteCarlo(prices, c.horizon) })
+  }
+
+  const lines = useMemo(() => {
+    const pad = (s: Series) => [...s, ...Array(projection?.dates.length ?? 0).fill(null)]
+    const out: Line[] = [{ label: asset.id, data: pad(prices), color: '#c8ff3d', width: 2, fill: true }]
+    if (c.sma) out.push({ label: 'SMA (20)', data: pad(sma(prices, 20)), color: '#f59e0b', width: 1.5 })
+    if (c.ema) out.push({ label: 'EMA (50)', data: pad(ema(prices, 50)), color: '#a78bfa', width: 1.5 })
+    if (c.boll) { const b = bollinger(prices); out.push({ label: 'BB +2σ', data: pad(b.upper), color: 'rgba(234,179,8,.6)', width: 1, dash: '5 5' }, { label: 'BB −2σ', data: pad(b.lower), color: 'rgba(234,179,8,.6)', width: 1, dash: '5 5' }) }
+    projection?.paths.forEach((p, i) => out.push({ label: projection.method === 'linear' ? t.forecast : `${t.path} ${i + 1}`, data: [...Array(prices.length - 1).fill(null), prices.at(-1)!, ...p], color: projection.method === 'linear' ? '#34d399' : i === 1 ? '#4ee6e0' : '#7e918f', width: projection.method === 'linear' ? 2 : 1.25, dash: projection.method === 'linear' ? '6 5' : '2 3' }))
+    return out
+  }, [prices, c.sma, c.ema, c.boll, projection, asset.id, t])
+
+  async function report() {
+    setAi({ busy: true, text: '', error: false })
+    const prompt = `Role: senior quantitative analyst. Analyse this (simulated) technical data for ${asset.id} (${asset.name}).\n- Price: ${money(a.last)} (${a.change.toFixed(2)}% today)\n- RSI (14): ${a.rsi?.toFixed(1) ?? 'n/a'}\n- 20-day volatility: ${a.vol.toFixed(2)}%\n- Price ${a.aboveTrend ? 'above' : 'below'} the 50-day SMA, MACD ${a.macdBull ? 'above' : 'below'} signal\n- Algo signal: ${a.signal}\nWrite a 2-sentence executive summary, then one "Bull case" line and one "Bear case" line. Plain text, no markdown.${locale.startsWith('nl') ? ' Answer in Dutch.' : ''}`
+    try {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': c.geminiKey.trim() }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`)
+      setAi({ busy: false, text: (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('').trim(), error: false })
+    } catch (e) { setAi({ busy: false, text: `${t.aiFail}: ${e instanceof Error ? e.message : e}`, error: true }) }
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div><h1 className="text-3xl font-bold">{t.title}</h1><p className="mt-1 text-sm text-slate-400">{t.simulated}</p></div>
+        <button onClick={() => { reset(); setSeed(s => s + 1) }} className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white"><RefreshCw className="size-4" />{t.regen}</button>
+      </header>
+      <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
+        <aside className="space-y-5">
+          <Card className="space-y-5">
+            <div><span className={label}>{t.asset}</span><select aria-label={t.asset} className={input} value={c.ticker} onChange={e => { reset(); setConfig({ ticker: e.target.value }) }}>{ASSETS.map(x => <option key={x.id} value={x.id}>{x.id} ({x.name})</option>)}</select></div>
+            <div><span className={label}>{t.indicators}</span><div className="space-y-2 text-sm">
+              {([['sma', 'SMA (20)'], ['ema', 'EMA (50)'], ['boll', t.boll]] as const).map(([k, l]) => <label key={k} className="flex cursor-pointer items-center gap-2 text-slate-300 hover:text-white"><input type="checkbox" className="accent-[#c8ff3d]" checked={c[k]} onChange={e => setConfig(p => ({ ...p, [k]: e.target.checked }))} />{l}</label>)}
+            </div></div>
+            <div className="space-y-3"><span className={label}>{t.engine}</span>
+              <select aria-label={t.engine} className={input} value={c.method} onChange={e => setConfig({ method: e.target.value as Config['method'] })}><option value="linear">{t.linear}</option><option value="montecarlo">{t.mc}</option></select>
+              <label className="block text-sm text-slate-400"><span className="flex justify-between">{t.horizon}<span className="font-mono text-indigo-300">{c.horizon} {t.days}</span></span><input type="range" min={7} max={90} value={c.horizon} onChange={e => setConfig({ horizon: Number(e.target.value) })} className="mt-2 w-full accent-[#c8ff3d]" /></label>
+              <div className="flex gap-2"><button onClick={run} className="acid-button flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold"><Zap className="size-4" />{t.run}</button>{projection && <button onClick={() => setProjection(null)} className="glass rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white">{t.clear}</button>}</div>
+            </div>
+          </Card>
+          <Card className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-300">{t.live}</h3>
+            <div className="flex items-center justify-between text-xs text-slate-500">{t.strength}<span className={`rounded px-2 py-1 font-bold ${sigClass}`}>{a.signal}</span></div>
+            <div className="h-2 rounded-full bg-white/10"><div className={`h-2 rounded-full transition-all duration-500 ${sigClass.split(' ')[0]}`} style={{ width: `${meter}%` }} /></div>
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="rounded-xl bg-black/20 p-2"><div className="text-[10px] uppercase text-slate-500">RSI (14)</div><div className={`font-mono text-lg font-bold ${a.rsi !== null && a.rsi > 70 ? 'text-rose-300' : a.rsi !== null && a.rsi < 30 ? 'text-emerald-300' : ''}`}>{a.rsi?.toFixed(1) ?? '—'}</div></div>
+              <div className="rounded-xl bg-black/20 p-2"><div className="text-[10px] uppercase text-slate-500">{t.vol}</div><div className="font-mono text-lg font-bold">{a.vol.toFixed(2)}%</div></div>
+            </div>
+          </Card>
+          <Card className="space-y-3 border border-violet-400/20">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-violet-300"><Sparkles className="size-4" />{t.ai}</h3>
+            <p className="text-xs text-slate-400">{t.aiHelp}</p>
+            <input type="password" autoComplete="off" aria-label={t.aiKey} placeholder={t.aiKey} className={input} value={c.geminiKey} onChange={e => setConfig({ geminiKey: e.target.value })} />
+            <p className="text-[11px] text-slate-500">{user ? t.aiKeyNote : t.aiKeyGuest}</p>
+            <button disabled={!c.geminiKey.trim() || ai.busy} onClick={() => void report()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-500/80 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-40">{ai.busy ? <><Loader2 className="size-4 animate-spin" />{t.analysing}</> : <><Sparkles className="size-4" />{t.generate}</>}</button>
+            {ai.text && <p className={`whitespace-pre-line rounded-xl bg-black/30 p-3 text-xs leading-relaxed ${ai.error ? 'text-rose-300' : 'text-slate-300'}`}>{ai.text}</p>}
+          </Card>
+        </aside>
+        <div className="min-w-0 space-y-5">
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+              <h2 className="text-2xl font-bold tracking-tight">{asset.id}</h2>
+              <div><div className="text-xs font-semibold uppercase text-slate-500">{t.price}</div><div className="font-mono text-lg font-bold">{money(a.last)}</div></div>
+              <div><div className="text-xs font-semibold uppercase text-slate-500">{t.change}</div><div className={`font-mono text-lg font-bold ${a.change >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{a.change >= 0 ? '+' : ''}{a.change.toFixed(2)}%</div></div>
+            </div>
+            <Chart lines={lines} dates={[...dates, ...(projection?.dates ?? [])]} money={money} locale={locale} />
+          </Card>
+          <Card>
+            <h3 className="mb-4 flex items-center gap-2 font-bold"><Cpu className="size-5 text-violet-300" />{t.insights}</h3>
+            <div className="grid gap-5 md:grid-cols-3">
+              <Insight icon={<Activity className="size-5" />} tone="text-indigo-300 bg-indigo-300/10" title={t.trend} text={a.aboveTrend ? t.above : t.below} />
+              <Insight icon={<ChartSpline className="size-5" />} tone="text-violet-300 bg-violet-300/10" title={t.momentum} text={t.momText(a.mom > 0, a.macdBull, rsiWord)} />
+              <Insight icon={<Crosshair className="size-5" />} tone="text-emerald-300 bg-emerald-300/10" title={t.action} text={t.actions[a.signal]} />
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Insight({ icon, tone, title, text }: { icon: ReactNode; tone: string; title: string; text: string }) {
+  return <div className="flex items-start gap-3"><div className={`rounded-xl p-2.5 ${tone}`}>{icon}</div><div><h4 className="text-sm font-semibold text-slate-200">{title}</h4><p className="mt-1 text-sm text-slate-400">{text}</p></div></div>
+}
+
+interface Line { label: string; data: Series; color: string; width: number; dash?: string; fill?: boolean }
+
+function Chart({ lines, dates, money, locale }: { lines: Line[]; dates: string[]; money: (n: number) => string; locale: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(800)
+  const [hover, setHover] = useState<number | null>(null)
+  useEffect(() => { const el = ref.current; if (!el) return; const ro = new ResizeObserver(([e]) => setW(e.contentRect.width)); ro.observe(el); return () => ro.disconnect() }, [])
+  const h = 360, L = 8, R = 64, T = 8, B = 24, n = dates.length
+  const vals = lines.flatMap(l => l.data.filter((v): v is number => v !== null))
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1, min = lo - span * 0.05, max = hi + span * 0.05
+  const x = (i: number) => L + (i / Math.max(1, n - 1)) * (w - L - R), y = (v: number) => T + (1 - (v - min) / (max - min)) * (h - T - B)
+  const path = (d: Series) => d.reduce((s, v, i) => v === null ? s : `${s}${s && d[i - 1] !== null && d[i - 1] !== undefined ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`, '')
+  const ticks = Array.from({ length: 5 }, (_, i) => min + ((max - min) * (i + 0.5)) / 5)
+  const xt = Array.from({ length: 6 }, (_, i) => Math.round((i * (n - 1)) / 5))
+  const price = lines[0].data, firstI = price.findIndex(v => v !== null), lastI = price.reduce<number>((m, v, i) => v === null ? m : i, 0)
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">{lines.map(l => <span key={l.label} className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded" style={{ background: l.color }} />{l.label}</span>)}</div>
+      <div ref={ref} className="relative">
+        <svg width={w} height={h} className="block" onMouseLeave={() => setHover(null)} onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); setHover(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - r.left - L) / (w - L - R)) * (n - 1))))) }}>
+          {ticks.map(v => <g key={v}><line x1={L} x2={w - R} y1={y(v)} y2={y(v)} className="stroke-white/[0.06]" /><text x={w - R + 6} y={y(v) + 4} className="fill-slate-500 font-mono" fontSize={11}>{money(v)}</text></g>)}
+          {xt.map(i => <text key={i} x={x(i)} y={h - 6} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} className="fill-slate-500" fontSize={11}>{new Date(dates[i]).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</text>)}
+          <defs><linearGradient id="sf-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#c8ff3d" stopOpacity={0.18} /><stop offset="1" stopColor="#c8ff3d" stopOpacity={0} /></linearGradient></defs>
+          <path d={`${path(price)}L${x(lastI)},${h - B}L${x(firstI)},${h - B}Z`} fill="url(#sf-fill)" />
+          {lines.map(l => <path key={l.label} d={path(l.data)} fill="none" stroke={l.color} strokeWidth={l.width} strokeDasharray={l.dash} strokeLinejoin="round" />)}
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={h - B} className="stroke-white/20" strokeDasharray="3 3" />}
+        </svg>
+        {hover !== null && <div className="pointer-events-none absolute top-2 rounded-lg border border-white/10 bg-slate-900/95 px-3 py-2 text-xs shadow-xl" style={x(hover) > w / 2 ? { right: w - x(hover) + 12 } : { left: x(hover) + 12 }}>
+          <div className="mb-1 font-semibold text-white">{new Date(dates[hover]).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+          {lines.filter(l => l.data[hover] !== null && l.data[hover] !== undefined).map(l => <div key={l.label} className="flex justify-between gap-4 text-slate-300"><span style={{ color: l.color }}>{l.label}</span><span className="font-mono">{money(l.data[hover]!)}</span></div>)}
+        </div>}
+      </div>
+    </div>
+  )
+}

@@ -125,6 +125,10 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'Vergelijk twee ploegen of blader door wedstrijden voor een win-% en waarschijnlijke score.',
     },
   },
+  'stock-forecast': {
+    en: { name: 'Stock Forecast', description: 'Chart simulated prices with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.' },
+    nl: { name: 'Aandelenprognose', description: 'Grafiek van gesimuleerde koersen met SMA-, EMA- en Bollinger-lijnen, koop/verkoopsignalen en trend- of Monte Carlo-projecties.' },
+  },
   'stock-tracker': {
     en: {
       name: 'Stock Tracker',

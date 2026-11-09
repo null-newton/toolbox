@@ -199,14 +199,14 @@ export async function refreshAccount(jwt: string, uid: string, previous?: Accoun
   }
 }
 
-// ---- Surplus before salary ----
+// ---- Surplus at the start of each month ----
 
 export interface MonthSurplus {
-  salaryDate: string // first salary payment of this payday
-  lastDate: string // last salary payment of this payday
-  salaryAmount: number // all salary payments of this payday together
+  monthStart: string // YYYY-MM-01
+  startBalance: number // balance at the end of the last day of the previous month
+  earlySalary: number // salary booked in the days before the 1st, meant for this month
   payments: number
-  surplus: number // balance at the end of the day before the first payment arrived
+  surplus: number // startBalance − earlySalary
 }
 
 export function isSalary(tx: Tx, rule: SalaryRule): boolean {
@@ -218,36 +218,23 @@ export function isSalary(tx: Tx, rule: SalaryRule): boolean {
   })
 }
 
-/**
- * For each payday, take its first salary booking and work backwards from the
- * known balance: surplus = balance − Σ(all bookings from the salary day up to
- * the balance date). That is the balance at the end of the day before pay.
- */
+/** Per calendar month: balance at the start of the month, minus salary that arrived up to `windowDays` early. */
 export function surplusByMonth(data: AccountData, rule: SalaryRule): MonthSurplus[] {
   if (data.balance === null) return []
   const ref = data.balanceDate || isoDate(new Date())
   const txs = data.transactions.filter((t) => t.date <= ref)
-  // Group salary payments into paydays instead of calendar months, so a salary
-  // paid at the end of one month and another (or an early one) at the start of
-  // the next count together.
-  const paydays: Tx[][] = []
-  for (const t of txs) {
-    if (!isSalary(t, rule)) continue
-    const current = paydays[paydays.length - 1]
-    if (current && daysBetween(current[0].date, t.date) <= rule.windowDays) current.push(t)
-    else paydays.push([t])
+  const out: MonthSurplus[] = []
+  const d = new Date(`${ref.slice(0, 7)}-01T00:00:00Z`)
+  for (;;) {
+    const start = isoDate(d), cut = isoDate(new Date(d.getTime() - rule.windowDays * 86_400_000))
+    if (!data.oldest || cut < data.oldest) break
+    const startBalance = round2(data.balance - txs.filter((t) => t.date >= start).reduce((s, t) => s + t.amount, 0))
+    const early = txs.filter((t) => t.date >= cut && t.date < start && isSalary(t, rule))
+    const earlySalary = round2(early.reduce((s, t) => s + t.amount, 0))
+    out.unshift({ monthStart: start, startBalance, earlySalary, payments: early.length, surplus: round2(startBalance - earlySalary) })
+    d.setUTCMonth(d.getUTCMonth() - 1)
   }
-  return paydays.map((group) => {
-    const first = group[0].date
-    const after = txs.filter((t) => t.date >= first).reduce((s, t) => s + t.amount, 0)
-    return {
-      salaryDate: first,
-      lastDate: group[group.length - 1].date,
-      salaryAmount: round2(group.reduce((s, t) => s + t.amount, 0)),
-      payments: group.length,
-      surplus: round2(data.balance! - after),
-    }
-  })
+  return out
 }
 
 export interface SalaryGuess { name: string; months: number; average: number }
@@ -267,10 +254,6 @@ export function guessSalary(txs: Tx[]): SalaryGuess[] {
     .map(([name, g]) => ({ name, months: g.months.size, average: round2(g.total / g.count) }))
     .sort((a, b) => b.average - a.average)
     .slice(0, 5)
-}
-
-function daysBetween(a: string, b: string) {
-  return Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
 }
 
 function round2(n: number) {
