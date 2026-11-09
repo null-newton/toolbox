@@ -414,7 +414,7 @@ function Dashboard({ userId, opened, setOpened, callback, onReset, onForget }: {
 
   const months = useMemo(() => (data ? surplusByMonth(data, rule) : []), [data, rule])
   const guesses = useMemo(() => (data ? guessSalary(data.transactions) : []), [data])
-  const recent = months.slice(-6)
+  const recent = months.filter((m) => !m.partial).slice(-6)
   const average = recent.length ? recent.reduce((s, m) => s + m.surplus, 0) / recent.length : null
 
   // Salary rules are part of the data box: editable while locked, saved debounced.
@@ -505,7 +505,7 @@ function Dashboard({ userId, opened, setOpened, callback, onReset, onForget }: {
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <Stat label={t.balance} value={money(data.balance)} sub={data.balanceDate ? `${t.on} ${date(data.balanceDate)}` : `${t.fetched} ${date(data.fetchedAt)}`} />
-            <Stat label={t.lastSurplus} value={months.length ? money(months[months.length - 1].surplus) : '—'} sub={months.length ? `${t.before} ${new Date(months[months.length - 1].monthStart).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}` : t.setSalary} accent />
+            <Stat label={t.lastSurplus} value={months.length ? money(months[months.length - 1].surplus) : '—'} sub={!rule.payers.length ? t.setSalary : months.length ? `${new Date(months[months.length - 1].monthStart).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}${months[months.length - 1].partial ? `, ${t.soFar}` : ''}` : ''} accent />
             <Stat label={t.avgSurplus} value={average === null ? '—' : money(average)} sub={recent.length ? `${recent.length} ${t.months}` : ''} />
           </div>
 
@@ -556,13 +556,13 @@ function Dashboard({ userId, opened, setOpened, callback, onReset, onForget }: {
               <h2 className="text-lg font-semibold">{t.perMonth}</h2>
               <SurplusChart months={months} money={money} locale={locale} />
               <table className="w-full text-sm">
-                <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">{t.salaryDate}</th><th>{t.startBalance}</th><th>{t.salary}</th><th className="text-right">{t.surplus}</th></tr></thead>
+                <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">{t.salaryDate}</th><th>{t.endBalance}</th><th>{t.salary}</th><th className="text-right">{t.surplus}</th></tr></thead>
                 <tbody>
                   {[...months].reverse().map((m) => (
                     <tr key={m.monthStart} className="border-t border-white/5">
-                      <td className="py-2">{new Date(m.monthStart).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</td>
-                      <td className="text-slate-400">{money(m.startBalance)}</td>
-                      <td className="text-slate-400">{m.earlySalary ? `− ${money(m.earlySalary)}` : '—'}{m.payments > 1 && <span className="text-xs text-slate-500"> ({m.payments}×)</span>}</td>
+                      <td className="py-2">{new Date(m.monthStart).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}{m.partial && <span className="text-xs text-slate-500"> ({t.soFar})</span>}</td>
+                      <td className="text-slate-400">{money(m.endBalance)}</td>
+                      <td className="text-slate-400">{m.salary ? `− ${money(m.salary)}` : '—'}{m.payments > 1 && <span className="text-xs text-slate-500"> ({m.payments}×)</span>}</td>
                       <td className={`text-right font-semibold ${m.surplus < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{money(m.surplus)}</td>
                     </tr>
                   ))}

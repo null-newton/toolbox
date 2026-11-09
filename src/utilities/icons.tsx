@@ -18,7 +18,6 @@ import {
   Clock,
   Goal,
   Clapperboard,
-  TrendingUp,
   UtensilsCrossed,
   Laugh,
   Film,
@@ -42,7 +41,6 @@ export const qrCodeIcon = <QrCode className="size-5" />
 export const clockIcon = <Clock className="size-5" />
 export const soccerIcon = <Goal className="size-5" />
 export const moviesIcon = <Clapperboard className="size-5" />
-export const stockIcon = <TrendingUp className="size-5" />
 export const mealPlannerIcon = <UtensilsCrossed className="size-5" />
 export const memeStudioIcon = <Laugh className="size-5" />
 export const videoEditorIcon = <Film className="size-5" />

@@ -129,18 +129,6 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
     en: { name: 'Stock Forecast', description: 'Chart real stock, ETF and crypto prices from any market with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.' },
     nl: { name: 'Aandelenprognose', description: 'Grafiek van echte aandelen-, ETF- en cryptokoersen uit elke markt met SMA-, EMA- en Bollinger-lijnen, koop/verkoopsignalen en trend- of Monte Carlo-projecties.' },
   },
-  'stock-tracker': {
-    en: {
-      name: 'Stock Tracker',
-      description:
-        'Track a watchlist of prices, charts and fund holdings via Alpha Vantage, FMP (free) or Morningstar.',
-    },
-    nl: {
-      name: 'Aandelenvolger',
-      description:
-        'Volg een watchlist met koersen, grafieken en fondsposities via Alpha Vantage, FMP (gratis) of Morningstar.',
-    },
-  },
   'meal-planner': {
     en: {
       name: 'Meal Planner',

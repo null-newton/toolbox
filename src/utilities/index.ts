@@ -8,7 +8,6 @@ import {
   qrCodeIcon,
   clockIcon,
   // soccerIcon,
-  // stockIcon,
   // moviesIcon,
   mealPlannerIcon,
   memeStudioIcon,
@@ -56,7 +55,7 @@ registerUtility({
   name: 'Stock Forecast',
   description: 'Chart real stock, ETF and crypto prices from any market with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.',
   icon: stockForecastIcon,
-  availableWithoutAccount: true,
+  availableWithoutAccount: false,
   component: lazy(() =>
     import('./stock-forecast/StockForecast').then((m) => ({ default: m.StockForecast }))
   ),
@@ -210,16 +209,6 @@ registerUtility({
 //   ),
 // })
 
-// registerUtility({
-//   id: 'stock-tracker',
-//   name: 'Stock Tracker',
-//   description: 'Track a watchlist of prices, charts and fund holdings via Alpha Vantage, FMP (free) or Morningstar.',
-//   icon: stockIcon,
-//   availableWithoutAccount: false,
-//   component: lazy(() =>
-//     import('./stock-tracker/StockTracker').then((m) => ({ default: m.StockTracker }))
-//   ),
-// })
 
 registerUtility({
   id: 'meal-planner',

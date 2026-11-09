@@ -8,7 +8,7 @@ Signup metadata cannot choose a role or grant access.
 
 Deploy the backend with `SUPABASE_URL` and `SUPABASE_ANON_KEY` set to the same
 project as the frontend, then deploy the frontend. Redeploy all edge fallback
-functions (cors-proxy, soccer, alphavantage, fmp, morningstar, song-listener) if
+functions (cors-proxy, soccer, fmp, yahoo, song-listener) if
 these are still deployed, so the old public-key-only endpoints cannot bypass
 app restrictions. See the backend README for the fileserver deployment workflow.
 

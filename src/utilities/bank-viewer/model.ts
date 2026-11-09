@@ -199,14 +199,15 @@ export async function refreshAccount(jwt: string, uid: string, previous?: Accoun
   }
 }
 
-// ---- Surplus at the start of each month ----
+// ---- Surplus per month ----
 
 export interface MonthSurplus {
   monthStart: string // YYYY-MM-01
-  startBalance: number // balance at the end of the last day of the previous month
-  earlySalary: number // salary booked in the days before the 1st, meant for this month
+  endBalance: number // balance at the end of the month (today for the current month)
+  salary: number // last payday booked this month, meant for next month
   payments: number
-  surplus: number // startBalance − earlySalary
+  surplus: number // endBalance − salary
+  partial: boolean // current month, still running
 }
 
 export function isSalary(tx: Tx, rule: SalaryRule): boolean {
@@ -218,20 +219,28 @@ export function isSalary(tx: Tx, rule: SalaryRule): boolean {
   })
 }
 
-/** Per calendar month: balance at the start of the month, minus salary that arrived up to `windowDays` early. */
+/** Salary payments grouped into paydays: a payment within `windowDays` of a payday's first payment joins it. */
+function lastPayday(txs: Tx[], windowDays: number): Tx[] {
+  let group: Tx[] = []
+  for (const t of txs) group = group.length && (new Date(t.date).getTime() - new Date(group[0].date).getTime()) / 86_400_000 <= windowDays ? [...group, t] : [t]
+  return group
+}
+
+/** Per calendar month: balance at month end minus the salary booked that month (it pays for next month). */
 export function surplusByMonth(data: AccountData, rule: SalaryRule): MonthSurplus[] {
-  if (data.balance === null) return []
+  if (data.balance === null || !data.oldest) return []
   const ref = data.balanceDate || isoDate(new Date())
   const txs = data.transactions.filter((t) => t.date <= ref)
   const out: MonthSurplus[] = []
   const d = new Date(`${ref.slice(0, 7)}-01T00:00:00Z`)
-  for (;;) {
-    const start = isoDate(d), cut = isoDate(new Date(d.getTime() - rule.windowDays * 86_400_000))
-    if (!data.oldest || cut < data.oldest) break
-    const startBalance = round2(data.balance - txs.filter((t) => t.date >= start).reduce((s, t) => s + t.amount, 0))
-    const early = txs.filter((t) => t.date >= cut && t.date < start && isSalary(t, rule))
-    const earlySalary = round2(early.reduce((s, t) => s + t.amount, 0))
-    out.unshift({ monthStart: start, startBalance, earlySalary, payments: early.length, surplus: round2(startBalance - earlySalary) })
+  for (let first = true; ; first = false) {
+    const start = isoDate(d), next = new Date(d); next.setUTCMonth(next.getUTCMonth() + 1)
+    const end = first ? ref : isoDate(new Date(next.getTime() - 86_400_000))
+    if (start < data.oldest) break
+    const endBalance = round2(data.balance - txs.filter((t) => t.date > end).reduce((s, t) => s + t.amount, 0))
+    const pay = lastPayday(txs.filter((t) => t.date >= start && t.date <= end && isSalary(t, rule)), rule.windowDays)
+    const salary = round2(pay.reduce((s, t) => s + t.amount, 0))
+    out.unshift({ monthStart: start, endBalance, salary, payments: pay.length, surplus: round2(endBalance - salary), partial: first })
     d.setUTCMonth(d.getUTCMonth() - 1)
   }
   return out

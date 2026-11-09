@@ -1,13 +1,12 @@
 import { withAppAccess } from '../_shared/app-access.ts'
-// Financial Modeling Prep proxy for the "Stock Tracker" utility — a second free
-// provider with a more generous quota than Alpha Vantage.
+// Financial Modeling Prep proxy for the "Stock Forecast" utility (FMP source).
 //
 // FMP's free plan (~250 requests/day, no per-second burst limit) covers symbol
 // search, end-of-day price history and ETF/fund holdings. Each user brings their
 // OWN FMP key — the browser stores it in that user's RLS-protected
 // utility_configs row and passes it here via the `x-fmp-key` header. We never
-// persist it. Responses are normalized to the SAME shapes the other Stock
-// Tracker providers return, so the UI is provider-agnostic.
+// persist it. Responses are normalized to the SAME shapes the Yahoo
+// function returns, so the UI is provider-agnostic.
 //
 // Some FMP endpoints (notably ETF holdings) may sit behind a higher plan tier;
 // when so, FMP returns an error body which we surface verbatim to the user.
@@ -144,7 +143,7 @@ async function handleHoldings(p: URLSearchParams, key: string) {
 
 // --- Entry ---------------------------------------------------------------
 
-Deno.serve(withAppAccess('stock-tracker', CORS_HEADERS, async (req) => {
+Deno.serve(withAppAccess('stock-forecast', CORS_HEADERS, async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const key = req.headers.get('x-fmp-key')
