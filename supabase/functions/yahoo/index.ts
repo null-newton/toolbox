@@ -38,7 +38,7 @@ async function history(id: string, start: string | null) {
   return { currency: MINOR[cur] ?? cur, name: r.meta.longName ?? r.meta.shortName ?? null, exchange: r.meta.fullExchangeName ?? null, frequency: 'daily', series }
 }
 
-Deno.serve(withAppAccess('stock-forecast', CORS_HEADERS, async (req) => {
+Deno.serve(withAppAccess('stock-tracker', CORS_HEADERS, async (req) => {
   const p = new URL(req.url).searchParams, action = p.get('action')
   try {
     if (action === 'search') return json({ data: await search((p.get('q') ?? '').trim()) })
