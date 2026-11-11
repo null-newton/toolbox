@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Activity, ChartSpline, Cpu, Crosshair, KeyRound, Loader2, RefreshCw, Search, Sparkles, Zap } from 'lucide-react'
+import { Activity, ChartSpline, Cpu, Crosshair, KeyRound, Loader2, RefreshCw, Search, Sparkles, Star, Zap } from 'lucide-react'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useAuth } from '../../auth/auth-context'
 import { useLang, useT } from '../../i18n/LanguageContext'
@@ -18,7 +18,7 @@ const STR = {
     overbought: 'overbought', oversold: 'oversold', neutral: 'neutral',
     actions: { 'STRONG BUY': 'Technicals suggest a strong entry point. Momentum is positive and the asset may be oversold.', BUY: 'Positive trend identified. Consider accumulating positions.', HOLD: 'Market conditions are neutral. Wait for a clearer setup.', SELL: 'Bearish pressure detected. Be cautious with long positions.', 'STRONG SELL': 'Asset is overextended or breaking down. Consider exiting.' } as Record<Signal, string>,
     ai: 'Gemini AI analyst', aiHelp: 'Generate a short report from the current technicals with your own Gemini API key.', aiKey: 'Gemini API key', aiKeyNote: 'Saved to your account; sent only to Google.', aiKeyGuest: 'Kept in this tab only. Log in to save it.',
-    generate: 'Generate report', analysing: 'Analysing…', aiFail: 'Analysis failed', forecast: 'Forecast', path: 'Sim path',
+    favs: 'Favourites', fav: 'Add to favourites', unfav: 'Remove from favourites', generate: 'Generate report', analysing: 'Analysing…', aiFail: 'Analysis failed', forecast: 'Forecast', path: 'Sim path',
   },
   nl: {
     title: 'Aandelenprognose', src: { yahoo: 'Dagelijkse slotkoersen via Yahoo Finance (onofficiële API). Geen financieel advies.', fmp: 'Dagelijkse slotkoersen via Financial Modeling Prep. Geen financieel advies.' }, dataSource: 'Databron', srcOpt: { yahoo: 'Yahoo Finance (geen sleutel)', fmp: 'FMP (gratis sleutel, VS)' },
@@ -30,13 +30,14 @@ const STR = {
     overbought: 'overkocht', oversold: 'oververkocht', neutral: 'neutraal',
     actions: { 'STRONG BUY': 'De technische analyse wijst op een sterk instapmoment. Momentum is positief en het activum is mogelijk oververkocht.', BUY: 'Positieve trend. Overweeg posities op te bouwen.', HOLD: 'Neutrale marktomstandigheden. Wacht op een duidelijker signaal.', SELL: 'Verkoopdruk gedetecteerd. Wees voorzichtig met long-posities.', 'STRONG SELL': 'Het activum is overspannen of breekt neer. Overweeg uit te stappen.' } as Record<Signal, string>,
     ai: 'Gemini AI-analist', aiHelp: 'Maak een kort rapport op basis van de huidige technische analyse met je eigen Gemini API-sleutel.', aiKey: 'Gemini API-sleutel', aiKeyNote: 'Bewaard in je account; enkel naar Google verstuurd.', aiKeyGuest: 'Enkel in dit tabblad bewaard. Meld je aan om hem te bewaren.',
-    generate: 'Rapport maken', analysing: 'Analyseren…', aiFail: 'Analyse mislukt', forecast: 'Prognose', path: 'Simulatie',
+    favs: 'Favorieten', fav: 'Toevoegen aan favorieten', unfav: 'Verwijderen uit favorieten', generate: 'Rapport maken', analysing: 'Analyseren…', aiFail: 'Analyse mislukt', forecast: 'Prognose', path: 'Simulatie',
   },
 }
 
 type Source = 'yahoo' | 'fmp'
-interface Config extends Record<string, unknown> { source: Source; ticker: string; name: string; currency: string; fmpKey: string; sma: boolean; ema: boolean; boll: boolean; method: 'linear' | 'montecarlo'; horizon: number; geminiKey: string }
-const DEFAULTS: Config = { source: 'yahoo', ticker: 'SPY', name: 'SPDR S&P 500 ETF Trust', currency: 'USD', fmpKey: '', sma: false, ema: false, boll: false, method: 'linear', horizon: 30, geminiKey: '' }
+interface Config extends Record<string, unknown> { source: Source; ticker: string; name: string; currency: string; fmpKey: string; sma: boolean; ema: boolean; boll: boolean; method: 'linear' | 'montecarlo'; horizon: number; geminiKey: string; favorites: Fav[] }
+interface Fav { source: Source; ticker: string; name: string; currency: string }
+const DEFAULTS: Config = { source: 'yahoo', ticker: 'SPY', name: 'SPDR S&P 500 ETF Trust', currency: 'USD', fmpKey: '', sma: false, ema: false, boll: false, method: 'linear', horizon: 30, geminiKey: '', favorites: [] }
 interface Hit { id: string; name: string; exchange: string | null; currency: string | null }
 const PICKS: Record<Source, [string, string][]> = {
   yahoo: [['SPY', 'SPDR S&P 500 ETF Trust'], ['VWCE.DE', 'Vanguard FTSE All-World UCITS ETF'], ['IWDA.AS', 'iShares Core MSCI World UCITS ETF'], ['QQQ', 'Invesco QQQ Trust'], ['ASML.AS', 'ASML Holding'], ['^GSPC', 'S&P 500'], ['BTC-USD', 'Bitcoin USD']],
@@ -93,6 +94,9 @@ export function StockForecast() {
   const money = (n: number) => { try { return new Intl.NumberFormat(locale, { style: 'currency', currency: (hist?.req === req && hist.currency) || c.currency || 'USD', maximumFractionDigits: n >= 1000 ? 0 : 2 }).format(n) } catch { return n.toFixed(2) } }
   const rsiWord = !a || a.rsi === null ? t.neutral : a.rsi > 70 ? t.overbought : a.rsi < 30 ? t.oversold : t.neutral
   const [sigClass, meter] = SIGNAL_STYLE[a?.signal ?? 'HOLD']
+  const isFav = c.favorites.some(f => f.source === c.source && f.ticker === c.ticker)
+  const toggleFav = () => setConfig(p => ({ ...p, favorites: isFav ? p.favorites.filter(f => !(f.source === p.source && f.ticker === p.ticker)) : [...p.favorites, { source: p.source, ticker: p.ticker, name: p.name, currency: p.currency }] }))
+  const openFav = (f: Fav) => { if (f.source !== c.source) setConfig({ source: f.source }); pick(f.ticker, f.name, f.currency) }
   const reset = () => { setProjection(null); setAi({ busy: false, text: '', error: false }) }
 
   function run() {
@@ -140,6 +144,7 @@ export function StockForecast() {
             <div className="relative"><span className={label}>{t.asset}</span>
               <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" /><input disabled={!ready} aria-label={t.asset} placeholder={t.searchPh[c.source]} className={`${input} pl-9 disabled:opacity-40`} value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && shown?.[0]) pick(shown[0].id, shown[0].name, shown[0].currency); if (e.key === 'Escape') setQ('') }} /></div>
               {shown && <ul className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-white/10 bg-slate-900/95 py-1 text-sm shadow-xl">{shown.length ? shown.map(h => <li key={`${h.id}-${h.exchange}`}><button onClick={() => pick(h.id, h.name, h.currency)} className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left hover:bg-white/5"><span className="font-mono font-semibold text-white">{h.id}</span><span className="truncate text-slate-400">{h.name}</span><span className="ml-auto shrink-0 text-[10px] text-slate-500">{h.exchange}</span></button></li>) : <li className="px-3 py-1.5 text-slate-500">{t.noResults}</li>}</ul>}
+              {c.favorites.length > 0 && <div className="mt-3"><span className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500"><Star className="size-3 fill-amber-300 text-amber-300" />{t.favs}</span><div className="flex flex-wrap gap-1.5">{c.favorites.map(f => <button key={`${f.source}|${f.ticker}`} title={`${f.name}${f.source !== c.source ? ` · ${t.srcOpt[f.source]}` : ''}`} disabled={f.source === 'fmp' && !key} onClick={() => openFav(f)} className={`rounded-lg px-2 py-0.5 font-mono text-xs disabled:opacity-40 ${f.source === c.source && f.ticker === c.ticker ? 'bg-amber-300 text-slate-950' : 'bg-amber-300/10 text-amber-200 hover:bg-amber-300/20'}`}>{f.ticker}</button>)}</div></div>}
               <div className="mt-2 flex flex-wrap gap-1.5">{PICKS[c.source].map(([id, n]) => <button key={id} disabled={!ready} onClick={() => pick(id, n, 'USD')} className={`rounded-lg px-2 py-0.5 font-mono text-xs disabled:opacity-40 ${id === c.ticker ? 'bg-[#c8ff3d] text-slate-950' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>{id}</button>)}</div></div>
             <div><span className={label}>{t.indicators}</span><div className="space-y-2 text-sm">
               {([['sma', 'SMA (20)'], ['ema', 'EMA (50)'], ['boll', t.boll]] as const).map(([k, l]) => <label key={k} className="flex cursor-pointer items-center gap-2 text-slate-300 hover:text-white"><input type="checkbox" className="accent-[#c8ff3d]" checked={c[k]} onChange={e => setConfig(p => ({ ...p, [k]: e.target.checked }))} />{l}</label>)}
@@ -171,7 +176,7 @@ export function StockForecast() {
         <div className="min-w-0 space-y-5">
           <Card className="space-y-4">
             <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
-              <div><h2 className="text-2xl font-bold tracking-tight">{asset.id}</h2><p className="text-xs text-slate-500">{asset.name}</p></div>
+              <div><h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight">{asset.id}<button onClick={toggleFav} title={isFav ? t.unfav : t.fav} aria-label={isFav ? t.unfav : t.fav} aria-pressed={isFav} className={`grid size-8 place-items-center rounded-lg ${isFav ? 'bg-amber-400/15 text-amber-300' : 'text-slate-500 hover:bg-white/5 hover:text-amber-300'}`}><Star className="size-4" fill={isFav ? 'currentColor' : 'none'} /></button></h2><p className="text-xs text-slate-500">{asset.name}</p></div>
               {a && <><div><div className="text-xs font-semibold uppercase text-slate-500">{t.price}</div><div className="font-mono text-lg font-bold">{money(a.last)}</div></div>
               <div><div className="text-xs font-semibold uppercase text-slate-500">{t.change}</div><div className={`font-mono text-lg font-bold ${a.change >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{a.change >= 0 ? '+' : ''}{a.change.toFixed(2)}%</div></div>
               <div className="text-xs text-slate-500">{new Date(dates.at(-1)!).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}</div></>}

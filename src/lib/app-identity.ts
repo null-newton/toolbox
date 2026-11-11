@@ -34,6 +34,8 @@ function meta(name: string, content: string) {
 }
 
 let manifestUrl = ''
+// iOS Safari (and every iOS browser, all WebKit) ignores blob: manifests and would fall back to the root start_url.
+const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
 
 // Gives the current page its own tab icon, title and installable PWA identity (one per tool).
 export function useAppIdentity(id: string | null, name: string, description: string, iconRef: RefObject<HTMLElement | null>) {
@@ -44,16 +46,18 @@ export function useAppIdentity(id: string | null, name: string, description: str
     document.title = title; meta('apple-mobile-web-app-title', id ? name : 'Toolbox'); meta('application-name', id ? name : 'Toolbox')
     const icon = tileSvg(inner)
     link('icon', { type: 'image/svg+xml', href: svgUrl(icon) })
+    if (isIOS) link('manifest', { href: id ? `/apps/${id}.webmanifest` : '/manifest.webmanifest' })
     let cancelled = false
     void Promise.all([png(icon, 180), png(icon, 192), png(icon, 512), png(tileSvg(inner, true), 512)]).then(([apple, p192, p512, mask]) => {
       if (cancelled) return
       link('apple-touch-icon', { href: apple })
-      const origin = location.origin, start = id ? `${origin}/#/tools/${id}` : `${origin}/`
+      const origin = location.origin, start = id ? `${origin}/?app=${id}` : `${origin}/`
       const manifest = {
         id: id ? `/?app=${id}` : '/', name: title, short_name: id ? name : 'Toolbox', description, start_url: start, scope: `${origin}/`,
         display: 'standalone', background_color: BG, theme_color: BG,
         icons: [{ src: p192, sizes: '192x192', type: 'image/png' }, { src: p512, sizes: '512x512', type: 'image/png' }, { src: mask, sizes: '512x512', type: 'image/png', purpose: 'maskable' }],
       }
+      if (isIOS) return
       if (manifestUrl) URL.revokeObjectURL(manifestUrl)
       manifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }))
       link('manifest', { href: manifestUrl })
