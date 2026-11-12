@@ -23,6 +23,7 @@ import {
   subtitleStudioIcon,
   bankViewerIcon,
   stockForecastIcon,
+  stripLibraryIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -58,6 +59,17 @@ registerUtility({
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./stock-forecast/StockForecast').then((m) => ({ default: m.StockForecast }))
+  ),
+})
+
+registerUtility({
+  id: 'strip-library',
+  name: 'Strip Library',
+  description: 'Scan or type comic album ISBNs, look them up on stripinfo.be and keep track of your collection.',
+  icon: stripLibraryIcon,
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./strip-library/StripLibrary').then((m) => ({ default: m.StripLibrary }))
   ),
 })
 

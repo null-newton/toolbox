@@ -125,6 +125,10 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'Vergelijk twee ploegen of blader door wedstrijden voor een win-% en waarschijnlijke score.',
     },
   },
+  'strip-library': {
+    en: { name: 'Strip Library', description: 'Scan or type comic album ISBNs, look them up on stripinfo.be and keep track of your collection.' },
+    nl: { name: 'Stripbibliotheek', description: 'Scan of typ het ISBN van stripalbums, zoek ze op via stripinfo.be en houd je collectie bij.' },
+  },
   'stock-forecast': {
     en: { name: 'Stock Forecast', description: 'Chart real stock, ETF and crypto prices from any market with SMA, EMA and Bollinger overlays, buy/sell signals and trend or Monte Carlo projections.' },
     nl: { name: 'Aandelenprognose', description: 'Grafiek van echte aandelen-, ETF- en cryptokoersen uit elke markt met SMA-, EMA- en Bollinger-lijnen, koop/verkoopsignalen en trend- of Monte Carlo-projecties.' },
