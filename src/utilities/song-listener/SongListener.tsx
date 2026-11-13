@@ -21,6 +21,7 @@ import { functionsBase } from '../../lib/supabase'
 import { parseLrc } from './lyrics'
 import type { Song } from './lyrics'
 import { SpeechLyricsMode } from './SpeechLyricsMode'
+import { ToolHeader } from '../../components/ToolHeader'
 
 interface AudioRecognition {
   track: Song | null
@@ -404,7 +405,7 @@ function AudioRecognitionMode() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl animate-fade-up pb-8">
+    <div>
       {track ? (
         <section className="mt-8 grid overflow-hidden rounded-3xl border border-white/10 bg-[#090c14]/90 shadow-2xl shadow-indigo-950/30 lg:h-[720px] lg:grid-cols-[340px_1fr]">
           <aside className="relative flex flex-col overflow-hidden border-b border-white/10 bg-gradient-to-b from-indigo-950/70 via-violet-950/45 to-[#0a0d16] p-6 lg:border-b-0 lg:border-r">
@@ -588,15 +589,9 @@ export function SongListener() {
   const t = useT(MODE_STR)
   const [mode, setMode] = useState<'audio' | 'speech'>('audio')
   return (
-    <div className="mx-auto max-w-6xl animate-fade-up pb-8">
-      <header>
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
-          <Waves className="size-4" /> {mode === 'audio' ? t.audio : t.speech}
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-        <p className="mt-2 text-sm text-slate-400 sm:text-base">{t.subtitle}</p>
-      </header>
-      <div role="group" aria-label={t.label} className="mt-6 inline-flex max-w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+    <div>
+      <ToolHeader eyebrow={mode === 'audio' ? t.audio : t.speech} title={t.title} intro={t.subtitle} />
+      <div role="group" aria-label={t.label} className="inline-flex max-w-full gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
         {(['audio', 'speech'] as const).map((value) => <button key={value} aria-pressed={mode === value} onClick={() => setMode(value)}
           className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${mode === value ? 'bg-indigo-400/15 text-cyan-100 shadow-sm' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}>
           {value === 'audio' ? <Waves className="size-4 shrink-0" /> : <Mic className="size-4 shrink-0" />}{t[value]}

@@ -9,11 +9,9 @@ import {
   Plus,
   Ruler,
   Sparkles,
-  Sun,
   Trash2,
   Undo2,
 } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { SlippyMap, type Face as MapFace, type SlippyMapHandle } from './SlippyMap'
@@ -35,6 +33,7 @@ import {
   type Obstacle,
   type PvgisResult,
 } from './solar'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Solar Roof Planner: search an address, trace each roof face on the satellite
@@ -891,14 +890,8 @@ export function SolarRoof() {
   if (loading) return <p className="animate-pulse text-slate-400">{t.loading}</p>
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <Sun className="size-7 text-amber-400" /> {t.title}
-        </h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 max-w-3xl text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} save={{ saving, error: configError }} />
 
       {/* Address search is part of site setup; building work happens only in 3D. */}
       {(!workingArea || mode === 'site') && <>

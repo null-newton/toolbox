@@ -10,6 +10,7 @@ import { FavoritesProvider } from './favorites/FavoritesProvider'
 import { AuthPage } from './auth/AuthPage'
 import { Layout } from './components/Layout'
 import { SetupScreen } from './components/SetupScreen'
+import { ToolFrame } from './components/ToolHeader'
 import { AccountPage } from './pages/AccountPage'
 import { Home } from './pages/Home'
 import { isSupabaseConfigured } from './lib/supabase'
@@ -37,7 +38,7 @@ function UtilityPage() {
   const Component = utility.component
   return (
     <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
-      <Component />
+      <ToolFrame><Component /></ToolFrame>
     </Suspense>
   )
 }
@@ -73,13 +74,13 @@ function AppRoutes() {
           path="/transfer/:transferId"
           element={
             <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
-              <FileTransfer />
+              <ToolFrame><FileTransfer /></ToolFrame>
             </Suspense>
           }
         />
         <Route path="/wishlist/:token" element={
           <Suspense fallback={<p className="animate-pulse text-slate-400">{t.loading}</p>}>
-            <SharedWishlist />
+            <ToolFrame><SharedWishlist /></ToolFrame>
           </Suspense>
         } />
         <Route path="/tools/:utilityId" element={<UtilityPage />} />

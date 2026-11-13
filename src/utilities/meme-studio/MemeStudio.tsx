@@ -32,6 +32,7 @@ import {
   triggerDownload,
   type ClipFormat,
 } from './export'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Meme Studio — an imgflip-style meme maker.
@@ -496,15 +497,11 @@ export function MemeStudio() {
   const isAnimated = media?.kind === 'gif' || media?.kind === 'video'
 
   return (
-    <div className="animate-fade-up">
-      <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-        <Laugh className="size-8 text-indigo-400" />
-        {t.title}
-      </h1>
-      <p className="mt-2 max-w-3xl text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} />
 
       {/* Source picker */}
-      <div className="glass mt-8 rounded-2xl p-4 sm:p-5">
+      <div className="glass rounded-2xl p-4 sm:p-5">
         <div className="flex gap-2">
           <SourceTab active={tab === 'templates'} onClick={() => setTab('templates')} icon={<Search className="size-4" />}>
             {t.templates}

@@ -8,6 +8,7 @@ import {
   Trash2, Upload, WandSparkles,
 } from 'lucide-react'
 import { functionsBase } from '../../lib/supabase'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type Cue = { id: number; start: number; end: number; text: string }
 type Phase = 'source' | 'ready' | 'transcribing' | 'editing' | 'rendering'
@@ -191,17 +192,8 @@ export function SubtitleStudio() {
   const active = cues[activeCue]
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] animate-fade-up pb-16">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-5 border-b border-slate-700/80 pb-7">
-        <div>
-          <div className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.24em] text-cyan-300">
-            <span className="h-px w-7 bg-cyan-300" /> Media utility / AI transcription
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-100 sm:text-5xl">Subtitle Studio</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Turn any video into accurate, editable subtitles — then export the SRT or burn captions straight into the video.</p>
-        </div>
-        {phase !== 'source' && <button onClick={reset} className="flex items-center gap-2 border border-slate-700 bg-panel px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500 hover:text-white"><RotateCcw className="size-4" /> Start over</button>}
-      </header>
+    <div>
+      <ToolHeader eyebrow="Media utility / AI transcription" title="Subtitle Studio" intro="Turn any video into accurate, editable subtitles — then export the SRT or burn captions straight into the video." actions={phase !== 'source' && <button onClick={reset} className="flex items-center gap-2 border border-slate-700 bg-panel px-4 py-2.5 text-sm text-slate-300 hover:border-slate-500 hover:text-white"><RotateCcw className="size-4" /> Start over</button>} />
 
       {phase === 'source' || phase === 'ready' || phase === 'transcribing' ? (
         <div className="grid gap-6 lg:grid-cols-[1.35fr_.65fr]">

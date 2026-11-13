@@ -6,6 +6,7 @@ import { useLang, useT } from '../../i18n/LanguageContext'
 import { backendFetch } from '../../lib/backend-fetch'
 import { functionsBase } from '../../lib/supabase'
 import { analyse, bollinger, businessDays, ema, linearForecast, monteCarlo, sma, type Series, type Signal } from './analysis'
+import { ToolHeader } from '../../components/ToolHeader'
 
 const STR = {
   en: {
@@ -129,11 +130,8 @@ export function StockForecast() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-3xl font-bold">{t.title}</h1><p className="mt-1 text-sm text-slate-400">{t.src[c.source]}</p></div>
-        <button disabled={!ready || load.busy} onClick={() => { reset(); setNonce(n => n + 1) }} className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white disabled:opacity-40"><RefreshCw className={`size-4 ${load.busy ? 'animate-spin' : ''}`} />{t.regen}</button>
-      </header>
+    <div className="space-y-5">
+      <ToolHeader title={t.title} intro={t.src[c.source]} actions={<button disabled={!ready || load.busy} onClick={() => { reset(); setNonce(n => n + 1) }} className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 hover:text-white disabled:opacity-40"><RefreshCw className={`size-4 ${load.busy ? 'animate-spin' : ''}`} />{t.regen}</button>} />
       <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
         <aside className="space-y-5">
           <Card className="space-y-5">

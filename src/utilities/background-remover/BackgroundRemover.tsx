@@ -24,6 +24,7 @@ import {
   type ImageQuality,
   type VideoBackground,
 } from './engine'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type MediaKind = 'image' | 'video'
 type Phase = 'idle' | 'loading' | 'processing' | 'done'
@@ -44,8 +45,6 @@ const MAX_VIDEO_SECONDS = 90
 const STR = {
   en: {
     eyebrow: 'Private, on-device AI',
-    titleStart: 'Keep the subject.',
-    titleAccent: 'Lose the background.',
     intro: 'Clean cutouts for products, portraits and short videos. Your files are processed on this device and never uploaded.',
     image: 'Image',
     video: 'Video',
@@ -103,8 +102,6 @@ const STR = {
   },
   nl: {
     eyebrow: 'Privé-AI op je apparaat',
-    titleStart: 'Behoud het onderwerp.',
-    titleAccent: 'Wis de achtergrond.',
     intro: 'Strakke uitsnedes voor producten, portretten en korte video’s. Je bestanden worden op dit apparaat verwerkt en nooit geüpload.',
     image: 'Afbeelding',
     video: 'Video',
@@ -323,21 +320,10 @@ export function BackgroundRemover() {
   const percent = Math.round(progress * 100)
 
   return (
-    <div className="mx-auto max-w-6xl animate-fade-up pb-16">
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] px-5 py-10 text-center sm:px-10 sm:py-14">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(129,140,248,.18),transparent_42%)]" />
-        <div className="relative">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-200">
-            <Sparkles className="size-3.5" /> {t.eyebrow}
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-            {t.titleStart} <span className="text-gradient">{t.titleAccent}</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">{t.intro}</p>
-        </div>
-      </section>
+    <div>
+      <ToolHeader eyebrow={t.eyebrow} intro={t.intro} />
 
-      <div className="mx-auto mt-6 grid max-w-5xl gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <main className="glass overflow-hidden rounded-3xl">
           <div className="border-b border-white/8 p-2">
             <div className="grid grid-cols-2 rounded-2xl bg-black/20 p-1">
@@ -549,7 +535,7 @@ export function BackgroundRemover() {
         </aside>
       </div>
 
-      <section className="mx-auto mt-6 grid max-w-5xl gap-3 sm:grid-cols-3">
+      <section className="mt-6 grid gap-3 sm:grid-cols-3">
         {[
           [LockKeyhole, t.privacy, t.privacyHint],
           [Layers3, t.openSource, t.openSourceHint],

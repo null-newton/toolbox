@@ -43,6 +43,7 @@ import {
   type TextOverlay,
   type VideoClip,
 } from './types'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Video Editor — stitch local video files on a timeline, layer text / image /
@@ -743,15 +744,11 @@ export function VideoEditor() {
           : undefined
 
   return (
-    <div className="animate-fade-up">
-      <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-        <Film className="size-8 text-indigo-400" />
-        {t.title}
-      </h1>
-      <p className="mt-2 max-w-3xl text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} />
 
       {/* Add media toolbar */}
-      <div className="glass mt-6 flex flex-wrap gap-2 rounded-2xl p-3">
+      <div className="glass flex flex-wrap gap-2 rounded-2xl p-3">
         <ToolbarButton primary onClick={() => clipInputRef.current?.click()} icon={<Plus className="size-4" />}>
           {t.addClip}
         </ToolbarButton>

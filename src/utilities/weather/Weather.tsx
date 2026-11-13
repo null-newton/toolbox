@@ -25,10 +25,10 @@ import {
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
+import { ToolHeader } from '../../components/ToolHeader'
 
 interface Place {
   id: number | string
@@ -499,20 +499,8 @@ export function Weather() {
   }, [config.typicalDate, locale])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-sky-400/25 to-indigo-500/20 text-sky-300 ring-1 ring-sky-300/20">
-              <CloudSun className="size-6" />
-            </span>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-              <SaveStatus saving={saving} error={configError} />
-            </div>
-          </div>
-          <p className="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">{t.subtitle}</p>
-        </div>
+    <div className="space-y-6">
+      <ToolHeader title={t.title} intro={t.subtitle} save={{ saving, error: configError }} actions={<>
 
         <div className="flex flex-wrap gap-2 text-xs">
           <div className="glass flex items-center gap-1 rounded-xl p-1" aria-label={t.unitTemperature}>
@@ -530,7 +518,7 @@ export function Weather() {
             ))}
           </div>
         </div>
-      </header>
+      </>} />
 
       <section className="relative z-20">
         <form onSubmit={searchPlaces} className="flex flex-col gap-2 sm:flex-row">

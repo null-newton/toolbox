@@ -1,9 +1,9 @@
 import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useState } from 'react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT, useLang } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Soccer Predictor. Two modes, both backed by the `soccer` Supabase edge
@@ -481,12 +481,8 @@ export function SoccerPredictor() {
     }`
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} save={{ saving, error: configError }} />
 
       {/* API token */}
       <div className="glass mt-8 rounded-2xl p-4">

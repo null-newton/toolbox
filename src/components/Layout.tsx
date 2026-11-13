@@ -282,14 +282,14 @@ export function Layout() {
           )}
         </nav>
 
-        <div className={`border-t border-white/5 p-4 ${collapsed ? 'lg:px-2' : ''}`}>
-          <div className={`mb-3 flex justify-center ${collapsed ? 'lg:hidden' : ''}`}>
+        <div className={`border-t border-white/5 p-3 ${collapsed ? 'lg:px-2' : ''}`}>
+          <div className={`mb-2.5 flex items-center justify-between gap-2 ${collapsed ? 'lg:hidden' : ''}`}>
             <LanguageSwitcher />
+            <LegalLinks compact />
           </div>
-          <div className={`mb-3 ${collapsed ? 'lg:hidden' : ''}`}><LegalLinks /></div>
           {user ? (
             <>
-              <Link to="/account" onClick={closeNav} className="mb-3 block text-sm text-indigo-300">{access?.role === 'master' ? 'Manage accounts' : `Account · ${access?.role ?? ''}`}</Link>
+              <Link to="/account" onClick={closeNav} className="mb-1 block text-sm text-indigo-300">{access?.role === 'master' ? 'Manage accounts' : `Account · ${access?.role ?? ''}`}</Link>
               <p
                 className={`truncate text-xs text-slate-500 ${collapsed ? 'lg:hidden' : ''}`}
                 title={user.email ?? ''}
@@ -299,7 +299,7 @@ export function Layout() {
               <button
                 onClick={signOut}
                 title={t.logOut}
-                className={`mt-3 w-full rounded-xl border border-white/10 bg-white/5 py-1.5 text-sm font-medium text-slate-300 transition-all duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white ${
+                className={`mt-2.5 w-full rounded-xl border border-white/10 bg-white/5 py-1.5 text-sm font-medium text-slate-300 transition-all duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white ${
                   collapsed ? 'lg:px-0' : 'px-3'
                 }`}
               >
@@ -309,14 +309,11 @@ export function Layout() {
             </>
           ) : (
             <>
-              <p className={`text-xs text-slate-500 ${collapsed ? 'lg:hidden' : ''}`}>
-                {t.signInPrompt}
-              </p>
               <Link
                 to="/login"
                 onClick={closeNav}
-                title={t.logIn}
-                className={`acid-button mt-3 block w-full rounded-xl py-1.5 text-center text-sm font-bold transition-all duration-200 ${
+                title={t.signInPrompt}
+                className={`acid-button block w-full rounded-xl py-1.5 text-center text-sm font-bold transition-all duration-200 ${
                   collapsed ? 'lg:px-0' : 'px-3'
                 }`}
               >

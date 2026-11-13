@@ -10,9 +10,9 @@ import type {
 import { Link } from 'react-router-dom'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useAuth } from '../../auth/auth-context'
-import { SaveStatus } from '../../components/SaveStatus'
 import { supabase } from '../../lib/supabase'
 import { useT, useLang } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 const STR = {
   en: {
@@ -582,12 +582,8 @@ export function QRCodeGenerator() {
   const c = config.contentType
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} save={{ saving, error: configError }} />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_minmax(280px,360px)]">
         <div className="min-w-0">

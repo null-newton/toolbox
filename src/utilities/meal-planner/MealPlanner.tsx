@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ExternalLink, Plus, Search, Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Weekly Meal Planner. Two tabs:
@@ -380,12 +380,8 @@ export function MealPlanner() {
   }
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">{t.subtitle}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.subtitle} save={{ saving, error: configError }} />
 
       {/* ---- Tabs ---- */}
       <div className="mt-6 flex flex-wrap items-center gap-2">

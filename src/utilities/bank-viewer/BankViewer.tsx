@@ -14,6 +14,7 @@ import {
   sealBook, sealVault, setDeviceKey, unlock, type Book, type Row, type Secret,
 } from './store'
 import { STR } from './strings'
+import { ToolHeader } from '../../components/ToolHeader'
 
 const PENDING_KEY = 'bank-viewer:pending'
 const COUNTRIES = ['BE', 'NL', 'LU', 'FR', 'DE', 'AT', 'ES', 'IT', 'FI', 'SE', 'DK', 'NO', 'PL', 'PT', 'IE']
@@ -90,16 +91,8 @@ export function BankViewer() {
   )
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <div className="mb-2 flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400/25 to-teal-500/20 text-emerald-300 ring-1 ring-emerald-300/20">
-            <Landmark className="size-6" />
-          </span>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-        </div>
-        <p className="max-w-2xl text-sm leading-6 text-slate-400">{t.subtitle}</p>
-      </header>
+    <div className="space-y-6">
+      <ToolHeader title={t.title} intro={t.subtitle} />
       {body}
     </div>
   )

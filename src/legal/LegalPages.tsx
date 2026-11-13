@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 import { useLang } from '../i18n/LanguageContext'
 import { LEGAL_VERSION, TERMS_VERSION, PRIVACY_VERSION, PRIVACY_CONTACT, privacySections, termsSections } from './content'
 
-export function LegalLinks() {
+export function LegalLinks({ compact }: { compact?: boolean }) {
   const { lang } = useLang()
-  return <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-400">
-    <Link to="/privacy" className="hover:text-indigo-300">{lang === 'nl' ? 'Privacybeleid (Engels)' : 'Privacy Policy'}</Link>
-    <Link to="/terms" className="hover:text-indigo-300">{lang === 'nl' ? 'Voorwaarden (Engels)' : 'Terms of Service'}</Link>
+  return <div className={compact ? 'flex flex-wrap justify-end gap-x-2.5 gap-y-1 text-[11px] text-slate-500' : 'flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-slate-400'}>
+    <Link to="/privacy" className="hover:text-indigo-300">{compact ? 'Privacy' : lang === 'nl' ? 'Privacybeleid (Engels)' : 'Privacy Policy'}</Link>
+    <Link to="/terms" className="hover:text-indigo-300">{compact ? (lang === 'nl' ? 'Voorwaarden' : 'Terms') : lang === 'nl' ? 'Voorwaarden (Engels)' : 'Terms of Service'}</Link>
     <a href={`mailto:${PRIVACY_CONTACT}`} className="hover:text-indigo-300">Contact</a>
   </div>
 }

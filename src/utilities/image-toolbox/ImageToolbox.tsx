@@ -9,12 +9,12 @@ import {
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   UploadCloud,
   WandSparkles,
   X,
 } from 'lucide-react'
 import { useT } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type OutputFormat = 'jpeg' | 'png' | 'webp'
 
@@ -39,8 +39,6 @@ const MAX_OUTPUT_PIXELS = 64_000_000
 const STR = {
   en: {
     eyebrow: 'Private image workshop',
-    titleStart: 'Polish every image.',
-    titleAccent: 'Keep it yours.',
     intro: 'Resize, compress and convert images without uploading them. Exporting also strips embedded metadata.',
     dropTitle: 'Drop an image here',
     dropCopy: 'or choose one from your device',
@@ -84,8 +82,6 @@ const STR = {
   },
   nl: {
     eyebrow: 'Privé-beeldwerkplaats',
-    titleStart: 'Werk elk beeld af.',
-    titleAccent: 'Houd het van jou.',
     intro: 'Verklein, comprimeer en converteer afbeeldingen zonder ze te uploaden. Bij export verdwijnt ook alle ingebedde metadata.',
     dropTitle: 'Sleep een afbeelding hierheen',
     dropCopy: 'of kies er een op je apparaat',
@@ -304,20 +300,11 @@ export function ImageToolbox() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl animate-fade-up pb-12">
-      <div className="max-w-3xl">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-200">
-          <Sparkles className="size-3.5" />
-          {t.eyebrow}
-        </div>
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-          {t.titleStart} <span className="text-gradient">{t.titleAccent}</span>
-        </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">{t.intro}</p>
-      </div>
+    <div>
+      <ToolHeader eyebrow={t.eyebrow} intro={t.intro} />
 
       {!source ? (
-        <div className="mt-10">
+        <div>
           <div
             onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
             onDragOver={(event) => event.preventDefault()}

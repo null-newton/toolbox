@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { functionsBase } from '../../lib/supabase'
 import { useT } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type Model = 'photo' | 'illustration'
 type OutputFormat = 'same' | 'png' | 'jpg' | 'webp'
@@ -51,8 +52,6 @@ const MAX_OUTPUT_PIXELS = 64_000_000
 const STR = {
   en: {
     eyebrow: 'Self-hosted AI upscaler',
-    titleStart: 'Make every pixel',
-    titleAccent: 'count.',
     subtitle: 'Turn small or soft images into crisp, high-resolution assets with Real-ESRGAN. No account, no watermark.',
     private: 'Private by design',
     privateHint: 'Files expire automatically after one hour.',
@@ -94,8 +93,6 @@ const STR = {
   },
   nl: {
     eyebrow: 'Zelf-gehoste AI-upscaler',
-    titleStart: 'Laat elke pixel',
-    titleAccent: 'tellen.',
     subtitle: 'Maak van kleine of zachte beelden scherpe bestanden in hoge resolutie met Real-ESRGAN. Geen account, geen watermerk.',
     private: 'Privacy als uitgangspunt',
     privateHint: 'Bestanden worden na één uur automatisch verwijderd.',
@@ -320,21 +317,14 @@ export function ImageUpscaler() {
   const isWorking = phase === 'uploading' || phase === 'processing'
 
   return (
-    <div className="mx-auto max-w-6xl animate-fade-up pb-10">
-      <header className="mx-auto max-w-3xl text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200">
-          <Sparkles className="size-3.5" /> {t.eyebrow}
-        </div>
-        <h1 className="mt-5 text-3xl font-extrabold tracking-[-0.04em] text-white sm:text-5xl">
-          {t.titleStart} <span className="text-gradient">{t.titleAccent}</span>
-        </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">{t.subtitle}</p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-500">
+    <div>
+      <ToolHeader eyebrow={t.eyebrow} intro={t.subtitle}>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
           <span className="flex items-center gap-1.5"><Check className="size-3.5 text-emerald-400" /> {t.noAccount}</span>
           <span className="flex items-center gap-1.5"><Check className="size-3.5 text-emerald-400" /> {t.engine}</span>
           <span className="flex items-center gap-1.5"><Check className="size-3.5 text-emerald-400" /> {t.secure}</span>
         </div>
-      </header>
+      </ToolHeader>
 
       {phase === 'done' && source && job ? (
         <section className="mt-9">

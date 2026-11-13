@@ -160,6 +160,7 @@ registerUtility({
     'Trace a roof on the satellite map, set each face’s slope and direction, and find the best surface for solar panels by yearly sun.',
   icon: solarRoofIcon,
   availableWithoutAccount: false,
+  disabled: true, // too laggy for now
   component: lazy(() =>
     import('./solar-roof/SolarRoof').then((m) => ({ default: m.SolarRoof }))
   ),

@@ -11,13 +11,13 @@ import {
   File as FileIcon,
   Link2,
   Lock,
-  Send,
   Share2,
   ShieldCheck,
   UploadCloud,
 } from 'lucide-react'
 import { functionsBase } from '../../lib/supabase'
 import { useLang, useT } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type TransferStatus = 'uploading' | 'ready'
 
@@ -47,7 +47,6 @@ interface ChunkResponse {
 const STR = {
   en: {
     eyebrow: 'Private, effortless sharing',
-    title: 'Send a file. Share the link.',
     intro: 'No account needed. Your file is stored on this server and automatically removed after 7 days.',
     dropTitle: 'Drop a file here',
     dropHint: 'or click to choose from your device',
@@ -95,7 +94,6 @@ const STR = {
   },
   nl: {
     eyebrow: 'Privé en moeiteloos delen',
-    title: 'Stuur een bestand. Deel de link.',
     intro: 'Geen account nodig. Je bestand staat op deze server en wordt na 7 dagen automatisch verwijderd.',
     dropTitle: 'Sleep een bestand hierheen',
     dropHint: 'of klik om een bestand op je apparaat te kiezen',
@@ -367,15 +365,8 @@ function SendTransfer() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl animate-fade-up">
-      <div className="mb-8 max-w-2xl">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200">
-          <Send className="size-3.5" />
-          {t.eyebrow}
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-        <p className="mt-3 max-w-xl leading-relaxed text-slate-400">{t.intro}</p>
-      </div>
+    <div>
+      <ToolHeader eyebrow={t.eyebrow} intro={t.intro} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
         <section className="glass rounded-3xl p-4 sm:p-6">
@@ -639,15 +630,10 @@ function ReceiveTransfer({ transferId }: { transferId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl animate-fade-up py-4 sm:py-10">
-      <div className="text-center">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200">
-          <Share2 className="size-3.5" /> {t.receiverEyebrow}
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.receiverTitle}</h1>
-      </div>
+    <div>
+      <ToolHeader eyebrow={t.receiverEyebrow} title={t.receiverTitle} icon={<Share2 />} />
 
-      <section className="glass mx-auto mt-8 max-w-xl rounded-3xl p-5 sm:p-7">
+      <section className="glass max-w-xl rounded-3xl p-5 sm:p-7">
         <FileSummary transfer={transfer} />
 
         {transfer.status === 'uploading' ? (

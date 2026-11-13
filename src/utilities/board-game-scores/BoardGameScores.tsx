@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Crown, Plus, Trash2, X } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Board game score counter. Keeps a scoreboard per game: add players, add a
@@ -201,12 +201,8 @@ export function BoardGameScores() {
   }
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} save={{ saving, error: configError }} />
 
       {/* ---- Game tabs ---- */}
       <div className="mt-8 flex flex-wrap items-center gap-2">

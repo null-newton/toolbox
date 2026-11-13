@@ -2,10 +2,10 @@ import { MediaRightsConfirmation } from '../../legal/MediaRightsConfirmation'
 import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ClipboardPaste, X } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Video downloader — two paths from one set of options:
@@ -693,22 +693,8 @@ export function YtDlpCommand() {
             : t.downloadButton
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-          <a
-            href={`https://github.com/yt-dlp/yt-dlp/releases/tag/${CURRENT_RELEASE}`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-block text-xs text-indigo-300 transition-colors hover:text-indigo-200"
-          >
-            {t.builtFor} · {CURRENT_RELEASE}
-          </a>
-        </div>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">
+    <div>
+      <ToolHeader title={t.title} save={{ saving, error: configError }} intro={<>
         {t.introBefore}
         <a
           href="https://github.com/yt-dlp/yt-dlp"
@@ -719,7 +705,16 @@ export function YtDlpCommand() {
           yt-dlp
         </a>
         {t.introAfter}
-      </p>
+      </>}>
+          <a
+            href={`https://github.com/yt-dlp/yt-dlp/releases/tag/${CURRENT_RELEASE}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-xs text-indigo-300 transition-colors hover:text-indigo-200"
+          >
+            {t.builtFor} · {CURRENT_RELEASE}
+          </a>
+      </ToolHeader>
 
       {updateAvailable && latestRelease && (
         <div

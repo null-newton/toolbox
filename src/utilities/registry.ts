@@ -26,12 +26,15 @@ export interface Utility {
    * unauthenticated visitors are redirected to the login page.
    */
   availableWithoutAccount?: boolean
+  /** Temporarily hide the tool everywhere (not registered, route redirects home). */
+  disabled?: boolean
   component: ComponentType | LazyExoticComponent<ComponentType>
 }
 
 const utilities: Utility[] = []
 
 export function registerUtility(utility: Utility) {
+  if (utility.disabled) return
   if (utilities.some((u) => u.id === utility.id)) {
     throw new Error(`Utility with id "${utility.id}" is already registered`)
   }

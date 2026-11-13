@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Clock } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { dayHours, updateHolidayHours, type HolidayHours, type MonthData } from './holidayHours'
+import { ToolHeader } from '../../components/ToolHeader'
 
 /**
  * Work Hours tracker. Answers one question per month: "how many hours do I
@@ -436,12 +436,8 @@ export function WorkHoursTracker() {
     .reverse()
 
   return (
-    <div className="animate-fade-up">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <SaveStatus saving={saving} error={configError} />
-      </div>
-      <p className="mt-2 text-slate-400">{t.intro}</p>
+    <div>
+      <ToolHeader title={t.title} intro={t.intro} save={{ saving, error: configError }} />
 
       {/* ---- Settings (kept across months) ---- */}
       <div className="glass mt-8 rounded-2xl p-4">

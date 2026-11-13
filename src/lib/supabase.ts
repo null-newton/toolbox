@@ -28,4 +28,5 @@ export const supabase = createClient(
  */
 export const functionsBase =
   (import.meta.env.VITE_FUNCTIONS_URL as string | undefined)?.replace(/\/$/, '') ||
-  `${supabaseUrl ?? ''}/functions/v1`
+  // Dev: same-origin path handled by the Vite proxy (see vite.config.ts), so no CORS
+  (import.meta.env.DEV ? `${location.origin}/functions/v1` : `${supabaseUrl ?? ''}/functions/v1`)

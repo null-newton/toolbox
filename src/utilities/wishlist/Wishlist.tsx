@@ -3,12 +3,12 @@ import { useAuth } from '../../auth/auth-context'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
 import { supabase } from '../../lib/supabase'
-import { SaveStatus } from '../../components/SaveStatus'
 import { draftPayload, parseCollections, parseItems, sortValues, visibleItems } from './model'
 import type { Collection, Draft, Item, Sort } from './model'
 import { buttonClass, Field, inputClass, ItemCard, primaryClass, ProductForm } from './components'
 import { STR } from './strings'
 import { ListImport } from './ListImport'
+import { ToolHeader } from '../../components/ToolHeader'
 
 export function Wishlist() {
   const { user } = useAuth()
@@ -105,9 +105,8 @@ function OwnerWishlist() {
       if (error) throw error
     })
   }
-  return <div className="animate-fade-up mx-auto max-w-6xl">
-    <div className="flex items-center justify-between gap-3"><h1 className="text-3xl font-bold tracking-tight">{t.title}</h1><SaveStatus saving={saving} /></div>
-    <p className="mt-2 max-w-2xl text-slate-400">{t.intro}</p>
+  return <div>
+    <ToolHeader title={t.title} intro={t.intro} save={{ saving }} />
     {configError && <p role="alert" className="mt-3 text-amber-200">{t.preferencesError}</p>}
     {error && <div role="alert" className="mt-4 rounded-xl bg-red-500/10 p-3 text-red-200">{error} <button className={buttonClass} onClick={() => { setError(''); setRevision(v => v + 1) }}>{t.retry}</button></div>}
     {notice && <p role="status" className="mt-4 text-sm text-emerald-300">{notice}</p>}

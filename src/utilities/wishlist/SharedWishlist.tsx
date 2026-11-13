@@ -7,6 +7,8 @@ import { object, parseItems, uuid } from './model'
 import type { Item } from './model'
 import { buttonClass, ItemCard, primaryClass } from './components'
 import { STR } from './strings'
+import { ToolHeader } from '../../components/ToolHeader'
+import { getUtility } from '../registry'
 
 export function SharedWishlist() {
   const { token = '' } = useParams()
@@ -66,12 +68,11 @@ function SharedCollection({ token }: { token: string }) {
     } catch { setNotice(t.failed) }
     finally { setBusy(false); setRevision(v => v + 1) }
   }
-  return <div className="animate-fade-up mx-auto max-w-5xl">
-    <p className="text-sm font-medium text-indigo-300">{t.sharedTitle}</p>
-    <h1 className="mt-2 break-words text-3xl font-bold">{list?.name || t.title}</h1>
-    <p className="mt-3 text-slate-400">{t.sharedIntro}</p>
-    <p className="mt-2 max-w-2xl text-sm text-slate-400">{t.reservationHint}</p>
-    <div className="my-5 flex flex-wrap gap-2"><button className={buttonClass} disabled={busy || loading} onClick={() => { setLoading(true); setRevision(v => v + 1) }}>{t.refresh}</button><Link to="/tools/wishlist" className={buttonClass}>{t.manage}</Link></div>
+  return <div>
+    <ToolHeader eyebrow={t.sharedTitle} title={list?.name || t.title} icon={getUtility('wishlist')?.icon} intro={t.sharedIntro}>
+      <p className="mt-2 max-w-2xl text-sm text-slate-400">{t.reservationHint}</p>
+    </ToolHeader>
+    <div className="mb-5 flex flex-wrap gap-2"><button className={buttonClass} disabled={busy || loading} onClick={() => { setLoading(true); setRevision(v => v + 1) }}>{t.refresh}</button><Link to="/tools/wishlist" className={buttonClass}>{t.manage}</Link></div>
     {error && <p role="alert" className="my-4 rounded-xl bg-amber-500/10 p-4 text-amber-200">{error}</p>}
     {notice && <p role="status" className="my-4 rounded-xl bg-indigo-500/10 p-4 text-indigo-100">{notice}</p>}
     {loading ? <p className="animate-pulse">{t.loading}</p> : list && (list.items.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{list.items.map(item => <ItemCard key={item.id} item={item}>

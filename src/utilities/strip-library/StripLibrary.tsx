@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   BookCheck, BookOpen, Check, ExternalLink, LibraryBig, Plus, ScanBarcode, Search, Trash2, X,
 } from 'lucide-react'
-import { SaveStatus } from '../../components/SaveStatus'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
@@ -12,6 +11,7 @@ import {
   DEFAULTS, albumFromEdition, editionCode, matchesQuery, normalizeIsbn, sameEdition, sortAlbums,
   type Album, type Edition, type LookupResult, type SortKey, type StripLibraryConfig,
 } from './model'
+import { ToolHeader } from '../../components/ToolHeader'
 
 type Strings = (typeof STR)['en']
 
@@ -423,20 +423,8 @@ export function StripLibrary() {
   ]
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-amber-400/25 to-orange-500/20 text-amber-300 ring-1 ring-amber-300/20">
-              <LibraryBig className="size-6" />
-            </span>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.title}</h1>
-              <SaveStatus saving={saving} error={configError} />
-            </div>
-          </div>
-          <p className="max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">{t.subtitle}</p>
-        </div>
+    <div className="space-y-6">
+      <ToolHeader title={t.title} intro={t.subtitle} save={{ saving, error: configError }} actions={<>
         <dl className="flex gap-2">
           {[[t.albums, config.albums.length], [t.series, seriesNames.length], [t.read, readCount]].map(([label, value]) => (
             <div key={label} className="glass min-w-20 rounded-2xl px-4 py-2 text-center">
@@ -445,7 +433,7 @@ export function StripLibrary() {
             </div>
           ))}
         </dl>
-      </header>
+      </>} />
 
       <form onSubmit={submit} className="flex flex-col gap-2 sm:flex-row">
         <label className="glass flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-4 py-3 focus-within:border-amber-400/40">
