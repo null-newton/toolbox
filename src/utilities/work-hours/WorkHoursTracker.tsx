@@ -634,7 +634,19 @@ export function WorkHoursTracker() {
                   const holidayHours = hoursForDay(d).holiday
                   const hasPersonalHoliday = isOff || holidayHours > 0
                   return (
-                    <div key={ymd(d)} className="relative flex min-w-0">
+                    <div key={ymd(d)} className={`flex min-w-0 rounded-lg text-xs transition-all duration-200 ${
+                        !inMonth
+                          ? 'opacity-25'
+                          : !workday
+                            ? 'text-slate-600'
+                            : isOff
+                              ? 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                              : isHol
+                                ? 'bg-violet-500/15 text-violet-300'
+                                : holidayHours > 0
+                                  ? 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                                : 'bg-white/5 text-slate-200 hover:bg-white/10'
+                      } ${isToday || selectedDay === ymd(d) ? 'ring-1 ring-indigo-400/60' : ''}`}>
                     <button
                       disabled={!interactive}
                       onClick={() => {
@@ -651,29 +663,13 @@ export function WorkHoursTracker() {
                               : t.workDayTitle
                             : undefined
                       }
-                      className={`flex w-full flex-col items-center rounded-lg py-1.5 text-xs transition-all duration-200 ${interactive && hasPersonalHoliday ? 'pr-6' : ''} ${
-                        !inMonth
-                          ? 'opacity-25'
-                          : !workday
-                            ? 'text-slate-600'
-                            : isOff
-                              ? 'bg-amber-500/15 text-amber-300 line-through hover:bg-amber-500/25'
-                              : isHol
-                                ? 'bg-violet-500/15 text-violet-300'
-                                : holidayHours > 0
-                                  ? 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
-                                : 'bg-white/5 text-slate-200 hover:bg-white/10'
-                      } ${isToday || selectedDay === ymd(d) ? 'ring-1 ring-indigo-400/60' : ''}`}
+                      className={`flex min-w-0 flex-1 flex-col items-center rounded-lg py-1.5 ${isOff ? 'line-through' : ''}`}
                     >
-                      <span className="text-[10px] text-slate-500">
+                      <span className="max-w-full truncate px-1 text-[10px] text-slate-500">
                         {t.weekdays[d.getDay()]}
+                        {holidayHours > 0 && personalHoliday && <span className="text-amber-300"> · {t.holidayBadge(fmtHours(holidayHours), personalHoliday.position)}</span>}
                       </span>
                       <span className="font-medium">{d.getDate()}</span>
-                      {holidayHours > 0 && personalHoliday && (
-                        <span className="mt-1 text-[9px]">
-                          {t.holidayBadge(fmtHours(holidayHours), personalHoliday.position)}
-                        </span>
-                      )}
                     </button>
                     {interactive && hasPersonalHoliday && (
                       <button
@@ -682,7 +678,7 @@ export function WorkHoursTracker() {
                         aria-label={`${t.editHolidayHours} — ${d.toLocaleDateString(locale)}`}
                         aria-expanded={selectedDay === ymd(d)}
                         title={t.editHolidayHours}
-                        className="absolute inset-y-0 right-0 flex w-6 items-center justify-center rounded-r-lg text-amber-300 hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                        className="flex w-6 shrink-0 items-center justify-center rounded-r-lg text-amber-300 hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                       >
                         <Clock size={14} aria-hidden="true" />
                       </button>
