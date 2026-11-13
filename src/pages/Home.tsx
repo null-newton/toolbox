@@ -56,7 +56,7 @@ export function Home() {
         )}
       </p>
 
-      <div className="mt-12 grid grid-cols-1 gap-px border border-slate-700 bg-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-12 grid grid-cols-1 pl-px pt-px sm:grid-cols-2 lg:grid-cols-3">
         {utilities.map((u, i) => {
           const local = localizedUtility(u.id, lang, u)
           const fav = isFavorite(u.id)
@@ -65,7 +65,7 @@ export function Home() {
             key={u.id}
             to={`/tools/${u.id}`}
             style={{ animationDelay: `${i * 60}ms` }}
-            className="card-spotlight group relative flex min-h-56 animate-fade-up flex-col overflow-hidden bg-panel p-6 transition-all duration-300 hover:z-10 hover:-translate-y-1 hover:bg-slate-800"
+            className="card-spotlight group relative -ml-px -mt-px flex min-h-56 animate-fade-up flex-col overflow-hidden border border-slate-700 bg-panel p-6 transition-all duration-300 hover:z-10 hover:-translate-y-1 hover:bg-slate-800"
           >
             <div className="relative z-10 flex items-start justify-between gap-2">
               <div className="flex items-center gap-3">
