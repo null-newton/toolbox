@@ -34,11 +34,14 @@ function meta(name: string, content: string) {
 }
 
 let manifestUrl = ''
-// iOS Safari (and every iOS browser, all WebKit) ignores blob: manifests and would fall back to the root start_url.
+// iOS (all WebKit) only reads the manifest present at page load, so it gets none and saves the page's own URL instead.
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
 
 // Gives the current page its own tab icon, title and installable PWA identity (one per tool).
-export function useAppIdentity(id: string | null, name: string, description: string, iconRef: RefObject<HTMLElement | null>) {
+export function useAppIdentity(id: string | null, name: string, description: string, iconRef: RefObject<HTMLElement | null>, search = '') {
+  // Mirror the tool + its options into the real query (/?app=<id>&…) so a home-screen save reopens it even if the hash is dropped.
+  const launch = id ? `/?${new URLSearchParams([['app', id], ...new URLSearchParams(search)])}` : '/'
+  useEffect(() => { if (isIOS && location.pathname + location.search !== launch) history.replaceState(history.state, '', launch + location.hash) }, [launch])
   useEffect(() => {
     const svg = iconRef.current?.querySelector('svg')
     const inner = id && svg ? svg.innerHTML : BRAND_ICON
@@ -46,12 +49,11 @@ export function useAppIdentity(id: string | null, name: string, description: str
     document.title = title; meta('apple-mobile-web-app-title', id ? name : 'Toolbox'); meta('application-name', id ? name : 'Toolbox')
     const icon = tileSvg(inner)
     link('icon', { type: 'image/svg+xml', href: svgUrl(icon) })
-    if (isIOS) link('manifest', { href: id ? `/apps/${id}.webmanifest` : '/manifest.webmanifest' })
     let cancelled = false
     void Promise.all([png(icon, 180), png(icon, 192), png(icon, 512), png(tileSvg(inner, true), 512)]).then(([apple, p192, p512, mask]) => {
       if (cancelled) return
       link('apple-touch-icon', { href: apple })
-      const origin = location.origin, start = id ? `${origin}/?app=${id}` : `${origin}/`
+      const origin = location.origin, start = origin + launch
       const manifest = {
         id: id ? `/?app=${id}` : '/', name: title, short_name: id ? name : 'Toolbox', description, start_url: start, scope: `${origin}/`,
         display: 'standalone', background_color: BG, theme_color: BG,
@@ -63,5 +65,5 @@ export function useAppIdentity(id: string | null, name: string, description: str
       link('manifest', { href: manifestUrl })
     }).catch(() => {})
     return () => { cancelled = true }
-  }, [id, name, description, iconRef])
+  }, [id, name, description, iconRef, launch])
 }

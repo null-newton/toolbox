@@ -68,7 +68,7 @@ export function Layout() {
   const tool = toolId ? getUtility(toolId) : undefined
   const toolText = tool ? localizedUtility(tool.id, lang, tool) : undefined
   const iconRef = useRef<HTMLSpanElement>(null)
-  useAppIdentity(tool?.id ?? null, toolText?.name ?? 'Toolbox', toolText?.description ?? 'A collection of handy utilities.', iconRef)
+  useAppIdentity(tool?.id ?? null, toolText?.name ?? 'Toolbox', toolText?.description ?? 'A collection of handy utilities.', iconRef, location.search)
   const identityIcon = <span ref={iconRef} hidden aria-hidden>{tool?.icon}</span>
 
   useEffect(() => {

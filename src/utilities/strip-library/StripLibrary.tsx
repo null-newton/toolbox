@@ -18,8 +18,17 @@ type Strings = (typeof STR)['en']
 // BarcodeDetector is not in TypeScript's DOM lib yet (Chromium/Android only).
 interface DetectedBarcode { rawValue: string }
 interface BarcodeDetectorLike { detect(source: CanvasImageSource): Promise<DetectedBarcode[]> }
-type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetectorLike
-const BarcodeDetectorImpl = (globalThis as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
+type BarcodeDetectorCtor = (new (options: { formats: string[] }) => BarcodeDetectorLike) & { getSupportedFormats?: () => Promise<string[]> }
+const FORMATS = ['ean_13', 'ean_8', 'upc_a']
+
+// Uses the native detector when it reads EAN-13, else the self-hosted zxing-wasm ponyfill (iOS, Firefox, desktop).
+async function loadDetector(): Promise<BarcodeDetectorLike> {
+  const native = (globalThis as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
+  if (native && (await native.getSupportedFormats?.().catch((): string[] => []))?.includes('ean_13')) return new native({ formats: FORMATS })
+  const [{ BarcodeDetector, prepareZXingModule }, { default: wasmUrl }] = await Promise.all([import('barcode-detector/ponyfill'), import('zxing-wasm/reader/zxing_reader.wasm?url')])
+  prepareZXingModule({ overrides: { locateFile: (path: string, prefix: string) => path.endsWith('.wasm') ? wasmUrl : prefix + path } })
+  return new BarcodeDetector({ formats: FORMATS as ('ean_13' | 'ean_8' | 'upc_a')[] })
+}
 
 class LookupError extends Error {}
 
@@ -156,18 +165,17 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
   useEffect(() => { onCodeRef.current = onCode })
 
   useEffect(() => {
-    if (!BarcodeDetectorImpl) return
     let stream: MediaStream | null = null
     let timer: ReturnType<typeof setTimeout> | undefined
     let stopped = false
-    const detector = new BarcodeDetectorImpl({ formats: ['ean_13', 'ean_8', 'upc_a'] })
+    let detector: BarcodeDetectorLike | null = null
     let last = ''
     let lastAt = 0
 
     const tick = async () => {
       const video = videoRef.current
       if (stopped || !video) return
-      if (video.readyState >= 2) {
+      if (detector && video.readyState >= 2) {
         try {
           const codes = await detector.detect(video)
           const code = codes.map((c) => normalizeIsbn(c.rawValue)).find(Boolean)
@@ -183,7 +191,7 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
       timer = setTimeout(tick, 250)
     }
 
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+    (navigator.mediaDevices ? navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }) : Promise.reject(new Error('no camera')))
       .then(async (s) => {
         if (stopped) { s.getTracks().forEach((track) => track.stop()); return }
         stream = s
@@ -191,6 +199,7 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
           videoRef.current.srcObject = s
           await videoRef.current.play().catch(() => {})
         }
+        detector = await loadDetector()
         tick()
       })
       .catch(() => setError(t.cameraError))
@@ -411,12 +420,10 @@ export function StripLibrary() {
           className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-500/15 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? t.lookingUp : t.lookUp}
         </button>
-        {BarcodeDetectorImpl && (
-          <button type="button" onClick={() => { setScanLog([]); setScanning(true) }}
-            className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/8 hover:text-white">
-            <ScanBarcode className="size-4" />{t.scan}
-          </button>
-        )}
+        <button type="button" onClick={() => { setScanLog([]); setScanning(true) }}
+          className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/8 hover:text-white">
+          <ScanBarcode className="size-4" />{t.scan}
+        </button>
       </form>
       {lookupError && <p role="alert" className="-mt-3 text-sm text-rose-300">{lookupError}</p>}
 
