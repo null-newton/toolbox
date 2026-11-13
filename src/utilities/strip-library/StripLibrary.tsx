@@ -30,6 +30,8 @@ async function loadDetector(): Promise<BarcodeDetectorLike> {
   return new BarcodeDetector({ formats: FORMATS as ('ean_13' | 'ean_8' | 'upc_a')[] })
 }
 
+type QueueEntry = { id: number; code: string; status: 'queued' | 'active' | 'ok' | 'warn' | 'error'; text?: string }
+
 class LookupError extends Error {}
 
 async function lookupIsbn(isbn: string, t: Strings): Promise<LookupResult> {
@@ -151,15 +153,16 @@ function LookupCard({ result, albums, onAdd, onClose, t }: {
   )
 }
 
-function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
+function Scanner({ onCode, onClose, continuous, setContinuous, queue, t }: {
   onCode: (code: string) => void
   onClose: () => void
   continuous: boolean
   setContinuous: (v: boolean) => void
-  log: string[]
+  queue: QueueEntry[]
   t: Strings
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const flashRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   const onCodeRef = useRef(onCode)
   useEffect(() => { onCodeRef.current = onCode })
@@ -184,6 +187,7 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
             last = code
             lastAt = Date.now()
             navigator.vibrate?.(60)
+            flashRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, easing: 'ease-out' })
             onCodeRef.current(code)
           }
         } catch { /* a frame that fails to decode is fine */ }
@@ -224,6 +228,7 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
           <div className="relative overflow-hidden rounded-2xl bg-black">
             <video ref={videoRef} muted playsInline className="aspect-[4/3] w-full object-cover" />
             <div className="pointer-events-none absolute inset-x-[12%] top-1/2 h-24 -translate-y-1/2 rounded-xl border-2 border-amber-300/80 shadow-[0_0_0_9999px_rgb(0_0_0/0.35)]" />
+            <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-emerald-400/45 opacity-0 shadow-[inset_0_0_0_4px_rgb(52_211_153)]" />
           </div>
         )}
         <p className="text-xs text-slate-400">{t.scannerHint}</p>
@@ -231,12 +236,30 @@ function Scanner({ onCode, onClose, continuous, setContinuous, log, t }: {
           <input type="checkbox" checked={continuous} onChange={(e) => setContinuous(e.target.checked)} className="accent-amber-500" />
           {t.continuous}
         </label>
-        {log.length > 0 && (
-          <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-slate-300">
-            {log.map((line, i) => <li key={i} className="truncate">{line}</li>)}
-          </ul>
-        )}
+        {queue.length > 0 && <LookupQueue queue={queue} t={t} />}
       </div>
+    </div>
+  )
+}
+
+const QUEUE_STYLE: Record<QueueEntry['status'], string> = { queued: 'text-slate-500', active: 'text-amber-300', ok: 'text-emerald-300', warn: 'text-slate-300', error: 'text-rose-300' }
+
+function LookupQueue({ queue, t }: { queue: QueueEntry[]; t: Strings }) {
+  const waiting = queue.filter((e) => e.status === 'queued' || e.status === 'active').length
+  return (
+    <div className="space-y-1.5 rounded-xl bg-white/5 p-2.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold text-slate-200">{t.queueTitle}</span>
+        <span className={waiting ? 'tabular-nums text-amber-300' : 'text-emerald-300'}>{waiting ? t.queueWaiting(waiting) : t.queueIdle}</span>
+      </div>
+      <ul className="max-h-36 space-y-1 overflow-y-auto text-xs" aria-live="polite">
+        {queue.map((e) => (
+          <li key={e.id} className={`flex items-center gap-2 ${QUEUE_STYLE[e.status]}`}>
+            {e.status === 'active' ? <span className="size-2 shrink-0 animate-pulse rounded-full bg-amber-300" /> : <span className={`size-2 shrink-0 rounded-full ${e.status === 'queued' ? 'border border-slate-500' : 'bg-current'}`} />}
+            <span className="truncate">{e.text ?? `${e.code} · ${e.status === 'active' ? t.lookingUpCode : t.queued}`}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -294,7 +317,10 @@ export function StripLibrary() {
   const [result, setResult] = useState<LookupResult | null>(null)
   const [scanning, setScanning] = useState(false)
   const [continuous, setContinuous] = useState(false)
-  const [scanLog, setScanLog] = useState<string[]>([])
+  const [queue, setQueue] = useState<QueueEntry[]>([])
+  const pendingRef = useRef<QueueEntry[]>([])
+  const drainingRef = useRef(false)
+  const nextIdRef = useRef(0)
   const [query, setQuery] = useState('')
   const [series, setSeries] = useState('')
   const [readFilter, setReadFilter] = useState<'all' | 'read' | 'unread'>('all')
@@ -334,19 +360,31 @@ export function StripLibrary() {
       runLookup(code)
       return
     }
-    try {
-      const found = await lookupIsbn(code, t)
-      let line: string
-      if (!found.exact) {
-        setResult(found)
-        line = t.scannedNeedsChoice(code)
-      } else {
-        line = addEdition(found.match, code) ? t.scannedAdded(found.match.title) : t.scannedDuplicate(found.match.title)
+    if (pendingRef.current.some((e) => e.code === code)) return
+    const entry: QueueEntry = { id: nextIdRef.current++, code, status: 'queued' }
+    pendingRef.current.push(entry)
+    setQueue((q) => [entry, ...q].slice(0, 30))
+    drainQueue()
+  }
+
+  // Looks up queued scans one at a time; each GET starts only after the previous one finished.
+  const drainQueue = async () => {
+    if (drainingRef.current) return
+    drainingRef.current = true
+    const patch = (id: number, p: Partial<QueueEntry>) => setQueue((q) => q.map((e) => (e.id === id ? { ...e, ...p } : e)))
+    while (pendingRef.current.length) {
+      const { id, code } = pendingRef.current[0]
+      patch(id, { status: 'active' })
+      try {
+        const found = await lookupIsbn(code, t)
+        if (!found.exact) { setResult(found); patch(id, { status: 'warn', text: t.scannedNeedsChoice(code) }) }
+        else patch(id, addEdition(found.match, code) ? { status: 'ok', text: t.scannedAdded(found.match.title) } : { status: 'warn', text: t.scannedDuplicate(found.match.title) })
+      } catch (e) {
+        patch(id, { status: 'error', text: t.scannedFailed(code, e instanceof Error ? e.message : t.lookupFailed) })
       }
-      setScanLog((log) => [line, ...log].slice(0, 30))
-    } catch (e) {
-      setScanLog((log) => [t.scannedFailed(code, e instanceof Error ? e.message : t.lookupFailed), ...log].slice(0, 30))
+      pendingRef.current.shift()
     }
+    drainingRef.current = false
   }
 
   const updateAlbum = (id: string, patch: Partial<Album>) =>
@@ -420,12 +458,13 @@ export function StripLibrary() {
           className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-500/15 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">
           {busy ? t.lookingUp : t.lookUp}
         </button>
-        <button type="button" onClick={() => { setScanLog([]); setScanning(true) }}
+        <button type="button" onClick={() => { setQueue((q) => q.filter((e) => e.status === 'queued' || e.status === 'active')); setScanning(true) }}
           className="glass flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 hover:bg-white/8 hover:text-white">
           <ScanBarcode className="size-4" />{t.scan}
         </button>
       </form>
       {lookupError && <p role="alert" className="-mt-3 text-sm text-rose-300">{lookupError}</p>}
+      {!scanning && queue.some((e) => e.status === 'queued' || e.status === 'active') && <LookupQueue queue={queue} t={t} />}
 
       {result && (
         <LookupCard key={`${result.isbn}-${result.match.url}`} result={result} albums={config.albums} t={t}
@@ -433,7 +472,7 @@ export function StripLibrary() {
       )}
 
       {scanning && (
-        <Scanner onCode={onScan} onClose={() => setScanning(false)} continuous={continuous} setContinuous={setContinuous} log={scanLog} t={t} />
+        <Scanner onCode={onScan} onClose={() => setScanning(false)} continuous={continuous} setContinuous={setContinuous} queue={queue} t={t} />
       )}
 
       <section className="space-y-4">

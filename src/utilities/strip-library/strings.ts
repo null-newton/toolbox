@@ -51,6 +51,11 @@ export const STR = {
     scannedDuplicate: (title: string) => `Already in library: ${title}`,
     scannedNeedsChoice: (isbn: string) => `${isbn}: no exact edition, review it after closing`,
     scannedFailed: (isbn: string, msg: string) => `${isbn}: ${msg}`,
+    queueTitle: 'Lookup queue',
+    queueWaiting: (n: number) => n === 1 ? '1 scan in queue' : `${n} scans in queue`,
+    queueIdle: 'All lookups done',
+    queued: 'in queue',
+    lookingUpCode: 'looking up…',
   },
   nl: {
     title: 'Stripbibliotheek',
@@ -104,5 +109,10 @@ export const STR = {
     scannedDuplicate: (title: string) => `Al in bibliotheek: ${title}`,
     scannedNeedsChoice: (isbn: string) => `${isbn}: geen exacte uitgave, bekijk na het sluiten`,
     scannedFailed: (isbn: string, msg: string) => `${isbn}: ${msg}`,
+    queueTitle: 'Opzoekwachtrij',
+    queueWaiting: (n: number) => n === 1 ? '1 scan in wachtrij' : `${n} scans in wachtrij`,
+    queueIdle: 'Alles opgezocht',
+    queued: 'in wachtrij',
+    lookingUpCode: 'opzoeken…',
   },
 }
