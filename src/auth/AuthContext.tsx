@@ -5,6 +5,7 @@ import { TERMS_VERSION, PRIVACY_VERSION } from '../legal/content'
 import { supabase } from '../lib/supabase'
 import type { AccountAccess } from './access'
 import { AuthContext } from './auth-context'
+import { getUtility } from '../utilities/registry'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -61,7 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resolved = accessState?.userId === session?.user.id ? accessState : null
   const access = resolved?.access ?? null
-  const canUseApp = (appId: string) => Boolean(access && !access.suspended && access.apps.some(app => app.app_id === appId && app.allowed))
+  const canUseApp = (appId: string) => {
+    if (!access || access.suspended) return false
+    const rule = access.apps.find(app => app.app_id === appId)
+    if (rule) return rule.allowed
+    // Tools that work without an account are also shown to logged-in users by
+    // default, even before they have a row in app_rules. An explicit rule
+    // (allowed: false) set by the administrator still hides them.
+    return getUtility(appId)?.availableWithoutAccount === true
+  }
 
   return (
     <AuthContext.Provider
