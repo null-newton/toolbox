@@ -232,7 +232,14 @@ export async function fetchElevation(route: RouteResult, signal?: AbortSignal, m
 
 /* ---------- Search ---------- */
 
-export interface PlaceResult { lat: number; lon: number; name: string; detail: string }
+export interface PlaceResult {
+  lat: number
+  lon: number
+  name: string
+  detail: string
+  /** Typed coordinates / Plus Code: look up a readable name after picking. */
+  resolveName?: boolean
+}
 
 interface NominatimItem {
   lat: string

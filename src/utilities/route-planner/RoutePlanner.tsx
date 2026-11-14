@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUp, ArrowUpDown, ArrowUpLeft, ArrowUpRight, Bike, Car, CornerLeftDown, CornerRightDown,
   CornerUpLeft, CornerUpRight, Crosshair, Download, Flag, Footprints, Layers, LoaderCircle,
-  LocateFixed, MapPin, Maximize, Motorbike, Navigation, Navigation2, Plus, RotateCcw, Share2, Ship,
+  LocateFixed, MapPin, Route as RouteIcon, Maximize, Motorbike, Navigation, Navigation2, Plus, RotateCcw, Share2, Ship,
   Square, Star, Timer, Trash2, Undo2, Volume2, VolumeX, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -21,6 +21,7 @@ import {
   type RouteOptions, type RouteResult,
 } from './engine'
 import { STR, type Strings } from './strings'
+import { encodePlusCode, parseLocation, recoverShortCode, type LatLonValue } from './location-parse'
 import { useNavigation } from './useNavigation'
 
 /* ---------- Types & defaults ---------- */
@@ -142,8 +143,15 @@ export function RoutePlanner() {
   const [saveName, setSaveName] = useState<string | null>(null)
 
   const [navActive, setNavActive] = useState(false)
+  const defaultNavZoom = mode === 'car' || mode === 'moto' ? 16 : 17
+  const defaultNavZoomRef = useRef(defaultNavZoom)
+  defaultNavZoomRef.current = defaultNavZoom
   const [simulate, setSimulate] = useState(false)
   const [follow, setFollow] = useState(true)
+  // Zoom used while following; the user's pinch/zoom changes are kept.
+  const navZoomRef = useRef(17)
+  const navActiveRef = useRef(false)
+  navActiveRef.current = navActive
   const canSimulate = import.meta.env.DEV || params.has('sim')
 
   const filled = stops.filter(isFilled)
@@ -191,6 +199,7 @@ export function RoutePlanner() {
     L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map)
     map.on('click', (e) => handlers.current.mapClick(e.latlng))
     map.on('dragstart', () => setFollow(false))
+    map.on('zoomend', () => { if (navActiveRef.current) navZoomRef.current = map.getZoom() })
     mapRef.current = map
     const markers = markersRef.current
     hoverMarkerRef.current = L.marker([0, 0], {
@@ -324,7 +333,14 @@ export function RoutePlanner() {
         m.setLatLng([s.lat, s.lon]).setIcon(icon)
       }
       m.dragging?.[navActive ? 'disable' : 'enable']()
-      m.unbindTooltip().bindTooltip(s.label, { direction: 'top', offset: [0, -12] })
+      const tip = document.createElement('div')
+      const name = document.createElement('div')
+      name.textContent = s.label
+      const meta = document.createElement('div')
+      meta.style.cssText = 'opacity:.65;font-size:11px'
+      meta.textContent = `${s.lat.toFixed(5)}, ${s.lon.toFixed(5)} · ${encodePlusCode(s.lat, s.lon)}`
+      tip.append(name, meta)
+      m.unbindTooltip().bindTooltip(tip, { direction: 'top', offset: [0, -12] })
     })
     markersRef.current.forEach((m, id) => {
       if (!seen.has(id)) { m.remove(); markersRef.current.delete(id) }
@@ -435,7 +451,7 @@ export function RoutePlanner() {
     target?.appendChild(host)
     host.classList.toggle('rp-fullscreen', navActive)
     mapRef.current?.invalidateSize()
-    if (navActive) setFollow(true)
+    if (navActive) { setFollow(true); navZoomRef.current = defaultNavZoomRef.current }
     else {
       navMarkerRef.current?.remove(); navMarkerRef.current = null
       accuracyRef.current?.remove(); accuracyRef.current = null
@@ -457,11 +473,25 @@ export function RoutePlanner() {
     accuracyRef.current?.setLatLng(nav.pos).setRadius(nav.accuracy ?? 10)
     const arrow = navMarkerRef.current.getElement()?.querySelector('.rp-nav') as HTMLElement | null
     if (arrow && nav.heading != null) arrow.style.transform = `rotate(${nav.heading}deg)`
-    if (follow) {
-      const zoom = mode === 'car' || mode === 'moto' ? 16 : 17
-      map.setView(nav.pos, Math.max(map.getZoom(), zoom), { animate: true })
-    }
-  }, [nav.pos, nav.heading, nav.accuracy, navActive, follow, mode])
+    if (follow) map.setView(nav.pos, navZoomRef.current, { animate: true })
+  }, [nav.pos, nav.heading, nav.accuracy, navActive, follow])
+
+  // Centre: snap back onto your position at the default navigation zoom.
+  const recenter = () => {
+    navZoomRef.current = defaultNavZoom
+    setFollow(true)
+    if (nav.pos) mapRef.current?.setView(nav.pos, defaultNavZoom, { animate: true })
+  }
+
+  // Overview: show the rest of the route; following pauses until you centre again.
+  const overview = () => {
+    const map = mapRef.current
+    if (!map || !route) return
+    setFollow(false)
+    const rest = route.coords.slice(nav.idx)
+    if (nav.pos) rest.unshift(nav.pos)
+    map.fitBounds(L.latLngBounds(rest), { paddingTopLeft: [40, 170], paddingBottomRight: [40, 120] })
+  }
 
   const startNav = (sim: boolean) => {
     if (!route) return
@@ -536,6 +566,11 @@ export function RoutePlanner() {
     else if (filled.length) map.fitBounds(L.latLngBounds(filled.map((s) => [s.lat, s.lon] as [number, number])).pad(0.3))
   }
 
+  const center = (): LatLonValue | null => {
+    const c = mapRef.current?.getCenter()
+    return c ? { lat: c.lat, lon: c.lng } : null
+  }
+
   const viewbox = (): [number, number, number, number] | null => {
     const b = mapRef.current?.getBounds().pad(1)
     return b ? [b.getWest(), b.getNorth(), b.getEast(), b.getSouth()] : null
@@ -607,9 +642,10 @@ export function RoutePlanner() {
                   removeLabel={t.removeStop}
                   lang={lang}
                   viewbox={viewbox}
-                  searchFailed={t.searchFailed}
+                  center={center}
+                  t={t}
                   onPick={(p) => {
-                    setStopAt(s.id, p.lat, p.lon, p.name)
+                    setStopAt(s.id, p.lat, p.lon, p.resolveName ? undefined : p.name)
                     mapRef.current?.setView([p.lat, p.lon], Math.max(mapRef.current.getZoom(), 14))
                   }}
                   onRemove={() => removeStop(s.id)}
@@ -783,7 +819,8 @@ export function RoutePlanner() {
               voice={config.voice}
               follow={follow}
               onVoice={() => setConfig({ voice: !config.voice })}
-              onRecenter={() => setFollow(true)}
+              onRecenter={recenter}
+              onOverview={overview}
               onStop={stopNav}
               rerouting={status.kind === 'loading'}
             />
@@ -839,7 +876,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function StopInput({
-  stop, role, placeholder, removable, removeLabel, lang, viewbox, searchFailed, onPick, onRemove,
+  stop, role, placeholder, removable, removeLabel, lang, viewbox, center, t, onPick, onRemove,
 }: {
   stop: Stop
   role: 'start' | 'via' | 'end'
@@ -848,7 +885,8 @@ function StopInput({
   removeLabel: string
   lang: 'en' | 'nl'
   viewbox: () => [number, number, number, number] | null
-  searchFailed: string
+  center: () => LatLonValue | null
+  t: Strings
   onPick: (p: PlaceResult) => void
   onRemove: () => void
 }) {
@@ -861,26 +899,57 @@ function StopInput({
   const ctrl = useRef<AbortController | null>(null)
 
 
+  const coordName = (lat: number, lon: number) => `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+
   const search = (q: string) => {
     setText(q)
+    setError('')
     window.clearTimeout(timer.current)
-    if (q.trim().length < 3) { setResults([]); return }
+    ctrl.current?.abort()
+
+    // Coordinates, Google Maps links and full Plus Codes resolve instantly.
+    const parsed = parseLocation(q)
+    if (parsed && parsed.kind !== 'shortcode') {
+      setResults([{
+        lat: parsed.lat, lon: parsed.lon, name: coordName(parsed.lat, parsed.lon), resolveName: true,
+        detail: parsed.kind === 'pluscode' ? `${t.plusCode} ${parsed.code}` : `${t.coordinates} · ${t.plusCode} ${encodePlusCode(parsed.lat, parsed.lon)}`,
+      }])
+      setActive(0)
+      return
+    }
+    if (!parsed && q.trim().length < 3) { setResults([]); return }
+
     timer.current = window.setTimeout(async () => {
-      ctrl.current?.abort()
       ctrl.current = new AbortController()
+      const signal = ctrl.current.signal
       try {
-        setResults(await searchPlaces(q.trim(), lang, viewbox(), ctrl.current.signal))
+        if (parsed?.kind === 'shortcode') {
+          // Short Plus Code: anchor it on the named place, or on the map view.
+          let ref = center()
+          if (parsed.locality) {
+            const [place] = await searchPlaces(parsed.locality, lang, viewbox(), signal)
+            if (!place) { setResults([]); setError(t.localityNotFound(parsed.locality)); return }
+            ref = place
+          }
+          const p = ref && recoverShortCode(parsed.code, ref)
+          setResults(p ? [{
+            lat: p.lat, lon: p.lon, name: coordName(p.lat, p.lon), resolveName: true,
+            detail: `${t.plusCode} ${parsed.code} · ${parsed.locality || t.nearMap}`,
+          }] : [])
+          setActive(0)
+          return
+        }
+        setResults(await searchPlaces(q.trim(), lang, viewbox(), signal))
         setActive(-1)
-        setError('')
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') setError(searchFailed)
+        if ((e as Error).name !== 'AbortError') setError(t.searchFailed)
       }
     }, 400)
   }
 
   const pick = (p: PlaceResult) => {
     onPick(p)
-    setText(p.name)
+    setText(p.resolveName ? '' : p.name)
     setResults([])
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
@@ -992,7 +1061,7 @@ function ElevationChart({ route, elevation, t, locale, onHover }: {
   )
 }
 
-function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter, onStop, rerouting }: {
+function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter, onOverview, onStop, rerouting }: {
   t: Strings
   locale: string
   route: RouteResult
@@ -1001,6 +1070,7 @@ function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter,
   follow: boolean
   onVoice: () => void
   onRecenter: () => void
+  onOverview: () => void
   onStop: () => void
   rerouting: boolean
 }) {
@@ -1039,11 +1109,26 @@ function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter,
         )}
       </div>
 
-      {!follow && (
-        <button onClick={onRecenter} className="glass absolute bottom-28 right-3 z-[600] inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg">
-          <Crosshair className="size-4" />{t.navRecenter}
+      {/* Centre / overview — always available while navigating */}
+      <div className="absolute bottom-28 right-3 z-[600] flex flex-col items-end gap-2" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+        <button
+          onClick={onOverview}
+          aria-label={t.navOverview}
+          title={t.navOverview}
+          className="glass grid size-12 place-items-center rounded-full text-slate-200 shadow-lg"
+        >
+          <RouteIcon className="size-5" />
         </button>
-      )}
+        <button
+          onClick={onRecenter}
+          aria-label={t.navRecenter}
+          title={t.navRecenter}
+          className={`inline-flex h-12 items-center justify-center gap-2 rounded-full shadow-lg ${follow ? 'glass w-12 text-[#c8ff3d]' : 'bg-[#c8ff3d] px-5 font-bold text-[#071013]'}`}
+        >
+          <Crosshair className="size-5" />
+          {!follow && t.navRecenter}
+        </button>
+      </div>
 
       {/* Bottom bar */}
       <div className="absolute inset-x-0 bottom-0 z-[600]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
