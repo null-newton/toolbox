@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.108.1",
     "barcode-detector": "^3.2.3",
     "hls.js": "^1.6.16",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.21.0",
     "mp4-muxer": "^5.2.2",
     "qr-code-styling": "^1.9.2",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

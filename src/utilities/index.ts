@@ -4,6 +4,7 @@ import {
   wishlistIcon,
   // textCaseIcon,
   routeIcon,
+  routePlannerIcon,
   downloadIcon,
   qrCodeIcon,
   clockIcon,
@@ -139,6 +140,17 @@ registerUtility({
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./file-transfer/FileTransfer').then((m) => ({ default: m.FileTransfer }))
+  ),
+})
+
+registerUtility({
+  id: 'route-planner',
+  name: 'Route Planner',
+  description: 'Plan walking, running, cycling, motorcycle and car routes with elevation, directions, GPX export and live GPS navigation.',
+  icon: routePlannerIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./route-planner/RoutePlanner').then((m) => ({ default: m.RoutePlanner }))
   ),
 })
 

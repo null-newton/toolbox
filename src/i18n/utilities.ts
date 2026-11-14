@@ -73,6 +73,16 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'Zet tekst om tussen hoofdletters, kleine letters, titel-, kebab- en snake-case.',
     },
   },
+  'route-planner': {
+    en: {
+      name: 'Route Planner',
+      description: 'Plan walking, running, cycling, motorcycle and car routes with elevation, directions, GPX export and live GPS navigation.',
+    },
+    nl: {
+      name: 'Routeplanner',
+      description: 'Plan wandel-, loop-, fiets-, motor- en autoroutes met hoogteprofiel, routebeschrijving, GPX-export en live GPS-navigatie.',
+    },
+  },
   'route-optimizer': {
     en: {
       name: 'Shortest Route',

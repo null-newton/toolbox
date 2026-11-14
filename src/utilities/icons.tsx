@@ -33,10 +33,12 @@ import {
   Landmark,
   ChartCandlestick,
   LibraryBig,
+  Signpost,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
 export const routeIcon = <Route className="size-5" />
+export const routePlannerIcon = <Signpost className="size-5" />
 export const downloadIcon = <Download className="size-5" />
 export const qrCodeIcon = <QrCode className="size-5" />
 export const clockIcon = <Clock className="size-5" />
