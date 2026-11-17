@@ -1,9 +1,11 @@
 import { backendFetch as fetch } from '../../lib/backend-fetch'
 import { useEffect, useMemo, useState } from 'react'
+import type React from 'react'
 import { ArrowDownRight, ArrowRight, ArrowUpRight, ExternalLink, RefreshCw } from 'lucide-react'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { functionsBase } from '../../lib/supabase'
 import { ToolHeader } from '../../components/ToolHeader'
+import { FuelAlerts } from './FuelAlerts'
 
 type Group = 'e95' | 'e98' | 'diesel'
 
@@ -74,7 +76,8 @@ function parseDay(iso: string) {
   return new Date(y, m - 1, d)
 }
 
-function TrendChart({ history, locale }: { history: FuelSnapshot['history']; locale: string }) {
+function TrendChart({ history, locale, euro }: { history: FuelSnapshot['history']; locale: string; euro: Intl.NumberFormat }) {
+  const [hover, setHover] = useState<number | null>(null)
   const width = 640
   const height = 200
   const pad = { l: 44, r: 12, t: 12, b: 26 }
@@ -93,27 +96,84 @@ function TrendChart({ history, locale }: { history: FuelSnapshot['history']; loc
   const ticks = [min, (min + max) / 2, max]
   const fmtDay = (iso: string) => parseDay(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 
+  // Map the pointer to the nearest tariff day (in viewBox units).
+  const onPointer = (event: React.PointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const vx = ((event.clientX - rect.left) / rect.width) * width
+    const ratio = (vx - pad.l) / (width - pad.l - pad.r)
+    setHover(Math.max(0, Math.min(history.length - 1, Math.round(ratio * (history.length - 1)))))
+  }
+
+  const row = hover !== null ? history[hover] : null
+  const hoverX = hover !== null ? x(hover) : 0
+  const leftPct = (hoverX / width) * 100
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Fuel price trend" className="h-auto w-full">
-      {ticks.map((tick) => (
-        <g key={tick}>
-          <line x1={pad.l} x2={width - pad.r} y1={y(tick)} y2={y(tick)} stroke="rgb(255 255 255 / .08)" />
-          <text x={pad.l - 6} y={y(tick) + 4} textAnchor="end" fill="#64748b" fontSize="11">€{tick.toFixed(2)}</text>
-        </g>
-      ))}
-      {series.map((s) => (
-        <polyline
-          key={s.group}
-          points={s.points.map((p) => `${x(p.index)},${y(p.value)}`).join(' ')}
-          fill="none"
-          stroke={s.color}
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-      ))}
-      <text x={pad.l} y={height - 6} fill="#64748b" fontSize="11">{fmtDay(history[0].date)}</text>
-      <text x={width - pad.r} y={height - 6} textAnchor="end" fill="#64748b" fontSize="11">{fmtDay(history.at(-1)!.date)}</text>
-    </svg>
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Fuel price trend"
+        className="h-auto w-full touch-pan-y"
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={() => setHover(null)}
+      >
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line x1={pad.l} x2={width - pad.r} y1={y(tick)} y2={y(tick)} stroke="rgb(255 255 255 / .08)" />
+            <text x={pad.l - 6} y={y(tick) + 4} textAnchor="end" fill="#64748b" fontSize="11">€{tick.toFixed(2)}</text>
+          </g>
+        ))}
+        {series.map((s) => (
+          <polyline
+            key={s.group}
+            points={s.points.map((p) => `${x(p.index)},${y(p.value)}`).join(' ')}
+            fill="none"
+            stroke={s.color}
+            strokeWidth="2.5"
+            strokeLinejoin="round"
+          />
+        ))}
+        {row && (
+          <g pointerEvents="none">
+            <line x1={hoverX} x2={hoverX} y1={pad.t} y2={height - pad.b} stroke="rgb(255 255 255 / .25)" strokeDasharray="3 3" />
+            {series.map((s) => {
+              const value = row[MAIN[s.group]]
+              return typeof value === 'number'
+                ? <circle key={s.group} cx={hoverX} cy={y(value)} r="4.5" fill={s.color} stroke="#0f172a" strokeWidth="2" />
+                : null
+            })}
+          </g>
+        )}
+        <text x={pad.l} y={height - 6} fill="#64748b" fontSize="11">{fmtDay(history[0].date)}</text>
+        <text x={width - pad.r} y={height - 6} textAnchor="end" fill="#64748b" fontSize="11">{fmtDay(history.at(-1)!.date)}</text>
+      </svg>
+      {row && (
+        <div
+          className="pointer-events-none absolute top-0 z-10 min-w-36 whitespace-nowrap rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 text-xs shadow-xl backdrop-blur"
+          style={{
+            left: `${leftPct}%`,
+            transform: `translateX(${leftPct > 60 ? 'calc(-100% - 12px)' : '12px'})`,
+          }}
+        >
+          <div className="mb-1.5 font-semibold text-white">
+            {parseDay(row.date).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+          </div>
+          {series.map((s) => {
+            const value = row[MAIN[s.group]]
+            return (
+              <div key={s.group} className="flex items-center justify-between gap-4 py-0.5">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <span className="size-2 rounded-full" style={{ background: s.color }} />{s.title}
+                </span>
+                <span className="font-semibold tabular-nums text-slate-100">{typeof value === 'number' ? euro.format(value) : '—'}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -232,9 +292,11 @@ export function FuelPrices() {
                   ))}
                 </div>
               </div>
-              <TrendChart history={data.history} locale={locale} />
+              <TrendChart history={data.history} locale={locale} euro={euro} />
             </section>
           )}
+
+          <FuelAlerts />
 
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
             <span>{t.source}</span>
