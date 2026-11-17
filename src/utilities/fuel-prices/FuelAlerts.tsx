@@ -41,6 +41,12 @@ const STR = {
     unsupported: 'This browser does not support push notifications.',
     ios: 'On iPhone or iPad: tap Share → Add to Home Screen, open Toolbox from the home screen, and turn on notifications there (iOS 16.4+).',
     denied: 'Notifications are blocked for this site. Allow them in your browser or system settings, then try again.',
+    permissionTimeout: 'No answer to the notification permission request. Look for a (blocked) bell icon in the address bar, allow notifications, and try again.',
+    workerTimeout: 'The notification service worker did not start. Reload the page and try again.',
+    backendTimeout: 'The server did not respond. Try again in a moment.',
+    backendOld: 'The server does not support notifications yet. Deploy the latest backend.',
+    brave: 'Brave blocks push notifications by default. Open brave://settings/privacy, turn on “Use Google services for push messaging”, then quit Brave completely (Cmd+Q) and reopen it before trying again.',
+    pushService: 'The browser could not reach its push service. Check that this browser allows push messaging (not a private window, no blocker on the push service), or try Chrome, Edge, Firefox or Safari.',
     failed: 'Something went wrong.',
   },
   nl: {
@@ -62,11 +68,18 @@ const STR = {
     unsupported: 'Deze browser ondersteunt geen pushmeldingen.',
     ios: 'Op iPhone of iPad: tik op Deel → Zet op beginscherm, open Toolbox vanaf het beginscherm en zet daar de meldingen aan (iOS 16.4+).',
     denied: 'Meldingen zijn geblokkeerd voor deze site. Sta ze toe in je browser- of systeeminstellingen en probeer opnieuw.',
+    permissionTimeout: 'Geen antwoord op de toestemmingsvraag voor meldingen. Kijk in de adresbalk naar een (geblokkeerd) belletje, sta meldingen toe en probeer opnieuw.',
+    workerTimeout: 'De service worker voor meldingen startte niet. Herlaad de pagina en probeer opnieuw.',
+    backendTimeout: 'De server antwoordde niet. Probeer het zo meteen opnieuw.',
+    backendOld: 'De server ondersteunt nog geen meldingen. Deploy eerst de nieuwste backend.',
+    brave: 'Brave blokkeert pushmeldingen standaard. Open brave://settings/privacy, zet “Google-services gebruiken voor pushberichten” aan, sluit Brave daarna volledig af (Cmd+Q) en open het opnieuw voor je het nog eens probeert.',
+    pushService: 'De browser kon zijn pushdienst niet bereiken. Controleer of pushberichten toegestaan zijn (geen privévenster, niets dat de pushdienst blokkeert), of probeer Chrome, Edge, Firefox of Safari.',
     failed: 'Er ging iets mis.',
   },
 }
 
 const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+const isBrave = () => Boolean((navigator as Navigator & { brave?: unknown }).brave)
 const isIos = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent)
 
 function guessDeviceName() {
@@ -88,6 +101,30 @@ function bytesToBase64Url(bytes: ArrayBuffer) {
   return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+class StepTimeout extends Error {}
+
+/** Reject with `message` when a browser step doesn't settle in time. */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new StepTimeout(message)), ms) }),
+  ]).finally(() => clearTimeout(timer))
+}
+
+/** Resolve once this registration has an active service worker. */
+function activeWorker(registration: ServiceWorkerRegistration): Promise<ServiceWorkerRegistration> {
+  if (registration.active) return Promise.resolve(registration)
+  return new Promise((resolve, reject) => {
+    const worker = registration.installing || registration.waiting
+    if (!worker) { reject(new Error('No service worker')); return }
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'activated') resolve(registration)
+      if (worker.state === 'redundant') reject(new Error('Service worker failed to install'))
+    })
+  })
+}
+
 /** Same id the backend derives from the push endpoint. */
 async function endpointId(endpoint: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint))
@@ -95,9 +132,10 @@ async function endpointId(endpoint: string) {
 }
 
 async function api<T>(action: string, init?: { body: unknown }): Promise<T> {
+  const signal = AbortSignal.timeout(20_000)
   const response = await fetch(`${functionsBase}/fuel-prices?action=${action}`, init
-    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) }
-    : undefined)
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body), signal }
+    : { signal })
   const data = await response.json().catch(() => null)
   if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`)
   return data as T
@@ -164,11 +202,15 @@ export function FuelAlerts() {
     setBusy(true)
     setError('')
     try {
-      const permission = await Notification.requestPermission()
+      const permission = await withTimeout(Notification.requestPermission(), 60_000, t.permissionTimeout)
       if (permission !== 'granted') throw new Error(t.denied)
-      const { publicKey } = await api<{ publicKey: string }>('vapid')
-      await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      const registration = await navigator.serviceWorker.ready
+      const { publicKey } = await api<{ publicKey?: string }>('vapid')
+      if (!publicKey) throw new Error(t.backendOld)
+      const registration = await withTimeout(
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(activeWorker),
+        15_000,
+        t.workerTimeout,
+      )
       let subscription = await registration.pushManager.getSubscription()
       // A subscription made with another server key can't receive our pushes.
       const existingKey = subscription?.options.applicationServerKey
@@ -176,12 +218,26 @@ export function FuelAlerts() {
         await subscription.unsubscribe()
         subscription = null
       }
-      subscription ||= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) })
+      subscription ||= await withTimeout(
+        registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(publicKey) }),
+        // The first subscription in a browser (e.g. Brave connecting to FCM)
+        // can take well over a minute; only give up after that.
+        90_000,
+        isBrave() ? t.brave : t.pushService,
+      )
       const { device } = await api<{ device: Device }>('subscribe', { body: { subscription: subscription.toJSON(), time, fuels, label, lang } })
       setDevices((list) => [...(list || []).filter((d) => d.id !== device.id), device])
       setCurrentId(device.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : t.failed)
+      // Chromium's "Registration failed - push service error" (AbortError):
+      // the browser has no working push service, e.g. Brave's default setting.
+      if (e instanceof DOMException && e.name === 'TimeoutError') {
+        setError(t.backendTimeout)
+      } else if (e instanceof DOMException && (e.name === 'AbortError' || /push service/i.test(e.message))) {
+        setError(isBrave() ? t.brave : t.pushService)
+      } else {
+        setError(e instanceof Error ? e.message : t.failed)
+      }
     } finally {
       setBusy(false)
     }
