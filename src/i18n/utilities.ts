@@ -33,6 +33,16 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'Huidig weer, verwachtingen, bewaarde steden en historische mediane maxima en minima.',
     },
   },
+  'fuel-prices': {
+    en: {
+      name: 'Fuel Prices',
+      description: 'Today’s official Belgian maximum prices for Euro 95, Super 98 and diesel, with the recent trend.',
+    },
+    nl: {
+      name: 'Brandstofprijzen',
+      description: 'De officiële Belgische maximumprijzen van vandaag voor Euro 95, Super 98 en diesel, met het recente verloop.',
+    },
+  },
   'image-toolbox': {
     en: {
       name: 'Image Toolbox',

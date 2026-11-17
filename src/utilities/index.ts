@@ -19,6 +19,7 @@ import {
   imageUpscalerIcon,
   backgroundRemoverIcon,
   weatherIcon,
+  fuelPricesIcon,
   songListenerIcon,
   imageToolboxIcon,
   subtitleStudioIcon,
@@ -82,6 +83,17 @@ registerUtility({
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./weather/Weather').then((m) => ({ default: m.Weather }))
+  ),
+})
+
+registerUtility({
+  id: 'fuel-prices',
+  name: 'Fuel Prices',
+  description: 'Today’s official Belgian maximum prices for Euro 95, Super 98 and diesel, with the recent trend.',
+  icon: fuelPricesIcon,
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./fuel-prices/FuelPrices').then((m) => ({ default: m.FuelPrices }))
   ),
 })
 

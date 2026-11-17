@@ -34,6 +34,7 @@ import {
   ChartCandlestick,
   LibraryBig,
   Signpost,
+  Fuel,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -56,6 +57,7 @@ export const stripLibraryIcon = <LibraryBig className="size-5" />
 export const stockForecastIcon = <ChartCandlestick className="size-5" />
 export const bankViewerIcon = <Landmark className="size-5" />
 export const weatherIcon = <CloudSun className="size-5" />
+export const fuelPricesIcon = <Fuel className="size-5" />
 export const songListenerIcon = <MicVocal className="size-5" />
 export const imageToolboxIcon = <Images className="size-5" />
 export const subtitleStudioIcon = <Captions className="size-5" />
