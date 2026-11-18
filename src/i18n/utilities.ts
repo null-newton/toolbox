@@ -9,6 +9,14 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  expenses: {
+    en: { name: 'Expenses', description: 'Everything that left your accounts each month, sorted into categories like groceries, housing and eating out, from your Bank Viewer transactions.' },
+    nl: { name: 'Uitgaven', description: 'Alles wat elke maand van je rekeningen ging, ingedeeld in categorieën zoals boodschappen, wonen en uit eten, op basis van je Bank Viewer-verrichtingen.' },
+  },
+  'subscription-radar': {
+    en: { name: 'Subscription Radar', description: 'Finds recurring charges like streaming, gym and insurance in your Bank Viewer transactions, with monthly and yearly totals, price increases and charges you may have forgotten.' },
+    nl: { name: 'Abonnementenradar', description: 'Vindt terugkerende betalingen zoals streaming, fitness en verzekeringen in je Bank Viewer-verrichtingen, met maand- en jaartotalen, prijsstijgingen en betalingen die je misschien vergeten bent.' },
+  },
   wishlist: {
     en: { name: 'Wishlist', description: 'Collect gift ideas, add product links and share a list with anonymous gift reservations.' },
     nl: { name: 'Verlanglijstjes', description: 'Verzamel cadeau-ideeën, voeg productlinks toe en deel een lijst met anonieme cadeaureserveringen.' },

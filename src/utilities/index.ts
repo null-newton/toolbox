@@ -24,6 +24,8 @@ import {
   imageToolboxIcon,
   subtitleStudioIcon,
   bankViewerIcon,
+  subscriptionRadarIcon,
+  expensesIcon,
   stockForecastIcon,
   stripLibraryIcon,
 } from './icons'
@@ -47,9 +49,34 @@ registerUtility({
   name: 'Bank Viewer',
   description: 'Read-only bank balances and transactions, with your surplus at the start of each month.',
   icon: bankViewerIcon,
+  category: 'finance',
   availableWithoutAccount: false,
   component: lazy(() =>
     import('./bank-viewer/BankViewer').then((m) => ({ default: m.BankViewer }))
+  ),
+})
+
+registerUtility({
+  id: 'subscription-radar',
+  name: 'Subscription Radar',
+  description: 'Finds recurring charges like streaming, gym and insurance in your Bank Viewer transactions, with monthly and yearly totals, price increases and charges you may have forgotten.',
+  icon: subscriptionRadarIcon,
+  category: 'finance',
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./subscription-radar/SubscriptionRadar').then((m) => ({ default: m.SubscriptionRadar }))
+  ),
+})
+
+registerUtility({
+  id: 'expenses',
+  name: 'Expenses',
+  description: 'Everything that left your accounts each month, sorted into categories like groceries, housing and eating out, from your Bank Viewer transactions.',
+  icon: expensesIcon,
+  category: 'finance',
+  availableWithoutAccount: false,
+  component: lazy(() =>
+    import('./expenses/Expenses').then((m) => ({ default: m.Expenses }))
   ),
 })
 

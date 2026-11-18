@@ -1,7 +1,7 @@
 import { LegalLinks } from '../legal/LegalPages'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ChevronDown, Images, PanelLeft } from 'lucide-react'
+import { ChevronDown, Images, PanelLeft, Wallet } from 'lucide-react'
 import { useAuth } from '../auth/auth-context'
 import { useFavorites } from '../favorites/favorites-context'
 import { getUtilities, getUtility } from '../utilities/registry'
@@ -28,6 +28,7 @@ const STR = {
     logIn: 'Log in',
     signInPrompt: 'Sign in to save your settings.',
     media: 'Media',
+    finance: 'Finance',
   },
   nl: {
     utilities: 'Hulpmiddelen',
@@ -42,6 +43,7 @@ const STR = {
     logIn: 'Aanmelden',
     signInPrompt: 'Meld je aan om je instellingen te bewaren.',
     media: 'Media',
+    finance: 'Financiën',
   },
 }
 
@@ -55,10 +57,10 @@ export function Layout() {
   const utilities = getUtilities().filter((u) => user ? canUseApp(u.id) : u.availableWithoutAccount)
   const favourites = utilities.filter((u) => isFavorite(u.id))
   const nonFavourites = utilities.filter((u) => !isFavorite(u.id))
-  const mediaUtilities = nonFavourites.filter((u) => u.category === 'media')
+  const groups = ([['finance', Wallet], ['media', Images]] as const).map(([id, Icon]) => ({ id, Icon, items: nonFavourites.filter((u) => u.category === id) })).filter((g) => g.items.length)
   const generalUtilities = nonFavourites.filter((u) => !u.category)
   const [navOpen, setNavOpen] = useState(false)
-  const [mediaOpen, setMediaOpen] = useState(true)
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({})
   // Desktop-only rail collapse, remembered across sessions.
   const [collapsed, setCollapsed] = useState(
     () => typeof localStorage !== 'undefined' && localStorage.getItem(COLLAPSE_KEY) === '1'
@@ -142,21 +144,21 @@ export function Layout() {
     } ${
       isActive
         ? 'bg-indigo-500/15 text-indigo-200 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)] ring-1 ring-indigo-400/30'
-        : 'text-slate-400 hover:bg-white/5 hover:text-white'
+        : 'text-slate-400 group-hover/row:bg-white/5 group-hover/row:text-white'
     }`
 
   const renderItem = (u: (typeof utilities)[number], keyPrefix = '') => {
     const name = localizedUtility(u.id, lang, u).name
     const fav = isFavorite(u.id)
     return (
-      <div key={`${keyPrefix}${u.id}`} className="group/row flex items-center gap-1">
+      <div key={`${keyPrefix}${u.id}`} className="group/row relative">
         <NavLink
           to={`/tools/${u.id}`}
           onClick={closeNav}
-          className={(state) => `${linkClass(state)} min-w-0 flex-1`}
+          className={(state) => `${linkClass(state)} min-w-0 ${user ? (collapsed ? 'pr-9 lg:pr-2' : 'pr-9') : ''}`}
           title={collapsed ? name : undefined}
         >
-          <span className="transition-transform duration-200 group-hover:scale-110">{u.icon}</span>
+          <span className="transition-transform duration-200 group-hover/row:scale-110">{u.icon}</span>
           <span className={`flex-1 truncate ${collapsed ? 'lg:hidden' : ''}`}>{name}</span>
         </NavLink>
         {user && (
@@ -164,7 +166,7 @@ export function Layout() {
             active={fav}
             onClick={() => toggleFavorite(u.id)}
             title={fav ? t.removeFavourite : t.addFavourite}
-            className={`shrink-0 ${collapsed ? 'lg:hidden' : ''} ${
+            className={`absolute! right-1.5 top-1/2 -translate-y-1/2 ${collapsed ? 'lg:hidden' : ''} ${
               fav ? '' : 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100'
             }`}
           />
@@ -252,32 +254,32 @@ export function Layout() {
                 {t.utilities}
               </p>
               {generalUtilities.map((u) => renderItem(u))}
-              {mediaUtilities.length > 0 && (
-                <div className="pt-1">
+              {groups.map(({ id, Icon, items }) => (
+                <div key={id} className="pt-1">
                   <button
                     type="button"
-                    onClick={() => setMediaOpen((open) => !open)}
-                    aria-expanded={mediaOpen}
-                    title={collapsed ? t.media : undefined}
+                    onClick={() => setClosedGroups((c) => ({ ...c, [id]: !c[id] }))}
+                    aria-expanded={!closedGroups[id]}
+                    title={collapsed ? t[id] : undefined}
                     className={`no-glow flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white ${
                       collapsed ? 'lg:justify-center lg:px-2' : ''
                     }`}
                   >
-                    <Images className="size-5 shrink-0 text-slate-400" />
-                    <span className={`flex-1 text-left ${collapsed ? 'lg:hidden' : ''}`}>{t.media}</span>
+                    <Icon className="size-5 shrink-0 text-slate-400" />
+                    <span className={`flex-1 text-left ${collapsed ? 'lg:hidden' : ''}`}>{t[id]}</span>
                     <ChevronDown
-                      className={`size-4 text-slate-500 transition-transform ${mediaOpen ? '' : '-rotate-90'} ${
+                      className={`size-4 text-slate-500 transition-transform ${closedGroups[id] ? '-rotate-90' : ''} ${
                         collapsed ? 'lg:hidden' : ''
                       }`}
                     />
                   </button>
-                  {mediaOpen && (
+                  {!closedGroups[id] && (
                     <div className={`space-y-1 ${collapsed ? '' : 'ml-5 border-l border-white/10 pl-2'}`}>
-                      {mediaUtilities.map((u) => renderItem(u, 'media-'))}
+                      {items.map((u) => renderItem(u, `${id}-`))}
                     </div>
                   )}
                 </div>
-              )}
+              ))}
             </>
           )}
         </nav>

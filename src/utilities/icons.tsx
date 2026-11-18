@@ -31,6 +31,8 @@ import {
   Images,
   Captions,
   Landmark,
+  Radar,
+  ChartPie,
   ChartCandlestick,
   LibraryBig,
   Signpost,
@@ -56,6 +58,8 @@ export const backgroundRemoverIcon = <ScanLine className="size-5" />
 export const stripLibraryIcon = <LibraryBig className="size-5" />
 export const stockForecastIcon = <ChartCandlestick className="size-5" />
 export const bankViewerIcon = <Landmark className="size-5" />
+export const subscriptionRadarIcon = <Radar className="size-5" />
+export const expensesIcon = <ChartPie className="size-5" />
 export const weatherIcon = <CloudSun className="size-5" />
 export const fuelPricesIcon = <Fuel className="size-5" />
 export const songListenerIcon = <MicVocal className="size-5" />
