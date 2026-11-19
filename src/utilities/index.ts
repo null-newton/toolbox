@@ -28,6 +28,7 @@ import {
   expensesIcon,
   stockForecastIcon,
   stripLibraryIcon,
+  bulkScannerIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -338,4 +339,13 @@ registerUtility({
   icon: wishlistIcon,
   availableWithoutAccount: false,
   component: lazy(() => import('./wishlist/Wishlist').then(m => ({ default: m.Wishlist }))),
+})
+
+registerUtility({
+  id: 'bulk-scanner',
+  name: 'Bulk Scanner',
+  description: 'Scan batches of documents from a network scanner, name each scan with your own rules and download them all as a ZIP of PDFs — fully local.',
+  icon: bulkScannerIcon,
+  availableWithoutAccount: true,
+  component: lazy(() => import('./bulk-scanner/BulkScanner').then((m) => ({ default: m.BulkScanner }))),
 })

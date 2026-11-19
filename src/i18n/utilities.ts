@@ -17,6 +17,10 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
     en: { name: 'Subscription Radar', description: 'Finds recurring charges like streaming, gym and insurance in your Bank Viewer transactions, with monthly and yearly totals, price increases and charges you may have forgotten.' },
     nl: { name: 'Abonnementenradar', description: 'Vindt terugkerende betalingen zoals streaming, fitness en verzekeringen in je Bank Viewer-verrichtingen, met maand- en jaartotalen, prijsstijgingen en betalingen die je misschien vergeten bent.' },
   },
+  'bulk-scanner': {
+    en: { name: 'Bulk Scanner', description: 'Scan batches of documents from a network scanner, name each scan with your own rules and download them all as a ZIP of PDFs — fully local.' },
+    nl: { name: 'Bulkscanner', description: "Scan reeksen documenten met een netwerkscanner, geef elke scan een naam volgens je eigen regels en download alles als ZIP met PDF's — volledig lokaal." },
+  },
   wishlist: {
     en: { name: 'Wishlist', description: 'Collect gift ideas, add product links and share a list with anonymous gift reservations.' },
     nl: { name: 'Verlanglijstjes', description: 'Verzamel cadeau-ideeën, voeg productlinks toe en deel een lijst met anonieme cadeaureserveringen.' },

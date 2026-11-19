@@ -37,6 +37,7 @@ import {
   LibraryBig,
   Signpost,
   Fuel,
+  FileScan,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -67,3 +68,4 @@ export const imageToolboxIcon = <Images className="size-5" />
 export const subtitleStudioIcon = <Captions className="size-5" />
 
 export const wishlistIcon = <Gift className="size-5" />
+export const bulkScannerIcon = <FileScan className="size-5" />
