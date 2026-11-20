@@ -1,10 +1,11 @@
 import { MediaRightsConfirmation } from '../../legal/MediaRightsConfirmation'
 import { backendFetch as fetch } from '../../lib/backend-fetch'
+import { useNavigate } from 'react-router-dom'
+import { downloadViaBackend, saveFile, sendToVideoEditor } from './download'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ClipboardPaste, X } from 'lucide-react'
+import { ChevronDown, Clapperboard, ClipboardPaste, X } from 'lucide-react'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useT } from '../../i18n/LanguageContext'
-import { functionsBase } from '../../lib/supabase'
 import { ToolHeader } from '../../components/ToolHeader'
 
 /**
@@ -182,6 +183,7 @@ const STR = {
     downloadProcessing: 'Processing on server…',
     downloadSaving: 'Sending file to your device…',
     downloadDone: 'Done — check your downloads.',
+    openInEditor: 'Open in Video Editor',
     downloadNeedUrl: 'Enter a URL first.',
     downloadStageMerging: 'Merging video + audio…',
     downloadStageAudio: 'Extracting audio…',
@@ -259,6 +261,7 @@ const STR = {
     downloadProcessing: 'Verwerken op server…',
     downloadSaving: 'Bestand naar je apparaat sturen…',
     downloadDone: 'Klaar — kijk bij je downloads.',
+    openInEditor: 'Openen in Video-editor',
     downloadNeedUrl: 'Voer eerst een URL in.',
     downloadStageMerging: 'Video + audio samenvoegen…',
     downloadStageAudio: 'Audio extraheren…',
@@ -285,29 +288,6 @@ const STR = {
       'Werkt met YouTube en duizenden andere sites — enkele populaire:',
     fullListLink: 'Bekijk de volledige lijst met ondersteunde sites →',
   },
-}
-
-// Fetch the finished file in slices below the Cloudflare Tunnel's 100 MB
-// per-response cap, then reassemble in the browser (see fetchAndSave).
-const TUNNEL_CHUNK = 90 * 1024 * 1024
-
-const MIME_BY_EXT: Record<string, string> = {
-  mp4: 'video/mp4',
-  m4v: 'video/mp4',
-  webm: 'video/webm',
-  mkv: 'video/x-matroska',
-  mov: 'video/quicktime',
-  mp3: 'audio/mpeg',
-  m4a: 'audio/mp4',
-  opus: 'audio/opus',
-  flac: 'audio/flac',
-  wav: 'audio/wav',
-  ogg: 'audio/ogg',
-}
-
-function mimeFor(filename: string): string {
-  const ext = filename.slice(filename.lastIndexOf('.') + 1).toLowerCase()
-  return MIME_BY_EXT[ext] || 'application/octet-stream'
 }
 
 /**
@@ -494,6 +474,8 @@ export function YtDlpCommand() {
   const [dlError, setDlError] = useState<string | null>(null)
   const [latestRelease, setLatestRelease] = useState<string | null>(null)
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [lastFile, setLastFile] = useState<File | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -578,98 +560,22 @@ export function YtDlpCommand() {
     return t.downloadStageEmbedding
   }
 
-  /**
-   * Pull the finished file from the server and save it. The Cloudflare Tunnel
-   * caps a single response at 100 MB, so we fetch the file in sub-100 MB slices
-   * (?offset=&length=) and reassemble them into one Blob in the browser, then
-   * trigger a normal download. Fetching each slice as a Blob keeps the browser
-   * free to back large files on disk rather than holding it all in RAM. Finally
-   * we release the server-side temp file.
-   */
-  async function fetchAndSave(jobId: string, filename: string, size: number) {
-    const base = `${functionsBase}/video-download?job=${encodeURIComponent(jobId)}`
-    const parts: Blob[] = []
-    let fetched = 0
-    for (let offset = 0; offset < Math.max(size, 1); offset += TUNNEL_CHUNK) {
-      const length = Math.min(TUNNEL_CHUNK, size - offset)
-      const res = await fetch(`${base}&offset=${offset}&length=${length}`)
-      if (!res.ok) throw new Error(`Transfer failed (${res.status})`)
-      parts.push(await res.blob())
-      fetched += length
-      if (size > 0) setProgress({ percent: (fetched / size) * 100, speed: null, eta: null })
-      if (size === 0) break
-    }
-
-    const blob = new Blob(parts, { type: mimeFor(filename) })
-    const objUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(objUrl), 60_000)
-    fetch(`${base}&release=1`).catch(() => {}) // best-effort cleanup
-  }
-
   async function download() {
     const trimmed = url.trim()
-    if (!trimmed) {
-      setDlError(t.downloadNeedUrl)
-      return
-    }
+    if (!trimmed) { setDlError(t.downloadNeedUrl); return }
     if (!rightsConfirmed) { setDlError('Confirm your media rights before downloading.'); return }
     setRightsConfirmed(false)
     if (doneTimer.current) clearTimeout(doneTimer.current)
-    setDlError(null)
-    setProgress(null)
-    setStage(null)
-    setPhase('starting')
-
+    setDlError(null); setProgress(null); setStage(null); setLastFile(null); setPhase('starting')
     try {
-      const res = await fetch(`${functionsBase}/video-download`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...o, url: trimmed, rightsConfirmed: true }),
+      const file = await downloadViaBackend(o, trimmed, (e) => {
+        if (e.type === 'progress') { setPhase('downloading'); setProgress({ percent: e.percent, speed: e.speed, eta: e.eta }) }
+        else if (e.type === 'status') { setPhase('processing'); setStage(e.stage) }
+        else { setPhase('saving'); setProgress(e.percent === null ? null : { percent: e.percent, speed: null, eta: null }) }
       })
-      if (!res.ok || !res.body) {
-        const err = await res.json().catch(() => null)
-        throw new Error(err?.error || `Server error (${res.status})`)
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-      // Parse the NDJSON progress stream line by line.
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        let nl: number
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim()
-          buf = buf.slice(nl + 1)
-          if (!line) continue
-          const msg = JSON.parse(line)
-          if (msg.type === 'progress') {
-            setPhase('downloading')
-            setProgress({ percent: msg.percent, speed: msg.speed, eta: msg.eta })
-          } else if (msg.type === 'status') {
-            setPhase('processing')
-            setStage(msg.stage)
-          } else if (msg.type === 'error') {
-            throw new Error(msg.message)
-          } else if (msg.type === 'done') {
-            setPhase('saving')
-            setProgress(null)
-            await fetchAndSave(msg.jobId, msg.filename, msg.size)
-            setPhase('done')
-            doneTimer.current = setTimeout(() => setPhase('idle'), 5000)
-          }
-        }
-      }
-      // Stream ended without a terminal message (e.g. server crash / cutoff).
-      setPhase((p) => (p === 'done' ? p : 'idle'))
+      saveFile(file, file.name)
+      setLastFile(file); setPhase('done')
+      doneTimer.current = setTimeout(() => setPhase('idle'), 5000)
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Download failed')
       setPhase('error')
@@ -953,6 +859,11 @@ export function YtDlpCommand() {
 
             {phase === 'done' && (
               <p className="mt-3 text-xs text-emerald-300">{t.downloadDone}</p>
+            )}
+            {lastFile && !busy && (
+              <button onClick={() => { sendToVideoEditor(lastFile); navigate('/tools/video-editor') }} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/10">
+                <Clapperboard className="size-4" /> {t.openInEditor}
+              </button>
             )}
             {phase === 'error' && dlError && (
               <p className="mt-3 break-words text-xs text-rose-300">{dlError}</p>

@@ -75,7 +75,7 @@ export class TimelineDriver {
    * advance the playhead from the element clock. Returns the frame source to
    * draw, or null when the timeline is empty.
    */
-  update(): { source: HTMLVideoElement; sw: number; sh: number } | null {
+  update(): { source: HTMLVideoElement; sw: number; sh: number; clip: VideoClip } | null {
     const hit = clipAt(this.placed, this.playhead)
     if (!hit) return null
 
@@ -112,36 +112,19 @@ export class TimelineDriver {
       }
     }
 
-    return { source: el, sw: el.videoWidth, sh: el.videoHeight }
+    return { source: el, sw: el.videoWidth, sh: el.videoHeight, clip: hit.placed.clip }
   }
 }
 
-/**
- * Play/pause the extra audio tracks to match the playhead. Volume is left to
- * the caller (element volume for preview, gain nodes for export); this only
- * handles when each track should be sounding.
- */
-export function syncAudioElements(
-  tracks: AudioTrack[],
-  els: Map<string, HTMLMediaElement>,
-  playhead: number,
-  playing: boolean
-) {
+// Play/pause extra audio tracks to match the playhead (volume is the caller's job); resyncs on drift.
+export function syncAudioElements(tracks: AudioTrack[], els: Map<string, HTMLMediaElement>, playhead: number, playing: boolean) {
   for (const tr of tracks) {
     const el = els.get(tr.id)
     if (!el) continue
-    const within = playhead >= tr.start && playhead < tr.start + tr.length
-    if (playing && within) {
-      if (el.paused) {
-        try {
-          el.currentTime = Math.max(0, Math.min(tr.duration, playhead - tr.start))
-        } catch {
-          /* not ready */
-        }
-        el.play().catch(() => {})
-      }
-    } else if (!el.paused) {
-      el.pause()
-    }
+    const want = tr.trimStart + playhead - tr.start
+    if (playing && playhead >= tr.start && playhead < tr.start + tr.length) {
+      if (el.paused || Math.abs(el.currentTime - want) > 0.3) { try { el.currentTime = Math.max(0, Math.min(tr.duration, want)) } catch { /* not ready */ } }
+      if (el.paused) el.play().catch(() => {})
+    } else if (!el.paused) el.pause()
   }
 }

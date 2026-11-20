@@ -304,6 +304,7 @@ registerUtility({
   description:
     'Stitch local video files on a timeline, layer text, images and colour cards, mix audio tracks, then export to MP4 — all in your browser.',
   icon: videoEditorIcon,
+  category: 'media',
   availableWithoutAccount: true,
   component: lazy(() =>
     import('./video-editor/VideoEditor').then((m) => ({ default: m.VideoEditor }))
@@ -344,7 +345,7 @@ registerUtility({
 registerUtility({
   id: 'bulk-scanner',
   name: 'Bulk Scanner',
-  description: 'Scan batches of documents from a network scanner, name each scan with your own rules and download them all as a ZIP of PDFs — fully local.',
+  description: 'Desktop app for Windows, macOS and Linux: scan batches from a network scanner, name each scan by your own rules and save them as PDFs.',
   icon: bulkScannerIcon,
   availableWithoutAccount: true,
   component: lazy(() => import('./bulk-scanner/BulkScanner').then((m) => ({ default: m.BulkScanner }))),

@@ -260,7 +260,7 @@ export async function exportTimeline(
           overlay: o,
           image: o.type === 'image' ? images.get(o.id) ?? null : null,
         }))
-        drawFrame(ctx, outW, outH, frame?.source ?? null, frame?.sw ?? 0, frame?.sh ?? 0, active, fit)
+        drawFrame(ctx, outW, outH, frame, active, fit)
 
         opts.onProgress?.(Math.min(1, playhead / total))
 

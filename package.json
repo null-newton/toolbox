@@ -17,6 +17,7 @@
     "hls.js": "^1.6.16",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.21.0",
+    "mediabunny": "1.65.2",
     "mp4-muxer": "^5.2.2",
     "qr-code-styling": "^1.9.2",
     "react": "^19.2.6",

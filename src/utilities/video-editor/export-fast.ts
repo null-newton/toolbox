@@ -1,37 +1,25 @@
 /**
  * Offline (faster-than-realtime) exporter built on WebCodecs.
  *
- * Instead of playing the timeline back in real time and recording it (see
- * export.ts), this renders each output frame as fast as the machine allows and
- * feeds it straight to a hardware `VideoEncoder`; the audio is mixed in one shot
- * through an `OfflineAudioContext` and run through an `AudioEncoder`. The encoded
- * chunks are muxed into an .mp4 / .webm with mp4-muxer / webm-muxer (tiny, pure
- * TS — no WASM). A 1-minute timeline exports in a few seconds rather than a
- * minute.
+ * Each output frame is rendered as fast as the machine allows and fed to a
+ * hardware VideoEncoder; audio is decoded per segment, mixed in one shot via an
+ * OfflineAudioContext and run through an AudioEncoder; chunks are muxed with
+ * mp4-muxer / webm-muxer.
  *
- * Frame sourcing: we seek the per-clip <video> elements to each frame's source
- * time and draw with the same drawFrame() the preview and the realtime exporter
- * use, so the output stays pixel-for-pixel identical to the preview.
+ * Frame sourcing: each clip's file is demuxed + decoded sequentially with
+ * mediabunny (WebCodecs VideoDecoder), so every packet is decoded once instead
+ * of seeking a <video> element per frame. Clips mediabunny can't read fall back
+ * to element seeking. Frames go through the same drawFrame() as the preview.
  *
- * When the browser has no WebCodecs, or no codec it can use for the requested
- * container, exportTimelineFast throws FastExportUnsupportedError so the caller
- * can fall back to the realtime MediaRecorder path.
+ * Throws FastExportUnsupportedError when the browser lacks WebCodecs or a
+ * usable codec, so the caller can fall back to realtime MediaRecorder export.
  */
+import { ALL_FORMATS, AudioBufferSink, BlobSource, Input, VideoSampleSink, type InputAudioTrack } from 'mediabunny'
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer'
 import { Muxer as WebMMuxer, ArrayBufferTarget as WebMTarget } from 'webm-muxer'
 import { loadImage, loadVideo, type ClipFormat, type ExportOptions } from './export'
-import { drawFrame, type ActiveOverlay } from './render'
-import {
-  clipAt,
-  DEFAULT_HEIGHT,
-  DEFAULT_WIDTH,
-  layoutClips,
-  overlaysAt,
-  totalDuration,
-  type AudioTrack,
-  type Overlay,
-  type VideoClip,
-} from './types'
+import { drawFrame, type VideoLayer } from './render'
+import { DEFAULT_HEIGHT, DEFAULT_WIDTH, layoutClips, overlaysAt, totalDuration, type AudioTrack, type Overlay, type PlacedClip, type VideoClip } from './types'
 
 /** Thrown when the fast path can't run; the caller should use the realtime exporter. */
 export class FastExportUnsupportedError extends Error {
@@ -59,6 +47,12 @@ export function fastExportSupported(): boolean {
 }
 
 const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2)
+
+// Prefer the hardware encoder (fastest steady-state); fall back to whatever the browser picks.
+async function supportedVideo(cfg: VideoEncoderConfig): Promise<VideoEncoderConfig | null> {
+  for (const c of [{ ...cfg, hardwareAcceleration: 'prefer-hardware' as const }, cfg]) if ((await VideoEncoder.isConfigSupported(c).catch(() => ({ supported: false }))).supported) return c
+  return null
+}
 
 function videoBitrate(w: number, h: number, fps: number): number {
   return Math.min(16_000_000, Math.max(1_000_000, Math.round(w * h * fps * 0.12)))
@@ -106,11 +100,12 @@ async function resolveConfig(
         framerate: fps,
         avc: { format: 'avc' },
       }
-      if ((await VideoEncoder.isConfigSupported(video)).supported) {
+      const ok = await supportedVideo(video)
+      if (ok) {
         return {
           ext: 'mp4',
           mime: 'video/mp4',
-          video,
+          video: ok,
           audio,
           muxerVideoCodec: 'avc',
           muxerAudioCodec: 'aac',
@@ -136,12 +131,12 @@ async function resolveConfig(
       { codec: 'vp8', muxer: 'V_VP8' },
     ]
     for (const { codec, muxer } of candidates) {
-      const video: VideoEncoderConfig = { codec, width: w, height: h, bitrate, framerate: fps }
-      if ((await VideoEncoder.isConfigSupported(video)).supported) {
+      const ok = await supportedVideo({ codec, width: w, height: h, bitrate, framerate: fps })
+      if (ok) {
         return {
           ext: 'webm',
           mime: 'video/webm',
-          video,
+          video: ok,
           audio,
           muxerVideoCodec: muxer,
           muxerAudioCodec: 'A_OPUS',
@@ -159,124 +154,102 @@ async function resolveConfig(
   return null
 }
 
-/** Seek a media element and resolve once the frame at `time` is ready. */
+
+// Seek a media element and resolve once the frame at `time` is ready (fallback path).
 function seekTo(el: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve) => {
     const target = Math.max(0, time)
-    if (el.readyState >= 2 && Math.abs(el.currentTime - target) < 1e-3) {
-      resolve()
-      return
-    }
+    if (el.readyState >= 2 && Math.abs(el.currentTime - target) < 1e-3) return resolve()
     let done = false
-    const finish = () => {
-      if (done) return
-      done = true
-      el.removeEventListener('seeked', finish)
-      clearTimeout(timer)
-      resolve()
-    }
-    const timer = setTimeout(finish, 3000) // never hang on a stubborn seek
+    const finish = () => { if (done) return; done = true; el.removeEventListener('seeked', finish); clearTimeout(timer); resolve() }
+    const timer = setTimeout(finish, 3000)
     el.addEventListener('seeked', finish)
-    try {
-      el.currentTime = target
-    } catch {
-      finish()
-    }
+    try { el.currentTime = target } catch { finish() }
   })
 }
 
-/** Wait until the encoder's queue drains below `target` so memory stays bounded. */
-function drainTo(encoder: VideoEncoder, target: number): Promise<void> {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (encoder.encodeQueueSize <= target) resolve()
-      else setTimeout(check, 0)
-    }
-    check()
-  })
-}
+// Wait for the encoder queue to drain to `target` (dequeue event where supported, else timer polling).
+const drainTo = (enc: VideoEncoder | AudioEncoder, target: number) => new Promise<void>((resolve) => {
+  if (enc.encodeQueueSize <= target) return resolve()
+  if ('ondequeue' in enc) { const on = () => { if (enc.encodeQueueSize <= target) { enc.removeEventListener('dequeue', on); resolve() } }; enc.addEventListener('dequeue', on); return }
+  const e: { encodeQueueSize: number } = enc, check = () => (e.encodeQueueSize <= target ? resolve() : setTimeout(check, 0)); check()
+})
 
-/**
- * Mix every clip's own audio and every extra audio track into one stereo buffer
- * via an OfflineAudioContext (renders far faster than real time). Returns null
- * when the timeline has no audible audio, so the caller can mux a silent file.
- */
-async function mixAudioOffline(
-  clips: VideoClip[],
-  audioTracks: AudioTrack[],
-  total: number
-): Promise<AudioBuffer | null> {
-  const frames = Math.ceil(total * SAMPLE_RATE)
-  if (frames <= 0) return null
-
-  const OfflineCtor: typeof OfflineAudioContext =
-    window.OfflineAudioContext ??
-    (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext })
-      .webkitOfflineAudioContext
-  const octx = new OfflineCtor(2, frames, SAMPLE_RATE)
-
-  const cache = new Map<string, Promise<AudioBuffer | null>>()
-  const decode = (url: string): Promise<AudioBuffer | null> => {
-    let p = cache.get(url)
-    if (!p) {
-      p = fetch(url)
-        .then((r) => r.arrayBuffer())
-        .then((buf) => octx.decodeAudioData(buf))
-        .catch(() => null) // no audio track / undecodable → silent
-      cache.set(url, p)
-    }
+// One mediabunny Input per source Blob (split clips share a file).
+class Sources {
+  private map = new Map<Blob, Promise<Input | null>>()
+  get(file: Blob) {
+    let p = this.map.get(file)
+    if (!p) { p = (async () => { try { const i = new Input({ source: new BlobSource(file), formats: ALL_FORMATS }); return (await i.canRead()) ? i : null } catch { return null } })(); this.map.set(file, p) }
     return p
   }
-
-  let any = false
-  const schedule = (buffer: AudioBuffer, when: number, offset: number, duration: number, vol: number) => {
-    const src = octx.createBufferSource()
-    src.buffer = buffer
-    const gain = octx.createGain()
-    gain.gain.value = vol
-    src.connect(gain).connect(octx.destination)
-    src.start(Math.max(0, when), Math.max(0, offset), Math.max(0, duration))
-    any = true
-  }
-
-  for (const p of layoutClips(clips)) {
-    const c = p.clip
-    if (c.muted || c.volume <= 0 || p.length <= 0) continue
-    const buf = await decode(c.url)
-    if (buf) schedule(buf, p.offset, c.trimStart, p.length, c.volume)
-  }
-  for (const tr of audioTracks) {
-    if (tr.muted || tr.volume <= 0 || tr.length <= 0) continue
-    const buf = await decode(tr.url)
-    if (buf) schedule(buf, tr.start, 0, Math.min(tr.length, tr.duration), tr.volume)
-  }
-
-  if (!any) return null
-  return octx.startRendering()
+  async dispose() { for (const p of this.map.values()) (await p)?.dispose() }
 }
 
-/** Feed a rendered stereo buffer to the AudioEncoder in fixed-size slices. */
-function encodeAudio(buffer: AudioBuffer, encoder: AudioEncoder) {
-  const frames = buffer.length
-  const ch0 = buffer.getChannelData(0)
-  const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : ch0
-  const CHUNK = 4096
+// Decode [from, from+len) of a file's audio into one AudioBuffer; null = no audio track, undefined = could not decode.
+async function decodeRange(src: Sources, file: Blob, from: number, len: number, ctx: BaseAudioContext): Promise<AudioBuffer | null | undefined> {
+  const input = await src.get(file)
+  let track: InputAudioTrack | null = null
+  if (input) { try { track = await input.getPrimaryAudioTrack() } catch { track = null } }
+  if (input && !track) return null
+  if (track && (await track.canDecode().catch(() => false))) {
+    try {
+      const chunks: AudioBuffer[] = []
+      let first = -1
+      for await (const wb of new AudioBufferSink(track).buffers(from, from + len)) { if (first < 0) first = wb.timestamp; chunks.push(wb.buffer) }
+      if (!chunks.length) return null
+      const rate = chunks[0].sampleRate, chs = chunks[0].numberOfChannels, skip = Math.max(0, Math.round((from - first) * rate))
+      const total = chunks.reduce((n, b) => n + b.length, 0), out = ctx.createBuffer(chs, Math.max(1, Math.min(total - skip, Math.ceil(len * rate))), rate)
+      for (let c = 0; c < chs; c++) {
+        const dst = out.getChannelData(c)
+        let pos = -skip
+        for (const b of chunks) {
+          const d = b.getChannelData(Math.min(c, b.numberOfChannels - 1))
+          if (pos + d.length > 0 && pos < dst.length) dst.set(d.subarray(Math.max(0, -pos), Math.min(d.length, dst.length - pos)), Math.max(0, pos))
+          pos += d.length
+        }
+      }
+      return out
+    } catch { /* fall through to decodeAudioData */ }
+  }
+  try {
+    const full = await ctx.decodeAudioData(await file.arrayBuffer()), rate = full.sampleRate, s0 = Math.floor(from * rate), n = Math.max(1, Math.min(full.length - s0, Math.ceil(len * rate)))
+    const out = ctx.createBuffer(full.numberOfChannels, n, rate)
+    for (let c = 0; c < full.numberOfChannels; c++) out.getChannelData(c).set(full.getChannelData(c).subarray(s0, s0 + n))
+    return out
+  } catch { return input ? undefined : null }
+}
+
+// Mix clip audio + extra tracks offline; returns the buffer (null if silent) and whether some audio failed to decode.
+async function mixAudioOffline(src: Sources, placed: PlacedClip[], audioTracks: AudioTrack[], total: number): Promise<{ buffer: AudioBuffer | null; failed: boolean }> {
+  const frames = Math.ceil(total * SAMPLE_RATE)
+  if (frames <= 0) return { buffer: null, failed: false }
+  const Ctor: typeof OfflineAudioContext = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext
+  const octx = new Ctor(2, frames, SAMPLE_RATE)
+  const jobs = [
+    ...placed.filter((p) => !p.clip.muted && p.clip.volume > 0 && p.length > 0).map((p) => ({ file: p.clip.file, from: p.clip.trimStart, len: p.length, at: p.offset, vol: p.clip.volume })),
+    ...audioTracks.filter((t) => !t.muted && t.volume > 0 && t.length > 0 && t.start < total).map((t) => ({ file: t.file, from: t.trimStart, len: Math.min(t.length, total - t.start), at: t.start, vol: t.volume })),
+  ]
+  let any = false, failed = false
+  const bufs = await Promise.all(jobs.map((j) => decodeRange(src, j.file, j.from, j.len, octx)))
+  jobs.forEach((j, i) => {
+    const b = bufs[i]
+    if (b === undefined) failed = true
+    if (!b) return
+    const node = octx.createBufferSource(), gain = octx.createGain()
+    node.buffer = b; gain.gain.value = j.vol; node.connect(gain).connect(octx.destination); node.start(Math.max(0, j.at), 0, j.len); any = true
+  })
+  return { buffer: any ? await octx.startRendering() : null, failed }
+}
+
+async function encodeAudio(buffer: AudioBuffer, encoder: AudioEncoder) {
+  const frames = buffer.length, ch0 = buffer.getChannelData(0), ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : ch0, CHUNK = 4096
   for (let i = 0; i < frames; i += CHUNK) {
-    const n = Math.min(CHUNK, frames - i)
-    // f32-planar: all of channel 0's samples, then all of channel 1's.
-    const data = new Float32Array(n * 2)
-    data.set(ch0.subarray(i, i + n), 0)
-    data.set(ch1.subarray(i, i + n), n)
-    const audioData = new AudioData({
-      format: 'f32-planar',
-      sampleRate: SAMPLE_RATE,
-      numberOfFrames: n,
-      numberOfChannels: 2,
-      timestamp: Math.round((i / SAMPLE_RATE) * 1e6),
-      data,
-    })
-    encoder.encode(audioData)
-    audioData.close()
+    const n = Math.min(CHUNK, frames - i), data = new Float32Array(n * 2)
+    data.set(ch0.subarray(i, i + n), 0); data.set(ch1.subarray(i, i + n), n)
+    const ad = new AudioData({ format: 'f32-planar', sampleRate: SAMPLE_RATE, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round((i / SAMPLE_RATE) * 1e6), data })
+    encoder.encode(ad); ad.close()
+    if (encoder.encodeQueueSize > 64) await drainTo(encoder, 16)
   }
 }
 
@@ -287,199 +260,101 @@ type AnyMuxer = {
   target: { buffer: ArrayBuffer }
 }
 
-/**
- * Render + encode the whole timeline offline. Same signature/return as
- * exportTimeline; throws FastExportUnsupportedError when the fast path can't run.
- */
-export async function exportTimelineFast(
-  clips: VideoClip[],
-  overlays: Overlay[],
-  audioTracks: AudioTrack[],
-  opts: ExportOptions = {}
-): Promise<{ blob: Blob; ext: string }> {
+// Render + encode the whole timeline offline; throws FastExportUnsupportedError when the fast path can't run.
+export async function exportTimelineFast(clips: VideoClip[], overlays: Overlay[], audioTracks: AudioTrack[], opts: ExportOptions = {}): Promise<{ blob: Blob; ext: string }> {
   const total = totalDuration(clips)
   if (total <= 0) throw new Error('Add at least one video clip before exporting.')
   if (!fastExportSupported()) throw new FastExportUnsupportedError()
-
-  const fps = opts.fps ?? 30
-  const outW = even(opts.width ?? DEFAULT_WIDTH)
-  const outH = even(opts.height ?? DEFAULT_HEIGHT)
-  const fit = opts.fit ?? 'contain'
-  const aborted = () => opts.signal?.aborted === true
-  const throwIfAborted = () => {
-    if (aborted()) throw new DOMException('Export cancelled', 'AbortError')
-  }
-
+  const fps = opts.fps ?? 30, outW = even(opts.width ?? DEFAULT_WIDTH), outH = even(opts.height ?? DEFAULT_HEIGHT), fit = opts.fit ?? 'contain'
+  const throwIfAborted = () => { if (opts.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError') }
   const cfg = await resolveConfig(opts.format ?? 'mp4', outW, outH, fps)
   if (!cfg) throw new FastExportUnsupportedError('No usable WebCodecs codec for this output')
 
-  // Hidden pool of media elements used only for this export.
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;left:-99999px;top:0;width:1px;height:1px;overflow:hidden'
   document.body.appendChild(container)
-
   const canvas = document.createElement('canvas')
-  canvas.width = outW
-  canvas.height = outH
-  const ctx = canvas.getContext('2d')
-  if (!ctx) {
-    container.remove()
-    throw new Error('Canvas 2D context unavailable')
-  }
-
-  const videoEls = new Map<string, HTMLVideoElement>()
-  const images = new Map<string, HTMLImageElement>()
-  let videoEncoder: VideoEncoder | null = null
-  let audioEncoder: AudioEncoder | null = null
-
+  canvas.width = outW; canvas.height = outH
+  const ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | null
+  const src = new Sources(), images = new Map<string, HTMLImageElement>()
+  let videoEncoder: VideoEncoder | null = null, audioEncoder: AudioEncoder | null = null
   const cleanup = () => {
-    container.remove()
-    try {
-      if (videoEncoder && videoEncoder.state !== 'closed') videoEncoder.close()
-    } catch {
-      /* already closed */
-    }
-    try {
-      if (audioEncoder && audioEncoder.state !== 'closed') audioEncoder.close()
-    } catch {
-      /* already closed */
-    }
+    container.remove(); void src.dispose()
+    for (const e of [videoEncoder, audioEncoder]) try { if (e && e.state !== 'closed') e.close() } catch { /* closed */ }
   }
+  if (!ctx) { cleanup(); throw new Error('Canvas 2D context unavailable') }
 
   try {
-    // Load every source up front so per-frame seeking is fast.
-    await Promise.all(
-      clips.map(async (c) => {
-        videoEls.set(c.id, await loadVideo(c.url, container))
-      })
-    )
-    await Promise.all(
-      overlays
-        .filter((o): o is Extract<Overlay, { type: 'image' }> => o.type === 'image')
-        .map(async (o) => {
-          images.set(o.id, await loadImage(o.url))
-        })
-    )
+    await Promise.all(overlays.filter((o): o is Extract<Overlay, { type: 'image' }> => o.type === 'image').map(async (o) => images.set(o.id, await loadImage(o.url))))
     throwIfAborted()
-
-    // Mix audio first so we know whether to declare an audio track at all.
     opts.onProgress?.(0.02)
-    const wantsAudio =
-      clips.some((c) => !c.muted && c.volume > 0) ||
-      audioTracks.some((tr) => !tr.muted && tr.volume > 0 && tr.length > 0)
-    const audioBuffer = await mixAudioOffline(clips, audioTracks, total)
-    // Audio was expected but nothing could be decoded here — rather than ship a
-    // silent file, defer to the realtime exporter which captures audio reliably.
-    if (wantsAudio && !audioBuffer) throw new FastExportUnsupportedError('Audio could not be decoded offline')
+    const placed = layoutClips(clips)
+    const { buffer: audioBuffer, failed } = await mixAudioOffline(src, placed, audioTracks, total)
+    // Some audio couldn't be decoded here — defer to the realtime exporter rather than ship it silent.
+    if (failed) throw new FastExportUnsupportedError('Audio could not be decoded offline')
     throwIfAborted()
-    opts.onProgress?.(0.12)
+    opts.onProgress?.(0.1)
 
-    const muxer = (
-      cfg.ext === 'mp4'
-        ? new Mp4Muxer({
-            target: new Mp4Target(),
-            fastStart: 'in-memory',
-            firstTimestampBehavior: 'offset',
-            video: { codec: cfg.muxerVideoCodec as 'avc', width: outW, height: outH, frameRate: fps },
-            ...(audioBuffer
-              ? { audio: { codec: cfg.muxerAudioCodec as 'aac', numberOfChannels: 2, sampleRate: SAMPLE_RATE } }
-              : {}),
-          })
-        : new WebMMuxer({
-            target: new WebMTarget(),
-            firstTimestampBehavior: 'offset',
-            video: { codec: cfg.muxerVideoCodec, width: outW, height: outH, frameRate: fps },
-            ...(audioBuffer
-              ? { audio: { codec: cfg.muxerAudioCodec, numberOfChannels: 2, sampleRate: SAMPLE_RATE } }
-              : {}),
-          })
-    ) as unknown as AnyMuxer
+    const audio = audioBuffer ? { codec: cfg.muxerAudioCodec, numberOfChannels: 2, sampleRate: SAMPLE_RATE } : undefined
+    const muxer = (cfg.ext === 'mp4'
+      ? new Mp4Muxer({ target: new Mp4Target(), fastStart: 'in-memory', firstTimestampBehavior: 'offset', video: { codec: cfg.muxerVideoCodec as 'avc', width: outW, height: outH, frameRate: fps }, ...(audio ? { audio: audio as { codec: 'aac'; numberOfChannels: number; sampleRate: number } } : {}) })
+      : new WebMMuxer({ target: new WebMTarget(), firstTimestampBehavior: 'offset', video: { codec: cfg.muxerVideoCodec, width: outW, height: outH, frameRate: fps }, ...(audio ? { audio } : {}) })) as unknown as AnyMuxer
 
     let encodeError: unknown = null
-    videoEncoder = new VideoEncoder({
-      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-      error: (e) => {
-        encodeError = e
-      },
-    })
-    videoEncoder.configure(cfg.video)
-
+    const venc = (videoEncoder = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { encodeError = e } }))
+    venc.configure(cfg.video)
     if (audioBuffer) {
-      audioEncoder = new AudioEncoder({
-        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
-        error: (e) => {
-          encodeError = e
-        },
-      })
+      audioEncoder = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: (e) => { encodeError = e } })
       audioEncoder.configure(cfg.audio)
-      encodeAudio(audioBuffer, audioEncoder)
+      await encodeAudio(audioBuffer, audioEncoder)
     }
 
-    // --- Video frames -------------------------------------------------------
-    const placed = layoutClips(clips)
-    const totalFrames = Math.max(1, Math.round(total * fps))
-    const frameDur = 1e6 / fps
-    const keyInterval = Math.max(1, Math.round(fps * 2))
-    let lastClipId: string | null = null
-    let lastSourceTime = Number.NaN
-
-    for (let i = 0; i < totalFrames; i++) {
+    const totalFrames = Math.max(1, Math.round(total * fps)), frameDur = 1e6 / fps, keyInterval = Math.max(1, Math.round(fps * 2))
+    let i = 0
+    const emit = async (layer: VideoLayer | null) => {
       throwIfAborted()
       if (encodeError) throw encodeError
-
-      // Sample slightly inside the timeline so the final frame still lands on
-      // the last clip rather than past its end.
-      const t = Math.min(total - 1e-4, i / fps)
-      const hit = clipAt(placed, t)
-
-      let source: HTMLVideoElement | null = null
-      let sw = 0
-      let sh = 0
-      if (hit) {
-        const el = videoEls.get(hit.placed.clip.id)
-        if (el) {
-          const st = hit.sourceTime
-          if (hit.placed.clip.id !== lastClipId || Math.abs(st - lastSourceTime) > 0.5 / fps) {
-            await seekTo(el, st)
-          }
-          lastClipId = hit.placed.clip.id
-          lastSourceTime = el.currentTime
-          source = el
-          sw = el.videoWidth
-          sh = el.videoHeight
-        }
-      }
-
-      const active: ActiveOverlay[] = overlaysAt(overlays, t).map((o) => ({
-        overlay: o,
-        image: o.type === 'image' ? images.get(o.id) ?? null : null,
-      }))
-      drawFrame(ctx, outW, outH, source, sw, sh, active, fit)
-
-      const frame = new VideoFrame(canvas, {
-        timestamp: Math.round(i * frameDur),
-        duration: Math.round(frameDur),
-      })
-      videoEncoder.encode(frame, { keyFrame: i % keyInterval === 0 })
-      frame.close()
-
-      if (videoEncoder.encodeQueueSize > 8) await drainTo(videoEncoder, 4)
-      opts.onProgress?.(0.12 + 0.83 * ((i + 1) / totalFrames))
+      drawFrame(ctx, outW, outH, layer, overlaysAt(overlays, i / fps).map((o) => ({ overlay: o, image: o.type === 'image' ? images.get(o.id) ?? null : null })), fit)
+      const frame = new VideoFrame(canvas, { timestamp: Math.round(i * frameDur), duration: Math.round(frameDur) })
+      venc.encode(frame, { keyFrame: i % keyInterval === 0 }); frame.close()
+      if (venc.encodeQueueSize > 24) await drainTo(venc, 8)
+      i++
+      opts.onProgress?.(0.1 + 0.88 * (i / totalFrames))
     }
+    for (const p of placed) {
+      const endFrame = Math.min(totalFrames, Math.round((p.offset + p.length) * fps)), startFrame = i
+      if (i >= endFrame) continue
+      const srcTime = (f: number) => p.clip.trimStart + Math.max(0, Math.min(p.length - 1e-4, f / fps - p.offset))
+      const input = await src.get(p.clip.file)
+      const track = input ? await input.getPrimaryVideoTrack().catch(() => null) : null
+      if (track && (await track.canDecode().catch(() => false))) {
+        try {
+          const first = await track.getFirstTimestamp().catch(() => 0)
+          const times = Array.from({ length: endFrame - startFrame }, (_, k) => Math.max(first, srcTime(startFrame + k)))
+          for await (const s of new VideoSampleSink(track).samplesAtTimestamps(times)) {
+            if (s) { await emit({ source: s.toCanvasImageSource(), sw: s.displayWidth, sh: s.displayHeight, clip: p.clip }); s.close() }
+            else await emit(null)
+            if (i >= endFrame) break
+          }
+        } catch (e) { if ((e instanceof DOMException && e.name === 'AbortError') || encodeError) throw e }
+      }
+      if (i < endFrame) {
+        // Fallback (or resume after a decode failure): seek a <video> element per frame.
+        const el = await loadVideo(p.clip.url, container)
+        while (i < endFrame) { await seekTo(el, srcTime(i)); await emit({ source: el, sw: el.videoWidth, sh: el.videoHeight, clip: p.clip }) }
+        el.remove()
+      }
+    }
+    while (i < totalFrames) await emit(null)
 
     throwIfAborted()
-    await videoEncoder.flush()
+    await venc.flush()
     if (audioEncoder) await audioEncoder.flush()
     if (encodeError) throw encodeError
-
     muxer.finalize()
     opts.onProgress?.(1)
-
     const blob = new Blob([muxer.target.buffer], { type: cfg.mime })
     cleanup()
     return { blob, ext: cfg.ext }
-  } catch (err) {
-    cleanup()
-    throw err
-  }
+  } catch (err) { cleanup(); throw err }
 }
