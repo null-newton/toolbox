@@ -35,6 +35,7 @@ import {
   stockForecastIcon,
   stripLibraryIcon,
   bulkScannerIcon,
+  countdownBoardIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -213,6 +214,17 @@ registerUtility({
   availableWithoutAccount: true,
   component: lazy(() =>
     import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
+  ),
+})
+
+registerUtility({
+  id: 'countdown-board',
+  name: 'Countdowns & Time Zones',
+  description: 'Live countdowns to your events and what time it is in your saved cities, with a time planner and embeds for other websites.',
+  icon: countdownBoardIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./countdown-board/CountdownBoard').then((m) => ({ default: m.CountdownBoard }))
   ),
 })
 

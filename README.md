@@ -120,6 +120,117 @@ competitions for the current season (10 requests/minute, no daily cap); it does
 not include line-ups, so the win % and predicted scoreline are built from recent
 goals and head-to-head only.
 
+## Database migrations
+
+Schema changes live in [supabase/migrations/](supabase/migrations/), one file per
+change, named `YYYYMMDDNNNN_short_name.sql`. The safest way to apply them to the
+live project is the Supabase CLI. It records what has run in the remote
+`supabase_migrations.schema_migrations` table, so each file is applied exactly
+once and in order.
+
+### Rules
+
+- **Never edit or rerun a migration that has been applied.** Fix mistakes with a
+  new migration. Some older files, such as the accounts migration, fail or do
+  damage if they run twice.
+- **Make new migrations safe to rerun** where you can: `create … if not exists`,
+  `insert … on conflict do nothing`, `drop … if exists`.
+- **Apply the migration before shipping code that needs it.** Every push to
+  `main` deploys the frontend (see `.github/workflows/deploy.yml`), so push the
+  migration first and merge afterwards.
+- **Keep secrets and dumps out of git.** `supabase/.temp/` (the linked project) is
+  already ignored. Database dumps contain user data, so store them outside the
+  repository.
+
+### Quick way
+
+For the usual case (new migration files, history already in sync), run:
+
+```sh
+npm run db:push
+```
+
+[scripts/db-push.sh](scripts/db-push.sh) shows a dry run, asks for
+confirmation, pushes, and then prints the migration history. To skip the
+question, use `./scripts/db-push.sh --yes`. Use the steps below the first time,
+or when `migration list` shows anything unexpected.
+
+### Step by step
+
+The CLI runs through `npx`, so nothing needs installing globally. Run these from
+the repository root. Since CLI v3, database commands target a **local** database
+unless you pass `--remote`. Every command below includes it, so they run against
+the linked project.
+
+1. **Log in and link the project** (one time per machine). You will be asked for
+   the database password, which is under Dashboard → Project Settings → Database.
+
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <project-ref>
+   ```
+
+2. **Back up first.** On the free plan this is your only backup.
+
+   ```sh
+   npx supabase db dump --remote -f ~/supabase-backups/schema-$(date +%F).sql
+   npx supabase db dump --remote --data-only -f ~/supabase-backups/data-$(date +%F).sql
+   ```
+
+3. **Compare local and remote.**
+
+   ```sh
+   npx supabase migration list --remote
+   ```
+
+   Every file should either appear in both columns (already applied) or only in
+   *Local* (new). Stop if something appears only in *Remote*: someone applied a
+   migration that isn't in this repository.
+
+4. **One-time sync for migrations applied in the SQL Editor.** Earlier
+   migrations were run by hand, so the remote history may be empty and the CLI
+   would try to run them all again. Mark **only the ones you know are live** as
+   applied. Check in the Dashboard that their tables, functions or rows exist:
+
+   ```sh
+   npx supabase migration repair --remote --status applied 202609140001 202610080001 202610090001
+   ```
+
+   List more versions the same way. This only writes to the history table; it
+   runs no SQL. Repeat step 3 until only the genuinely new files are *Local*
+   only.
+
+5. **Dry run.** This shows exactly which files would run, without changing
+   anything:
+
+   ```sh
+   npx supabase db push --remote --dry-run
+   ```
+
+6. **Apply.**
+
+   ```sh
+   npx supabase db push --remote
+   ```
+
+   Then run `npx supabase migration list --remote` again to confirm, and only then merge
+   or push the code that depends on the change.
+
+### Without the CLI
+
+You can paste a single new file into Dashboard → SQL Editor and run it. If you
+do, record it right away with
+`npx supabase migration repair --remote --status applied <version>`. Otherwise the next
+`db push --remote` will try to run it a second time.
+
+### New project
+
+`supabase/schema.sql` is not in the migrations folder. On a fresh project, run
+it first in the SQL Editor, then `npx supabase db push --remote` to apply every
+migration in order. Some migrations have extra rollout steps; see the
+[accounts guide](supabase/ACCOUNTS.md) and the
+[privacy rollout guide](supabase/PRIVACY-ROLLOUT.md).
+
 ## How passwords are stored
 
 Authentication is handled entirely by Supabase Auth. Passwords are hashed with

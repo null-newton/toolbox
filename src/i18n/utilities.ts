@@ -9,6 +9,10 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'countdown-board': {
+    en: { name: 'Countdowns & Time Zones', description: 'Live countdowns to your events and what time it is in your saved cities, with a time planner and embeds for other websites.' },
+    nl: { name: 'Aftellers & tijdzones', description: 'Live aftellers naar je evenementen en hoe laat het is in je bewaarde steden, met een tijdplanner en embeds voor andere websites.' },
+  },
   'json-tools': {
     en: { name: 'JSON Formatter', description: 'Pretty-print, minify and validate JSON, or diff two documents path by path.' },
     nl: { name: 'JSON-opmaak', description: 'JSON netjes opmaken, verkleinen en valideren, of twee documenten pad per pad vergelijken.' },

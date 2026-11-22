@@ -24,6 +24,8 @@ const FileTransfer = lazy(() =>
   import('./utilities/file-transfer/FileTransfer').then((module) => ({ default: module.FileTransfer }))
 )
 
+const BoardEmbed = lazy(() => import('./utilities/countdown-board/BoardEmbed').then(m => ({ default: m.BoardEmbed })))
+
 const SharedWishlist = lazy(() => import('./utilities/wishlist/SharedWishlist').then(m => ({ default: m.SharedWishlist })))
 
 function UtilityPage() {
@@ -50,6 +52,8 @@ function AppRoutes() {
 
   if (location.pathname === '/privacy' || location.pathname === '/terms') return <LegalPage kind={location.pathname === '/privacy' ? 'privacy' : 'terms'} />
   if (location.pathname === '/account-deleted') return <AccountDeletedPage />
+  // Public iframe embeds: no auth gate, no app chrome.
+  if (location.pathname === '/embed/board') return <Suspense fallback={null}><BoardEmbed /></Suspense>
 
   if (loading) {
     return (
