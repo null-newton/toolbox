@@ -5,7 +5,7 @@ import { useLang, useT } from '../i18n/LanguageContext'
 import { localizedUtility } from '../i18n/utilities'
 import { SaveStatus } from './SaveStatus'
 
-const STR = { en: { tool: 'Utility', media: 'Media utility' }, nl: { tool: 'Hulpmiddel', media: 'Media' } }
+const STR = { en: { tool: 'Utility', media: 'Media utility', dev: 'Developer utility' }, nl: { tool: 'Hulpmiddel', media: 'Media', dev: 'Ontwikkelaar' } }
 
 // Shared page header used by every tool so all tool pages share one layout
 export function ToolHeader({ title, intro, eyebrow, icon, save, actions, children }: {
@@ -24,7 +24,7 @@ export function ToolHeader({ title, intro, eyebrow, icon, save, actions, childre
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-slate-700/80 pb-6">
       <div className="min-w-0 max-w-3xl">
-        <div className="tech-label">{eyebrow ?? (utility?.category === 'media' ? t.media : t.tool)}</div>
+        <div className="tech-label">{eyebrow ?? (utility?.category === 'media' ? t.media : utility?.category === 'dev' ? t.dev : t.tool)}</div>
         <h1 className="mt-4 flex items-center gap-3 break-words text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
           {ico && <span className="shrink-0 text-cyan-300 [&_svg]:size-8">{ico}</span>}
           <span className="min-w-0">{title ?? (utility && localizedUtility(utility.id, lang, utility).name)}</span>

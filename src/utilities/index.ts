@@ -2,7 +2,13 @@ import { lazy } from 'react'
 import { registerUtility } from './registry'
 import {
   wishlistIcon,
-  // textCaseIcon,
+  textCaseIcon,
+  jsonIcon,
+  base64Icon,
+  jwtIcon,
+  regexIcon,
+  cronIcon,
+  colourIcon,
   routeIcon,
   routePlannerIcon,
   downloadIcon,
@@ -125,16 +131,90 @@ registerUtility({
   ),
 })
 
-// registerUtility({
-//   id: 'text-case',
-//   name: 'Text Case Converter',
-//   description: 'Convert text between upper, lower, title, kebab and snake case.',
-//   icon: textCaseIcon,
-//   availableWithoutAccount: true,
-//   component: lazy(() =>
-//     import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
-//   ),
-// })
+// Developer tools — everything runs locally in the browser.
+registerUtility({
+  id: 'json-tools',
+  name: 'JSON Formatter',
+  description: 'Pretty-print, minify and validate JSON, or diff two documents path by path.',
+  icon: jsonIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/JsonTool').then((m) => ({ default: m.JsonTool }))
+  ),
+})
+
+registerUtility({
+  id: 'base64',
+  name: 'Base64',
+  description: 'Encode and decode Base64 for text and files, with UTF-8 and URL-safe support.',
+  icon: base64Icon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/Base64Tool').then((m) => ({ default: m.Base64Tool }))
+  ),
+})
+
+registerUtility({
+  id: 'jwt-decoder',
+  name: 'JWT Decoder',
+  description: 'Read a JSON Web Token’s header and claims, check expiry and verify HMAC signatures.',
+  icon: jwtIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/JwtTool').then((m) => ({ default: m.JwtTool }))
+  ),
+})
+
+registerUtility({
+  id: 'regex-tester',
+  name: 'Regex Tester',
+  description: 'Test JavaScript regular expressions live with highlighted matches, groups and replacements.',
+  icon: regexIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/RegexTool').then((m) => ({ default: m.RegexTool }))
+  ),
+})
+
+registerUtility({
+  id: 'cron-explainer',
+  name: 'Cron Explainer',
+  description: 'Turn a cron expression into plain language and see its next run times.',
+  icon: cronIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/CronTool').then((m) => ({ default: m.CronTool }))
+  ),
+})
+
+registerUtility({
+  id: 'colour-converter',
+  name: 'Colour Converter',
+  description: 'Convert any CSS colour to HEX, RGB, HSL, OKLCH and more, with WCAG contrast checks.',
+  icon: colourIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./dev-utils/ColourTool').then((m) => ({ default: m.ColourTool }))
+  ),
+})
+
+registerUtility({
+  id: 'text-case',
+  name: 'Text Case Converter',
+  description: 'Convert text between upper, lower, title, sentence, camel, Pascal, snake, constant, kebab and dot case.',
+  icon: textCaseIcon,
+  category: 'dev',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./text-case/TextCaseConverter').then((m) => ({ default: m.TextCaseConverter }))
+  ),
+})
 
 registerUtility({
   id: 'image-toolbox',

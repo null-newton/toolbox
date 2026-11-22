@@ -1,7 +1,7 @@
 import { LegalLinks } from '../legal/LegalPages'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ChevronDown, Images, PanelLeft, Wallet } from 'lucide-react'
+import { ChevronDown, CodeXml, Images, PanelLeft, Wallet } from 'lucide-react'
 import { useAuth } from '../auth/auth-context'
 import { useFavorites } from '../favorites/favorites-context'
 import { getUtilities, getUtility } from '../utilities/registry'
@@ -29,6 +29,7 @@ const STR = {
     signInPrompt: 'Sign in to save your settings.',
     media: 'Media',
     finance: 'Finance',
+    dev: 'Developer',
   },
   nl: {
     utilities: 'Hulpmiddelen',
@@ -44,6 +45,7 @@ const STR = {
     signInPrompt: 'Meld je aan om je instellingen te bewaren.',
     media: 'Media',
     finance: 'Financiën',
+    dev: 'Ontwikkelaar',
   },
 }
 
@@ -57,7 +59,7 @@ export function Layout() {
   const utilities = getUtilities().filter((u) => user ? canUseApp(u.id) : u.availableWithoutAccount)
   const favourites = utilities.filter((u) => isFavorite(u.id))
   const nonFavourites = utilities.filter((u) => !isFavorite(u.id))
-  const groups = ([['finance', Wallet], ['media', Images]] as const).map(([id, Icon]) => ({ id, Icon, items: nonFavourites.filter((u) => u.category === id) })).filter((g) => g.items.length)
+  const groups = ([['finance', Wallet], ['media', Images], ['dev', CodeXml]] as const).map(([id, Icon]) => ({ id, Icon, items: nonFavourites.filter((u) => u.category === id) })).filter((g) => g.items.length)
   const generalUtilities = nonFavourites.filter((u) => !u.category)
   const [navOpen, setNavOpen] = useState(false)
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({})

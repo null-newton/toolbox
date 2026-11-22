@@ -38,9 +38,21 @@ import {
   Signpost,
   Fuel,
   FileScan,
+  Braces,
+  Binary,
+  KeyRound,
+  Regex,
+  CalendarClock,
+  Palette,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
+export const jsonIcon = <Braces className="size-5" />
+export const base64Icon = <Binary className="size-5" />
+export const jwtIcon = <KeyRound className="size-5" />
+export const regexIcon = <Regex className="size-5" />
+export const cronIcon = <CalendarClock className="size-5" />
+export const colourIcon = <Palette className="size-5" />
 export const routeIcon = <Route className="size-5" />
 export const routePlannerIcon = <Signpost className="size-5" />
 export const downloadIcon = <Download className="size-5" />

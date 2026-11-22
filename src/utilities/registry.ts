@@ -19,7 +19,7 @@ export interface Utility {
    */
   icon: ReactNode
   /** Optional sidebar group for closely related tools. */
-  category?: 'media' | 'finance'
+  category?: 'media' | 'finance' | 'dev'
   /**
    * When true, the utility can be used without logging in — saving
    * (configs, saved items) still requires an account. Defaults to false:

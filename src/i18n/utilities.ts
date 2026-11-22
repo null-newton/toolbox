@@ -9,6 +9,30 @@ import type { Lang } from './LanguageContext'
 type Localized = { name: string; description: string }
 
 const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
+  'json-tools': {
+    en: { name: 'JSON Formatter', description: 'Pretty-print, minify and validate JSON, or diff two documents path by path.' },
+    nl: { name: 'JSON-opmaak', description: 'JSON netjes opmaken, verkleinen en valideren, of twee documenten pad per pad vergelijken.' },
+  },
+  'base64': {
+    en: { name: 'Base64', description: 'Encode and decode Base64 for text and files, with UTF-8 and URL-safe support.' },
+    nl: { name: 'Base64', description: 'Base64 coderen en decoderen voor tekst en bestanden, met UTF-8 en URL-veilige variant.' },
+  },
+  'jwt-decoder': {
+    en: { name: 'JWT Decoder', description: 'Read a JSON Web Token’s header and claims, check expiry and verify HMAC signatures.' },
+    nl: { name: 'JWT-decoder', description: 'Lees de header en claims van een JSON Web Token, controleer de vervaldatum en verifieer HMAC-handtekeningen.' },
+  },
+  'regex-tester': {
+    en: { name: 'Regex Tester', description: 'Test JavaScript regular expressions live with highlighted matches, groups and replacements.' },
+    nl: { name: 'Regex-tester', description: 'Test reguliere JavaScript-expressies live met gemarkeerde matches, groepen en vervangingen.' },
+  },
+  'cron-explainer': {
+    en: { name: 'Cron Explainer', description: 'Turn a cron expression into plain language and see its next run times.' },
+    nl: { name: 'Cron-uitleg', description: 'Zet een cron-expressie om naar gewone taal en zie wanneer ze de volgende keren draait.' },
+  },
+  'colour-converter': {
+    en: { name: 'Colour Converter', description: 'Convert any CSS colour to HEX, RGB, HSL, OKLCH and more, with WCAG contrast checks.' },
+    nl: { name: 'Kleuromzetter', description: 'Zet eender welke CSS-kleur om naar HEX, RGB, HSL, OKLCH en meer, met WCAG-contrastcontroles.' },
+  },
   expenses: {
     en: { name: 'Expenses', description: 'Everything that left your accounts each month, sorted into categories like groceries, housing and eating out, from your Bank Viewer transactions.' },
     nl: { name: 'Uitgaven', description: 'Alles wat elke maand van je rekeningen ging, ingedeeld in categorieën zoals boodschappen, wonen en uit eten, op basis van je Bank Viewer-verrichtingen.' },
@@ -88,11 +112,11 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
   'text-case': {
     en: {
       name: 'Text Case Converter',
-      description: 'Convert text between upper, lower, title, kebab and snake case.',
+      description: 'Convert text between upper, lower, title, sentence, camel, Pascal, snake, constant, kebab and dot case.',
     },
     nl: {
-      name: 'Tekst-naamgeving',
-      description: 'Zet tekst om tussen hoofdletters, kleine letters, titel-, kebab- en snake-case.',
+      name: 'Hoofdletteromzetter',
+      description: 'Zet tekst om tussen hoofdletters, kleine letters, titel-, zins-, camel-, Pascal-, snake-, constant-, kebab- en dot-case.',
     },
   },
   'route-planner': {
