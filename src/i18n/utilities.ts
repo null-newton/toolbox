@@ -83,6 +83,10 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
       description: 'De officiële Belgische maximumprijzen van vandaag voor Euro 95, Super 98 en diesel, met het recente verloop.',
     },
   },
+  'lightroom-presets': {
+    en: { name: 'Lightroom Presets', description: 'Import, create and duplicate Lightroom presets and bulk-apply them to your photos, with adaptive tweaks for dark and bright scenes — entirely in your browser.' },
+    nl: { name: 'Lightroom-presets', description: 'Importeer, maak en dupliceer Lightroom-presets en pas ze in bulk toe op je foto’s, met adaptieve aanpassingen voor donkere en heldere scènes — volledig in je browser.' },
+  },
   'image-toolbox': {
     en: {
       name: 'Image Toolbox',

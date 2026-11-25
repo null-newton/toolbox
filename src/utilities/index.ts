@@ -36,6 +36,7 @@ import {
   stripLibraryIcon,
   bulkScannerIcon,
   countdownBoardIcon,
+  lightroomPresetsIcon,
 } from './icons'
 
 // Register every utility here. Order determines sidebar order.
@@ -237,6 +238,18 @@ registerUtility({
   availableWithoutAccount: true,
   component: lazy(() =>
     import('./image-toolbox/ImageToolbox').then((m) => ({ default: m.ImageToolbox }))
+  ),
+})
+
+registerUtility({
+  id: 'lightroom-presets',
+  name: 'Lightroom Presets',
+  description: 'Import, create and duplicate Lightroom presets and bulk-apply them to your photos, with adaptive tweaks for dark and bright scenes — entirely in your browser.',
+  icon: lightroomPresetsIcon,
+  category: 'media',
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./lightroom-presets/LightroomPresets').then((m) => ({ default: m.LightroomPresets }))
   ),
 })
 

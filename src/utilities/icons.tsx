@@ -10,6 +10,7 @@
  * sizing. Reference it from src/utilities/index.ts.
  */
 import {
+  Aperture,
   Gift,
   CaseSensitive,
   Route,
@@ -79,6 +80,7 @@ export const weatherIcon = <CloudSun className="size-5" />
 export const fuelPricesIcon = <Fuel className="size-5" />
 export const songListenerIcon = <MicVocal className="size-5" />
 export const imageToolboxIcon = <Images className="size-5" />
+export const lightroomPresetsIcon = <Aperture className="size-5" />
 export const subtitleStudioIcon = <Captions className="size-5" />
 
 export const wishlistIcon = <Gift className="size-5" />
