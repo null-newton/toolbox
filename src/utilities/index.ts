@@ -243,8 +243,8 @@ registerUtility({
 
 registerUtility({
   id: 'lightroom-presets',
-  name: 'Lightroom Presets',
-  description: 'Import, create and duplicate Lightroom presets and bulk-apply them to your photos, with adaptive tweaks for dark and bright scenes — entirely in your browser.',
+  name: 'Photo Presets',
+  description: 'Create, import and bulk-apply photo presets with adaptive tweaks for dark and bright scenes. Works with Lightroom presets (.xmp, .lrtemplate) — photos never leave your browser.',
   icon: lightroomPresetsIcon,
   category: 'media',
   availableWithoutAccount: true,

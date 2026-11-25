@@ -629,3 +629,81 @@ export function devFor(preset: Preset, options: ApplyOptions, stats: ImageStats 
   if (!options.adaptive || !stats) return { dev: base, changes: [] as AdaptiveChange[] }
   return adaptDev(base, stats, options.strength / 100)
 }
+
+// ───────────────────────── Per-photo edits (VSCO-style) ─────────────────────────
+
+/**
+ * Single-slider tools applied per photo on top of the chosen preset. Each
+ * value is added to the preset's own value (in Lightroom units), so a photo
+ * can use "Warm Film" with +0.3 exposure without changing the preset.
+ */
+export const TOOL_FIELDS = {
+  Exposure2012: 'exposure', Contrast2012: 'contrast', Highlights2012: 'highlights', Shadows2012: 'shadows', Whites2012: 'whites',
+  Blacks2012: 'blacks', IncrementalTemperature: 'temp', IncrementalTint: 'tint', Saturation: 'saturation', Vibrance: 'vibrance',
+  Clarity2012: 'clarity', Texture: 'texture', Dehaze: 'dehaze', PostCropVignetteAmount: 'vigAmount', GrainAmount: 'grainAmount',
+} as const satisfies Record<string, keyof Dev>
+export type ToolKey = keyof typeof TOOL_FIELDS
+export type Tools = Partial<Record<ToolKey, number>>
+
+export interface Edit extends ApplyOptions {
+  presetId: string | null
+  tools: Tools
+}
+
+export function applyTools(dev: Dev, tools: Tools): Dev {
+  const out: Dev = { ...dev }
+  for (const [key, value] of Object.entries(tools) as [ToolKey, number][]) {
+    if (!value) continue
+    const field = TOOL_FIELDS[key]
+    const limit = field === 'exposure' ? 5 : 100
+    ;(out[field] as number) = clamp((out[field] as number) + value, field === 'grainAmount' ? 0 : -limit, limit)
+  }
+  return out
+}
+
+/** Final develop settings for a photo's edit (preset × amount, adaptive, then tools). */
+export function editDev(edit: Edit, preset: Preset | null, stats: ImageStats | null): { dev: Dev; changes: AdaptiveChange[] } {
+  const base = preset ? devFor(preset, edit, stats) : { dev: neutralDev(), changes: [] as AdaptiveChange[] }
+  return { dev: applyTools(base.dev, edit.tools), changes: base.changes }
+}
+
+export const isEdited = (edit: Edit | null) => !!edit && (!!edit.presetId || Object.values(edit.tools).some(Boolean))
+
+/** Short tile code like VSCO's ("Warm Film" → "WF", "Moody Matte 2" → "MM2"). */
+export function presetCode(name: string): string {
+  const words = name.trim().split(/[\s\-_/]+/).filter(Boolean)
+  if (!words.length) return '—'
+  const digits = words.filter((w) => /^\d+$/.test(w)).join('')
+  const letters = words.filter((w) => !/^\d+$/.test(w))
+  const code = letters.length === 1 ? letters[0].slice(0, 2) : letters.slice(0, 3).map((w) => w[0]).join('')
+  return (code.toUpperCase() + digits).slice(0, 4)
+}
+
+// Lightroom keys scaled by the preset amount when baking an edit into a new preset.
+const BAKE_SCALED = /^(Exposure2012|Contrast2012|Highlights2012|Shadows2012|Whites2012|Blacks2012|Texture|Clarity2012|Dehaze|Vibrance|Saturation|IncrementalTemperature|IncrementalTint|(Hue|Saturation|Luminance)Adjustment\w+|GrayMixer\w+|Parametric(Shadows|Darks|Lights|Highlights)|SplitToning(Shadow|Highlight)Saturation|ColorGrade\w+(Sat|Lum)|PostCropVignetteAmount|GrainAmount)$/
+
+/** Turn a photo's edit (preset at its amount + tools) into standalone preset settings. */
+export function bakeEdit(edit: Edit, preset: Preset | null): Settings {
+  const amount = edit.amount / 100
+  const settings: Settings = { ProcessVersion: '11.0' }
+  if (preset) {
+    for (const [key, value] of Object.entries(preset.settings)) {
+      const n = toNumber(value)
+      settings[key] = n !== undefined && BAKE_SCALED.test(key) ? Math.round(n * amount * 100) / 100 : value
+    }
+    // Absolute white balance can't be combined with a relative tool shift: convert it.
+    if ((edit.tools.IncrementalTemperature || edit.tools.IncrementalTint) && toNumber(settings.Temperature) !== undefined && toNumber(settings.IncrementalTemperature) === undefined) {
+      const d = resolveDev(preset.settings)
+      settings.IncrementalTemperature = Math.round(d.temp * amount)
+      settings.IncrementalTint = Math.round(d.tint * amount)
+      delete settings.Temperature
+      delete settings.Tint
+    }
+  }
+  for (const [key, value] of Object.entries(edit.tools) as [ToolKey, number][]) {
+    if (!value) continue
+    const sum = (toNumber(settings[key]) ?? 0) + value
+    settings[key] = key === 'Exposure2012' ? Math.round(sum * 100) / 100 : Math.round(sum)
+  }
+  return settings
+}

@@ -1,0 +1,19 @@
+/* Thin monochrome sliders for the VSCO-style editor. */
+.vsco-range {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.vsco-range::-webkit-slider-runnable-track { height: 2px; border-radius: 9999px; background: rgb(255 255 255 / 0.22); }
+.vsco-range::-moz-range-track { height: 2px; border-radius: 9999px; background: rgb(255 255 255 / 0.22); }
+.vsco-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px; margin-top: -7px; border-radius: 9999px;
+  background: #fff; box-shadow: 0 1px 6px rgb(0 0 0 / 0.6);
+}
+.vsco-range::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 9999px; background: #fff; }
+.vsco-strip { scrollbar-width: none; }
+.vsco-strip::-webkit-scrollbar { display: none; }

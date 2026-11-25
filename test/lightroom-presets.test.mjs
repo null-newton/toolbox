@@ -110,3 +110,21 @@ test('scene analysis and adaptive tweaks', () => {
   assert.equal(off.dev.exposure, 0.5)
   assert.equal(devFor({ settings: { Exposure2012: 0.5 } }, { amount: 50, adaptive: false, strength: 0 }, null).dev.exposure, 0.25)
 })
+
+test('per-photo tools, preset codes and baking edits into presets', async () => {
+  const { applyTools, bakeEdit, editDev, presetCode } = await import('../src/utilities/lightroom-presets/develop.ts')
+  assert.equal(presetCode('Warm Film'), 'WF')
+  assert.equal(presetCode('Moody Matte 2'), 'MM2')
+  assert.equal(presetCode('Punch'), 'PU')
+  assert.equal(applyTools(neutralDev(), { Exposure2012: 0.5, Contrast2012: 10 }).exposure, 0.5)
+  const preset = { id: 'p', name: 'P', group: '', settings: { Exposure2012: 0.4, Contrast2012: 20, Temperature: 6500 }, ignored: [], createdAt: 0, updatedAt: 0 }
+  const edit = { presetId: 'p', amount: 50, adaptive: false, strength: 0, tools: { Exposure2012: 0.3, IncrementalTemperature: 5 } }
+  const { dev } = editDev(edit, preset, null)
+  assert.ok(Math.abs(dev.exposure - 0.5) < 1e-9)
+  assert.equal(dev.contrast, 10)
+  const baked = bakeEdit(edit, preset)
+  assert.equal(baked.Exposure2012, 0.5)
+  assert.equal(baked.Contrast2012, 10)
+  assert.equal(baked.Temperature, undefined)
+  assert.ok(typeof baked.IncrementalTemperature === 'number' && baked.IncrementalTemperature > 5)
+})

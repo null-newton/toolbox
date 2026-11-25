@@ -84,8 +84,8 @@ const UTILITY_I18N: Record<string, Record<Lang, Localized>> = {
     },
   },
   'lightroom-presets': {
-    en: { name: 'Lightroom Presets', description: 'Import, create and duplicate Lightroom presets and bulk-apply them to your photos, with adaptive tweaks for dark and bright scenes — entirely in your browser.' },
-    nl: { name: 'Lightroom-presets', description: 'Importeer, maak en dupliceer Lightroom-presets en pas ze in bulk toe op je foto’s, met adaptieve aanpassingen voor donkere en heldere scènes — volledig in je browser.' },
+    en: { name: 'Photo Presets', description: 'Create, import and bulk-apply photo presets with adaptive tweaks for dark and bright scenes. Works with Lightroom presets (.xmp, .lrtemplate) — photos never leave your browser.' },
+    nl: { name: 'Fotopresets', description: 'Maak, importeer en pas fotopresets in bulk toe, met adaptieve aanpassingen voor donkere en heldere scènes. Werkt met Lightroom-presets (.xmp, .lrtemplate) — foto’s verlaten je browser nooit.' },
   },
   'image-toolbox': {
     en: {

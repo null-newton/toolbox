@@ -4,6 +4,7 @@ import { Check, ChevronDown, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import { HSL_COLORS, toNumber, type Preset, type SettingValue } from './develop'
 import { LABELS, STR } from './strings'
+import { MonoSlider } from './ui'
 
 interface SliderDef { key: string; min: number; max: number; step?: number; def?: number; track?: string }
 
@@ -42,7 +43,7 @@ const EFFECTS: SliderDef[] = [
 function Section({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
   return (
     <details open={open} className="group border-t border-white/8 py-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 hover:text-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400 hover:text-white">
         {title}
         <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
       </summary>
@@ -51,24 +52,15 @@ function Section({ title, children, open = false }: { title: string; children: R
   )
 }
 
-export function Slider({ label, value, min, max, step = 1, def = 0, track, onChange, format }: {
+export function Slider({ label, value, min, max, step = 1, def = 0, track, onChange }: {
   label: string; value: number; min: number; max: number; step?: number; def?: number; track?: string
-  onChange: (v: number) => void; format?: (v: number) => string
+  onChange: (v: number) => void
 }) {
-  const shown = format ? format(value) : step < 1 ? (value > 0 ? '+' : '') + value.toFixed(2) : (value > 0 && min < 0 ? '+' : '') + Math.round(value)
   return (
-    <label className="block" onDoubleClick={() => onChange(def)}>
-      <span className="flex items-center justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
-        <span className={`font-mono ${value !== def ? 'text-cyan-200' : 'text-slate-600'}`}>{shown}</span>
-      </span>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 w-full accent-indigo-500"
-      />
-      {track && <span className="-mt-1 block h-1 rounded-full opacity-70" style={{ background: track }} />}
-    </label>
+    <div>
+      <MonoSlider label={label} value={value} min={min} max={max} step={step} def={def} onChange={onChange} />
+      {track && <span className="-mt-1.5 block h-0.5 rounded-full opacity-60" style={{ background: track }} />}
+    </div>
   )
 }
 
@@ -85,10 +77,11 @@ function CurvePreview({ points }: { points: number[] }) {
   )
 }
 
-export function PresetEditor({ preset, onChange, onDone }: {
+export function PresetEditor({ preset, onChange, onDone, className = '' }: {
   preset: Preset
   onChange: (next: Preset) => void
   onDone: () => void
+  className?: string
 }) {
   const t = useT(STR)
   const { lang } = useLang()
@@ -116,7 +109,7 @@ export function PresetEditor({ preset, onChange, onDone }: {
 
   const zone = (title: string, hueKey: string, satKey: string, lumKey: string) => (
     <div className="rounded-xl border border-white/8 bg-black/15 p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-300">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-neutral-300">
         <span className="size-3 rounded-full ring-1 ring-white/20" style={{ background: num(satKey) ? `hsl(${num(hueKey)} ${Math.min(100, num(satKey) * 1.2 + 20)}% 55%)` : '#475569' }} />
         {title}
       </div>
@@ -129,20 +122,20 @@ export function PresetEditor({ preset, onChange, onDone }: {
   )
 
   return (
-    <aside className="glass h-fit rounded-3xl p-5">
+    <div className={`text-white ${className}`}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold text-white">{t.editor}</h2>
-        <button onClick={onDone} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-300">{t.editor}</h2>
+        <button onClick={onDone} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200">
           <Check className="size-3.5" />{t.done}
         </button>
       </div>
       <div className="mt-4 grid grid-cols-[1fr_0.7fr] gap-2">
-        <label className="text-xs text-slate-500">{t.name}<input value={preset.name} onChange={(e) => onChange({ ...preset, name: e.target.value, updatedAt: stamp() })} className="form-input mt-1" /></label>
-        <label className="text-xs text-slate-500">{t.group}<input value={preset.group} onChange={(e) => onChange({ ...preset, group: e.target.value, updatedAt: stamp() })} className="form-input mt-1" /></label>
+        <label className="text-xs text-neutral-500">{t.name}<input value={preset.name} onChange={(e) => onChange({ ...preset, name: e.target.value, updatedAt: stamp() })} className="form-input mt-1" /></label>
+        <label className="text-xs text-neutral-500">{t.group}<input value={preset.group} onChange={(e) => onChange({ ...preset, group: e.target.value, updatedAt: stamp() })} className="form-input mt-1" /></label>
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-600">
+      <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-600">
         <span>{t.resetHint}</span>
-        <button onClick={() => onChange({ ...preset, settings: { ProcessVersion: '11.0' }, ignored: [], updatedAt: stamp() })} className="no-glow inline-flex items-center gap-1 text-slate-500 hover:text-white"><RotateCcw className="size-3" />{t.resetAll}</button>
+        <button onClick={() => onChange({ ...preset, settings: { ProcessVersion: '11.0' }, ignored: [], updatedAt: stamp() })} className="no-glow inline-flex items-center gap-1 text-neutral-500 hover:text-white"><RotateCcw className="size-3" />{t.resetAll}</button>
       </div>
       {preset.ignored.length > 0 && (
         <p className="mt-3 flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
@@ -151,7 +144,7 @@ export function PresetEditor({ preset, onChange, onDone }: {
         </p>
       )}
 
-      <div className="mt-3 max-h-[calc(100vh-16rem)] overflow-y-auto pr-1">
+      <div className="mt-3">
         <Section title={t.sections.light} open>{LIGHT.map((d) => slider(d))}</Section>
         <Section title={t.sections.color} open>
           {absoluteWb
@@ -168,7 +161,7 @@ export function PresetEditor({ preset, onChange, onDone }: {
           {CURVE.map((d) => slider(d))}
           {curve && (
             <div>
-              <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-neutral-500">
                 <span>{t.pointCurve}</span>
                 <button onClick={() => set({ ToneCurvePV2012: [0, 0, 255, 255], ToneCurveName2012: 'Linear' })} className="no-glow inline-flex items-center gap-1 hover:text-white"><RotateCcw className="size-3" />{t.resetCurve}</button>
               </div>
@@ -177,14 +170,14 @@ export function PresetEditor({ preset, onChange, onDone }: {
           )}
         </Section>
         <Section title={gray ? t.sections.bw : t.sections.hsl}>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" checked={gray} onChange={(e) => set({ ConvertToGrayscale: e.target.checked })} className="accent-indigo-500" />
+          <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <input type="checkbox" checked={gray} onChange={(e) => set({ ConvertToGrayscale: e.target.checked })} className="accent-white" />
             {t.convertBw}
           </label>
           {!gray && (
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-black/20 p-1">
               {(['hue', 'sat', 'lum'] as const).map((k) => (
-                <button key={k} onClick={() => setHslTab(k)} className={`rounded-lg px-2 py-1 text-xs font-semibold ${hslTab === k ? 'bg-indigo-500/25 text-indigo-100' : 'text-slate-500 hover:text-white'}`}>{t.hslTabs[k]}</button>
+                <button key={k} onClick={() => setHslTab(k)} className={`rounded-lg px-2 py-1 text-xs font-semibold ${hslTab === k ? 'bg-white text-black' : 'text-neutral-500 hover:text-white'}`}>{t.hslTabs[k]}</button>
               ))}
             </div>
           )}
@@ -206,6 +199,6 @@ export function PresetEditor({ preset, onChange, onDone }: {
         </Section>
         <Section title={t.sections.effects}>{EFFECTS.map((d) => slider(d))}</Section>
       </div>
-    </aside>
+    </div>
   )
 }
