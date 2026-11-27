@@ -36,6 +36,7 @@ import {
   stripLibraryIcon,
   bulkScannerIcon,
   countdownBoardIcon,
+  starMapIcon,
   lightroomPresetsIcon,
 } from './icons'
 
@@ -226,6 +227,17 @@ registerUtility({
   availableWithoutAccount: true,
   component: lazy(() =>
     import('./countdown-board/CountdownBoard').then((m) => ({ default: m.CountdownBoard }))
+  ),
+})
+
+registerUtility({
+  id: 'star-map',
+  name: 'Star Map',
+  description: 'Print-ready posters of the night sky for any place and moment, in several styles, exported as PDF.',
+  icon: starMapIcon,
+  availableWithoutAccount: true,
+  component: lazy(() =>
+    import('./star-map/StarMap').then((m) => ({ default: m.StarMap }))
   ),
 })
 

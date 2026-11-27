@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.108.1",
     "barcode-detector": "^3.2.3",
     "hls.js": "^1.6.16",
+    "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.21.0",
     "mediabunny": "1.65.2",

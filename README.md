@@ -280,6 +280,17 @@ reservations. Apply the new Wishlist SQL migration and **deploy the backend**
 with its Supabase Auth configuration before deploying the frontend. See the
 [Wishlist setup, privacy model and tests](src/utilities/wishlist/README.md).
 
+### Star Map
+
+Renders a sky poster for any place and moment entirely in the browser (canvas)
+and exports it as PDF (via `jspdf`) or PNG. Star, constellation and star-name
+data come from [d3-celestial](https://github.com/ofrohn/d3-celestial)
+(BSD-3-Clause), compacted into `src/utilities/star-map/sky-data.json` by
+`node scripts/build-star-data.mjs`. Planets, the Moon and the Milky Way are
+computed in `astro.ts`. Place search uses the Open-Meteo geocoding API, which
+also returns the place's time zone. Apply `202611270001_star_map.sql` so
+logged-in users can save their settings.
+
 ## Account access and saved-data limits
 
 See [the account rollout guide](supabase/ACCOUNTS.md) before enabling Supabase

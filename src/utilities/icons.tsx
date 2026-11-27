@@ -46,6 +46,7 @@ import {
   Regex,
   CalendarClock,
   Palette,
+  Telescope,
 } from 'lucide-react'
 
 export const textCaseIcon = <CaseSensitive className="size-5" />
@@ -56,6 +57,7 @@ export const regexIcon = <Regex className="size-5" />
 export const cronIcon = <CalendarClock className="size-5" />
 export const colourIcon = <Palette className="size-5" />
 export const countdownBoardIcon = <Hourglass className="size-5" />
+export const starMapIcon = <Telescope className="size-5" />
 export const routeIcon = <Route className="size-5" />
 export const routePlannerIcon = <Signpost className="size-5" />
 export const downloadIcon = <Download className="size-5" />
