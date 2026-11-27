@@ -433,8 +433,11 @@ export function RoutePlanner() {
   }, [urlKey])
 
   /* ----- Navigation ----- */
-  const onReroute = useCallback((pos: [number, number], leg: number) => {
-    const rest = routeStopsRef.current.slice(leg + 1)
+  // The plan as it was when navigation started; reroutes rewrite the stops, so it's restored on stop.
+  const planBeforeNav = useRef<{ stops: Stop[]; roundTrip: boolean } | null>(null)
+
+  const onReroute = useCallback((pos: [number, number], keepFrom: number) => {
+    const rest = routeStopsRef.current.slice(keepFrom)
     if (!rest.length) return
     setRoundTrip(false)
     setStops([{ id: uid(), lat: pos[0], lon: pos[1], label: STR[lang].myLocation }, ...rest.map((s) => ({ ...s, id: uid() }))])
@@ -495,10 +498,17 @@ export function RoutePlanner() {
 
   const startNav = (sim: boolean) => {
     if (!route) return
+    planBeforeNav.current = { stops, roundTrip }
     setSimulate(sim)
     setNavActive(true)
   }
-  const stopNav = () => { setNavActive(false); setSimulate(false) }
+  const stopNav = () => {
+    setNavActive(false)
+    setSimulate(false)
+    const plan = planBeforeNav.current
+    planBeforeNav.current = null
+    if (plan && plan.stops !== stops) { setStops(plan.stops); setRoundTrip(plan.roundTrip) }
+  }
 
   /* ----- Actions ----- */
   const routeName = () => {

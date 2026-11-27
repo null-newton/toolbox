@@ -65,7 +65,8 @@ export function useNavigation(opts: {
   locale: string
   noGpsText: string
   inText: (d: string) => string
-  onReroute: (pos: [number, number], leg: number) => void
+  /** `keepFrom`: index into the routed stops of the first stop still to visit. */
+  onReroute: (pos: [number, number], keepFrom: number) => void
 }): NavState {
   const [state, setState] = useState<NavState>(INITIAL)
   const o = useRef(opts)
@@ -76,11 +77,14 @@ export function useNavigation(opts: {
   const lastReroute = useRef(0)
   const announced = useRef(new Map<number, Set<'far' | 'near'>>())
   const lastPos = useRef<[number, number] | null>(null)
+  // Furthest leg actually travelled while on the line (-1 = not on the route yet).
+  const reachedLeg = useRef(-1)
 
   // New route (start or reroute): forget progress-related memory.
   useEffect(() => {
     lastIdx.current = 0
     offCount.current = 0
+    reachedLeg.current = -1
     announced.current = new Map()
   }, [opts.route])
 
@@ -106,10 +110,14 @@ export function useNavigation(opts: {
       const limit = tune.off + Math.min(accuracy ?? 0, 50)
       offCount.current = snap.offRoute > limit ? offCount.current + 1 : 0
       const offRoute = offCount.current >= 3
+      const snapLeg = Math.max(0, route.legEnds.findIndex((e) => e >= snap.idx))
+      // Only count progress from fixes on the line: when off route the nearest point can be
+      // anywhere (e.g. the return leg of a loop), which would skip stops not yet visited.
+      if (snap.offRoute <= limit) reachedLeg.current = Math.max(reachedLeg.current, snapLeg)
       if (offRoute && Date.now() - lastReroute.current > 10000) {
         lastReroute.current = Date.now()
-        const leg = route.legEnds.findIndex((e) => e >= snap.idx)
-        o.current.onReroute(pos, Math.max(0, leg))
+        // Keep every stop after the last one passed; before reaching the route, keep them all (start included).
+        o.current.onReroute(pos, reachedLeg.current + 1)
       }
 
       const total = route.cum[route.cum.length - 1]
