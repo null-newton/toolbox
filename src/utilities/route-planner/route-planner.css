@@ -98,3 +98,42 @@
 .rp-fullscreen .leaflet-control-scale {
   display: none;
 }
+
+/* Direction-up navigation: the map is a square larger than the screen's diagonal
+   (√2 × the longest side), centred and rotated, so no corner ever shows through. */
+.rp-host.rp-rotated {
+  overflow: hidden;
+  /* `clip`, unlike `hidden`, can't be scrolled by focus or scrollIntoView, which would
+     otherwise slide the whole navigation view sideways to reveal the oversized map. */
+  overflow: clip;
+}
+.rp-host.rp-rotated > .rp-map {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 142vmax;
+  height: 142vmax;
+  transform: translate(-50%, -50%) rotate(var(--rp-rotation, 0deg));
+  transition: transform 0.4s ease;
+}
+/* Keep stop numbers upright; Leaflet's attribution is off screen, so we render our own. */
+.rp-rotated .rp-pin {
+  rotate: calc(var(--rp-rotation, 0deg) * -1);
+}
+.rp-rotated .leaflet-control-attribution {
+  display: none;
+}
+.rp-attribution {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 100%;
+  margin-bottom: 0.25rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgb(7 16 19 / 0.75);
+  color: #9baba8;
+  font-size: 10px;
+}
+.rp-attribution a {
+  color: #83f1ed;
+}

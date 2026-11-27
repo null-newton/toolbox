@@ -69,6 +69,12 @@ const en = {
   navAccuracy: (m: number) => `GPS ±${m} m`,
   navSimulate: 'Simulate',
   navIn: (d: string) => `In ${d}`,
+  navNorthUp: 'North up',
+  navHeadingUp: 'Direction up',
+  navResume: 'Continue from here',
+  navResumeHint: 'Skip the stops behind you and navigate to the next one ahead',
+  navLocating: 'Finding your location…',
+  navResumeTo: (stop: string) => `Heading to ${stop}`,
 }
 
 const nl: typeof en = {
@@ -139,6 +145,12 @@ const nl: typeof en = {
   navAccuracy: (m: number) => `GPS ±${m} m`,
   navSimulate: 'Simuleren',
   navIn: (d: string) => `Over ${d}`,
+  navNorthUp: 'Noorden boven',
+  navHeadingUp: 'Rijrichting boven',
+  navResume: 'Verder vanaf hier',
+  navResumeHint: 'Sla de stops achter je over en navigeer naar de eerstvolgende',
+  navLocating: 'Locatie zoeken…',
+  navResumeTo: (stop: string) => `Op weg naar ${stop}`,
 }
 
 export const STR = { en, nl }

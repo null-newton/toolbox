@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/auth-context'
 import { useUtilityConfig } from '../../hooks/useUtilityConfig'
 import { useLang, useT } from '../../i18n/LanguageContext'
 import {
-  fetchElevation, fetchRoute, fmtDistance, fmtDuration, isArrive, MODES, reverseGeocode,
+  fetchElevation, fetchRoute, fmtDistance, fmtDuration, isArrive, MODES, nextStopAhead, reverseGeocode,
   searchPlaces, toGpx, WAYPOINT, type BikeType, type Elevation, type Mode, type PlaceResult,
   type RouteOptions, type RouteResult,
 } from './engine'
@@ -43,6 +43,8 @@ interface Config extends Record<string, unknown>, RouteOptions {
   base: BaseLayer
   trails: boolean
   voice: boolean
+  /** Navigation map orientation: direction of travel at the top instead of north. */
+  headingUp: boolean
   saved: SavedRoute[]
 }
 
@@ -59,6 +61,7 @@ const DEFAULTS: Config = {
   base: 'dark',
   trails: false,
   voice: true,
+  headingUp: false,
   saved: [],
 }
 
@@ -191,6 +194,8 @@ export function RoutePlanner() {
   const accuracyRef = useRef<L.Circle | null>(null)
   const fitNextRef = useRef(!!initial)
   const handlers = useRef({ mapClick: (_ll: L.LatLng) => {}, routeClick: (_ll: L.LatLng) => {} })
+  // Current CSS rotation of the map element in degrees (0 = north up).
+  const mapRotationRef = useRef(0)
 
   useEffect(() => {
     const mapEl = host.querySelector('.rp-map') as HTMLDivElement
@@ -201,6 +206,7 @@ export function RoutePlanner() {
     map.on('dragstart', () => setFollow(false))
     map.on('zoomend', () => { if (navActiveRef.current) navZoomRef.current = map.getZoom() })
     mapRef.current = map
+    patchDragForRotation(map, () => mapRotationRef.current)
     const markers = markersRef.current
     hoverMarkerRef.current = L.marker([0, 0], {
       icon: L.divIcon({ className: '', html: '<div class="rp-hover"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }),
@@ -208,6 +214,7 @@ export function RoutePlanner() {
     })
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(host)
+    ro.observe(mapEl) // its size changes when the rotated (oversized) layout toggles
     return () => {
       ro.disconnect()
       map.remove()
@@ -462,6 +469,43 @@ export function RoutePlanner() {
     }
   }, [navActive, host])
 
+  // Compass: north up, or direction of travel up (the map element is rotated under the overlay).
+  const headingUp = navActive && config.headingUp
+  // Unwrapped heading so 359° → 1° turns 2°, not a full spin back.
+  const bearingRef = useRef(0)
+  if (navActive && nav.heading != null) {
+    const prev = bearingRef.current
+    bearingRef.current = prev + ((((nav.heading - prev) % 360) + 540) % 360) - 180
+  }
+  const bearing = bearingRef.current
+  const mapRotation = headingUp ? -bearing : 0
+  mapRotationRef.current = mapRotation
+
+  useEffect(() => {
+    const map = mapRef.current
+    host.classList.toggle('rp-rotated', headingUp)
+    if (!map) return
+    // Pinch / double-tap zoom work out their centre from screen points, which a rotated map
+    // gets wrong; zoom around the middle instead (that's where you are while following).
+    map.options.touchZoom = headingUp ? 'center' : true
+    map.options.doubleClickZoom = headingUp ? 'center' : true
+    map.invalidateSize()
+    const pos = navPosRef.current
+    if (pos && followRef.current) map.setView(pos, navZoomRef.current, { animate: false })
+  }, [headingUp, host])
+
+  useEffect(() => {
+    host.style.setProperty('--rp-rotation', `${mapRotation}deg`)
+  }, [mapRotation, host])
+
+  // Leaving navigation: forget the heading so the next trip starts pointing north.
+  useEffect(() => { if (!navActive) bearingRef.current = 0 }, [navActive])
+
+  const navPosRef = useRef(nav.pos)
+  navPosRef.current = nav.pos
+  const followRef = useRef(follow)
+  followRef.current = follow
+
   useEffect(() => {
     const map = mapRef.current
     if (!map || !navActive || !nav.pos) return
@@ -475,9 +519,9 @@ export function RoutePlanner() {
     navMarkerRef.current.setLatLng(nav.pos)
     accuracyRef.current?.setLatLng(nav.pos).setRadius(nav.accuracy ?? 10)
     const arrow = navMarkerRef.current.getElement()?.querySelector('.rp-nav') as HTMLElement | null
-    if (arrow && nav.heading != null) arrow.style.transform = `rotate(${nav.heading}deg)`
+    if (arrow && nav.heading != null) arrow.style.transform = `rotate(${bearing}deg)`
     if (follow) map.setView(nav.pos, navZoomRef.current, { animate: true })
-  }, [nav.pos, nav.heading, nav.accuracy, navActive, follow])
+  }, [nav.pos, nav.heading, nav.accuracy, navActive, follow, bearing])
 
   // Centre: snap back onto your position at the default navigation zoom.
   const recenter = () => {
@@ -493,6 +537,15 @@ export function RoutePlanner() {
     setFollow(false)
     const rest = route.coords.slice(nav.idx)
     if (nav.pos) rest.unshift(nav.pos)
+    if (headingUp) {
+      // The map is a rotated square bigger than the screen: fit the route into a centred square
+      // that stays on screen at any angle (side ÷ √2), clear of the instruction card and bottom bar.
+      const size = map.getSize()
+      const side = Math.max(120, (Math.min(window.innerWidth, window.innerHeight - 290)) / Math.SQRT2)
+      const pad: [number, number] = [(size.x - side) / 2, (size.y - side) / 2]
+      map.fitBounds(L.latLngBounds(rest), { padding: pad })
+      return
+    }
     map.fitBounds(L.latLngBounds(rest), { paddingTopLeft: [40, 170], paddingBottomRight: [40, 120] })
   }
 
@@ -508,6 +561,30 @@ export function RoutePlanner() {
     const plan = planBeforeNav.current
     planBeforeNav.current = null
     if (plan && plan.stops !== stops) { setStops(plan.stops); setRoundTrip(plan.roundTrip) }
+  }
+
+  // Pick up a route part-way: skip the stops already behind you and head for the next one ahead.
+  const [locating, setLocating] = useState(false)
+  const resumeNav = () => {
+    if (!route || locating || status.kind === 'loading') return
+    if (!navigator.geolocation) { flash(t.navNoGps); return }
+    setLocating(true)
+    flash(t.navLocating)
+    // Route and stops as they are now, in case they change while waiting for a fix.
+    const r = route, routed = routeStops
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setLocating(false)
+        const pos: [number, number] = [+p.coords.latitude.toFixed(6), +p.coords.longitude.toFixed(6)]
+        const keepFrom = nextStopAhead(r, pos)
+        startNav(false)
+        onReroute(pos, keepFrom)
+        const target = routed[keepFrom]
+        if (target) flash(t.navResumeTo(target.label.split(',')[0]))
+      },
+      () => { setLocating(false); flash(t.navNoGps) },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    )
   }
 
   /* ----- Actions ----- */
@@ -752,6 +829,11 @@ export function RoutePlanner() {
                 <button onClick={() => startNav(false)} className="acid-button inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold">
                   <Navigation2 className="size-4" />{t.navigate}
                 </button>
+                {routeStops.length > 2 && (
+                  <SmallButton onClick={resumeNav} title={t.navResumeHint}>
+                    {locating ? <LoaderCircle className="size-4 animate-spin" /> : <LocateFixed className="size-4" />}{t.navResume}
+                  </SmallButton>
+                )}
                 {canSimulate && <SmallButton onClick={() => startNav(true)}><Navigation className="size-4" />{t.navSimulate}</SmallButton>}
                 <SmallButton onClick={downloadGpx}><Download className="size-4" />{t.gpx}</SmallButton>
                 <SmallButton onClick={share}><Share2 className="size-4" />{t.share}</SmallButton>
@@ -829,6 +911,10 @@ export function RoutePlanner() {
               voice={config.voice}
               follow={follow}
               onVoice={() => setConfig({ voice: !config.voice })}
+              headingUp={config.headingUp}
+              mapRotation={mapRotation}
+              onCompass={() => setConfig({ headingUp: !config.headingUp })}
+              attribution={headingUp ? [BASES[config.base]?.attribution ?? BASES.dark.attribution, config.trails && TRAILS[mode] ? '<a href="https://waymarkedtrails.org">Waymarked Trails</a>' : ''].filter(Boolean).join(' · ') : null}
               onRecenter={recenter}
               onOverview={overview}
               onStop={stopNav}
@@ -848,12 +934,48 @@ export function RoutePlanner() {
   )
 }
 
+/* ---------- Rotation support ---------- */
+
+/**
+ * Leaflet measures drags in screen pixels and assumes an unrotated container. While the map
+ * element is CSS-rotated, turn each drag offset into the map's own frame so the map follows
+ * the finger. Relies on Leaflet 1.9's Draggable internals; a no-op at 0°.
+ */
+function patchDragForRotation(map: L.Map, rotation: () => number) {
+  type Drag = {
+    _onMove: (e: MouseEvent | TouchEvent) => void
+    _startPoint: L.Point
+    _parentScale: { x: number; y: number }
+  }
+  const drag = (map.dragging as unknown as { _draggable?: Drag })._draggable
+  if (!drag) return
+  // `_onMove` is looked up on every pointer-down, so replacing it on the instance takes effect.
+  const move = drag._onMove
+  drag._onMove = function (this: Drag, e) {
+    const deg = rotation()
+    // `_startPoint` is set on pointer-down and restored below after every move.
+    const start = this._startPoint
+    const first = 'touches' in e && e.touches.length === 1 ? e.touches[0] : (e as MouseEvent)
+    if (!deg || !start || ('touches' in e && e.touches.length > 1)) { move.call(this, e); return }
+    // Screen offset → map offset: undo the element's rotation (rotate by -deg).
+    const a = (-deg * Math.PI) / 180
+    const dx = first.clientX - start.x, dy = first.clientY - start.y
+    const mx = dx * Math.cos(a) - dy * Math.sin(a), my = dx * Math.sin(a) + dy * Math.cos(a)
+    // Leaflet computes (client - startPoint) / parentScale; feed it a start point that yields (mx, my).
+    this._startPoint = L.point(first.clientX - mx, first.clientY - my)
+    this._parentScale = { x: 1, y: 1 }
+    move.call(this, e)
+    this._startPoint = start
+  }
+}
+
 /* ---------- Small components ---------- */
 
-function SmallButton({ children, onClick, danger }: { children: ReactNode; onClick: () => void; danger?: boolean }) {
+function SmallButton({ children, onClick, danger, title }: { children: ReactNode; onClick: () => void; danger?: boolean; title?: string }) {
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-700/80 px-3 py-1.5 text-sm font-medium hover:border-cyan-400/60 ${danger ? 'text-red-300' : 'text-slate-200'}`}
     >
@@ -1071,7 +1193,7 @@ function ElevationChart({ route, elevation, t, locale, onHover }: {
   )
 }
 
-function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter, onOverview, onStop, rerouting }: {
+function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter, onOverview, onStop, rerouting, headingUp, mapRotation, onCompass, attribution }: {
   t: Strings
   locale: string
   route: RouteResult
@@ -1083,6 +1205,11 @@ function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter,
   onOverview: () => void
   onStop: () => void
   rerouting: boolean
+  headingUp: boolean
+  mapRotation: number
+  onCompass: () => void
+  /** Map attribution to show ourselves while the map (and Leaflet's own control) is rotated. */
+  attribution: string | null
 }) {
   const m = route.maneuvers[nav.next] ?? route.maneuvers[0]
   const after = route.maneuvers[nav.next + 1]
@@ -1122,6 +1249,20 @@ function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter,
       {/* Centre / overview — always available while navigating */}
       <div className="absolute bottom-28 right-3 z-[600] flex flex-col items-end gap-2" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
         <button
+          onClick={onCompass}
+          aria-label={headingUp ? t.navNorthUp : t.navHeadingUp}
+          title={headingUp ? t.navNorthUp : t.navHeadingUp}
+          aria-pressed={headingUp}
+          className={`glass grid size-12 place-items-center rounded-full shadow-lg ${headingUp ? 'ring-2 ring-[#c8ff3d]' : ''}`}
+        >
+          {/* Needle points at north: straight up when north-up, turning with the map otherwise. */}
+          <svg viewBox="0 0 24 24" className="size-7 transition-transform duration-[400ms]" style={{ transform: `rotate(${mapRotation}deg)` }} aria-hidden>
+            <polygon points="12 2 15.5 12 8.5 12" fill="#ff6b6b" />
+            <polygon points="12 22 15.5 12 8.5 12" fill="#eef5f2" opacity="0.85" />
+            <circle cx="12" cy="12" r="1.6" fill="#071013" />
+          </svg>
+        </button>
+        <button
           onClick={onOverview}
           aria-label={t.navOverview}
           title={t.navOverview}
@@ -1142,6 +1283,7 @@ function NavOverlay({ t, locale, route, nav, voice, follow, onVoice, onRecenter,
 
       {/* Bottom bar */}
       <div className="absolute inset-x-0 bottom-0 z-[600]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {attribution && <div className="rp-attribution" dangerouslySetInnerHTML={{ __html: attribution }} />}
         <div className="glass-strong mx-auto flex max-w-xl items-center gap-3 rounded-t-2xl px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="text-xl font-bold tabular-nums text-white">{fmtDuration(nav.remainingS, locale)} · {eta}</div>

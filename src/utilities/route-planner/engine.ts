@@ -296,7 +296,7 @@ export function reverseGeocode(p: LatLon, lang: 'en' | 'nl'): Promise<string | n
  * Snap a position onto the route. Searches near `hint` first (cheap and avoids
  * jumping to a parallel part of a loop), then falls back to the whole line.
  */
-export function snapToRoute(route: RouteResult, pos: [number, number], hint = 0) {
+export function snapToRoute(route: RouteResult, pos: [number, number], hint = 0, global = false) {
   const n = route.coords.length
   const search = (from: number, to: number) => {
     let best = { idx: 0, t: 0, dist: Infinity }
@@ -315,13 +315,26 @@ export function snapToRoute(route: RouteResult, pos: [number, number], hint = 0)
     }
     return best
   }
-  let best = search(hint - 20, hint + 400)
-  if (best.dist > 60) {
+  let best = global ? search(0, n) : search(hint - 20, hint + 400)
+  if (!global && best.dist > 60) {
     const global = search(0, n)
     if (global.dist < best.dist) best = global
   }
   const segLen = best.idx < n - 1 ? route.cum[best.idx + 1] - route.cum[best.idx] : 0
   return { idx: best.idx, along: route.cum[best.idx] + best.t * segLen, offRoute: best.dist }
+}
+
+/**
+ * Index (into the routed stops) of the first stop still ahead of `pos`: project the position
+ * onto the whole route, take the leg it falls on, and aim for that leg's end. A stop you're
+ * already standing at (within `reachedM`) counts as passed. Never returns 0 (the start).
+ */
+export function nextStopAhead(route: RouteResult, pos: [number, number], reachedM = 30): number {
+  const snap = snapToRoute(route, pos, 0, true)
+  const legs = route.legEnds.length
+  let leg = Math.max(0, route.legEnds.findIndex((e) => e > snap.idx))
+  if (leg < legs - 1 && route.cum[route.legEnds[leg]] - snap.along < reachedM) leg++
+  return leg + 1
 }
 
 /* ---------- Formatting ---------- */

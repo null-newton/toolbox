@@ -19,7 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     const { data, error } = await supabase.rpc('account_access')
     if (currentUser.current !== userId) return
-    setAccessState({ userId, access: data as AccountAccess | null, error: error?.message ?? (!data ? 'Account settings unavailable.' : null) })
+    const message = error?.message ?? (!data ? 'Account settings unavailable.' : null)
+    setAccessState((prev) => {
+      // A background re-check that fails (phone waking up, patchy mobile data) must not tear
+      // down the open tool: keep the last known access and try again on the next tick/focus.
+      // Suspension or revoked apps arrive as data, not as errors, so they still apply.
+      if (message && prev?.userId === userId && prev.access) return prev
+      return { userId, access: data as AccountAccess | null, error: message }
+    })
   }, [])
 
   useEffect(() => {
